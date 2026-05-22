@@ -1,0 +1,184 @@
+'use client';
+
+import { useState, useCallback, useEffect } from 'react';
+import { AppTopBar } from '@/components/AppTopBar';
+import { AppBottomNav, AppTab } from '@/components/AppBottomNav';
+import { HomeTab } from '@/components/app/HomeTab';
+import { ExploreTab } from '@/components/app/ExploreTab';
+import { PostsTab } from '@/components/app/PostsTab';
+import { AICoderTab } from '@/components/app/AICoderTab';
+import { NotificationsView } from '@/components/app/NotificationsView';
+import { FriendsView } from '@/components/app/FriendsView';
+import { YourProjectTab } from '@/components/app/YourProjectTab';
+import { useNotifications } from '@/lib/hooks/useNotifications';
+import { BrowseProject } from '@/lib/api';
+import { Profile, ProjectData, User } from '@/lib/types';
+import { UserProfilePanel } from '@/components/app/UserProfilePanel';
+import { projectNeedsSync } from '@/lib/projectWorkspace';
+import { apiCheckHealth } from '@/lib/api';
+import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
+import type { DashboardNavTab } from '@/components/DashboardNew';
+
+const TAB_STORAGE_KEY = 'makeBigActiveTab';
+const PROFILE_OPEN_KEY = 'makeBigProfileOpen';
+
+function readStoredTab(): AppTab {
+  if (typeof window === 'undefined') return 'home';
+  const saved = sessionStorage.getItem(TAB_STORAGE_KEY);
+  const allowed: AppTab[] = ['home', 'explore', 'posts', 'ai', 'notifications', 'friends', 'project'];
+  return saved && allowed.includes(saved as AppTab) ? (saved as AppTab) : 'home';
+}
+
+interface AppShellProps {
+  user: User;
+  userProfile?: Profile | null;
+  currentProject: ProjectData | null;
+  onStartProject: () => void;
+  onJoinProject: () => void;
+  onOpenYourProject: (section?: DashboardNavTab) => void;
+  onLogout: () => void;
+  onPublicJoinClick: (project: BrowseProject) => void;
+  onProjectUpdate: (project: ProjectData) => void;
+  onProfileSaved?: () => void | Promise<void>;
+}
+
+export function AppShell({
+  user,
+  userProfile,
+  currentProject,
+  onStartProject,
+  onJoinProject,
+  onOpenYourProject,
+  onLogout,
+  onPublicJoinClick,
+  onProjectUpdate,
+  onProfileSaved,
+}: AppShellProps) {
+  const [activeTab, setActiveTab] = useState<AppTab>(() => readStoredTab());
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [showProfile, setShowProfile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(PROFILE_OPEN_KEY) === '1';
+  });
+  const notifUserKey = user.id || user.contact;
+  const { unreadCount } = useNotifications(notifUserKey);
+
+  const handleTabChange = useCallback((tab: AppTab) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(TAB_STORAGE_KEY, tab);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(TAB_STORAGE_KEY, activeTab);
+    }
+  }, [activeTab]);
+
+  const handleProjectSynced = useCallback(
+    (project: ProjectData) => {
+      onProjectUpdate(project);
+    },
+    [onProjectUpdate]
+  );
+
+  useEffect(() => {
+    apiCheckHealth().then(setApiOnline);
+  }, []);
+
+  useEffect(() => {
+    if (!user.contact || !currentProject || !projectNeedsSync(currentProject)) return;
+    let cancelled = false;
+    ensureProjectOnline(currentProject, user.contact).then((result) => {
+      if (!cancelled && result.ok && result.project) onProjectUpdate(result.project);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.contact, currentProject?.name, currentProject?.id, onProjectUpdate]);
+
+  return (
+    <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
+      {apiOnline === false && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-900">
+          Backend API is offline — posts, tasks, and AI need it. Stop this app and run{' '}
+          <code className="font-mono text-xs bg-white/80 px-1 rounded">npm run dev</code>{' '}
+          (starts API on port 5001 + web on 3000).
+        </div>
+      )}
+      <AppTopBar
+        currentProject={currentProject}
+        onStartProject={onStartProject}
+        onJoinProject={onJoinProject}
+        onOpenDashboard={() => onOpenYourProject('dashboard')}
+        onOpenProfile={() => {
+          setShowProfile(true);
+          if (typeof window !== 'undefined') sessionStorage.setItem(PROFILE_OPEN_KEY, '1');
+        }}
+        onLogout={onLogout}
+        userName={user.name}
+        profileImage={userProfile?.profileImage}
+      />
+
+      <UserProfilePanel
+        isOpen={showProfile}
+        onClose={() => {
+          setShowProfile(false);
+          if (typeof window !== 'undefined') sessionStorage.setItem(PROFILE_OPEN_KEY, '0');
+        }}
+        user={user}
+        onSaved={async () => {
+          await onProfileSaved?.();
+          setShowProfile(false);
+          if (typeof window !== 'undefined') sessionStorage.setItem(PROFILE_OPEN_KEY, '0');
+        }}
+      />
+
+      <main className="flex-1 pb-20 max-w-4xl w-full mx-auto px-4 py-4">
+        {activeTab === 'home' && (
+          <HomeTab userContact={user.contact} onJoinProject={onPublicJoinClick} />
+        )}
+        {activeTab === 'explore' && <ExploreTab />}
+        {activeTab === 'posts' && (
+          <PostsTab
+            currentProject={currentProject}
+            userContact={user.contact}
+            onOpenDashboard={() => onOpenYourProject('feed')}
+            onProjectSynced={handleProjectSynced}
+          />
+        )}
+        {activeTab === 'ai' && (
+          <AICoderTab
+            user={user}
+            currentProject={currentProject}
+            onOpenDashboard={() => onOpenYourProject('dashboard')}
+            onProjectSynced={handleProjectSynced}
+          />
+        )}
+        {activeTab === 'notifications' && <NotificationsView userId={notifUserKey} />}
+        {activeTab === 'friends' && (
+          <FriendsView
+            currentProject={currentProject}
+            userContact={user.contact}
+            onInvite={currentProject?.id ? () => onOpenYourProject('invite') : undefined}
+          />
+        )}
+        {activeTab === 'project' && (
+          <YourProjectTab
+            currentProject={currentProject}
+            onStartProject={onStartProject}
+            onJoinProject={onJoinProject}
+            onOpenDashboard={onOpenYourProject}
+          />
+        )}
+      </main>
+
+      <AppBottomNav
+        active={activeTab}
+        onChange={handleTabChange}
+        unreadCount={unreadCount}
+      />
+    </div>
+  );
+}

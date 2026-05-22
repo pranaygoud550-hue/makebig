@@ -1,0 +1,5027 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Make Big</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      overflow-x: hidden;
+    }
+
+    /* ================= SPLASH SCREEN ================= */
+    #splash {
+      position: fixed;
+      width: 100%;
+      height: 100vh;
+      background: linear-gradient(135deg, #0b1220, #111c33);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 9999;
+    }
+
+    .scene {
+      position: relative;
+      width: 520px;
+      height: 340px;
+    }
+
+    .brand-title {
+      position: absolute;
+      top: 20px;
+      width: 100%;
+      text-align: center;
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: #38bdf8;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      position: absolute;
+      top: 232px;
+      width: 100%;
+      text-align: center;
+      color: #cbd5e1;
+      font-size: 16px;
+      letter-spacing: 2px;
+      text-transform: none;
+    }
+
+    .stick-word {
+      position: absolute;
+      top: 98px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      z-index: 2;
+    }
+
+    .stick-letter {
+      position: relative;
+      width: 58px;
+      height: 120px;
+    }
+
+    .stick-letter .bar {
+      position: absolute;
+      background: #38bdf8;
+      border-radius: 5px;
+      transform-origin: top left;
+      animation: assemble 0.8s ease forwards;
+      animation-fill-mode: forwards;
+      opacity: 0;
+      transform: scaleY(0.2);
+    }
+
+    .letter-m .bar1 { left: 0; top: 0; width: 12px; height: 100%; animation-delay: 0.05s; }
+    .letter-m .bar2 { left: 24px; top: 0; width: 12px; height: 72px; transform: rotate(48deg); animation-delay: 0.12s; }
+    .letter-m .bar3 { left: 38px; top: 0; width: 12px; height: 72px; transform: rotate(-48deg); animation-delay: 0.18s; }
+    .letter-m .bar4 { left: 56px; top: 0; width: 12px; height: 100%; animation-delay: 0.24s; }
+
+    .letter-a .bar1 { left: 0; top: 0; width: 12px; height: 100%; animation-delay: 0.30s; }
+    .letter-a .bar2 { right: 0; top: 0; width: 12px; height: 100%; animation-delay: 0.36s; }
+    .letter-a .bar3 { left: 10px; bottom: 32px; width: 46px; height: 12px; animation-delay: 0.42s; }
+
+    .letter-k .bar1 { left: 0; top: 0; width: 12px; height: 100%; animation-delay: 0.48s; }
+    .letter-k .bar2 { left: 16px; top: 28px; width: 12px; height: 70px; transform: rotate(28deg); animation-delay: 0.54s; }
+    .letter-k .bar3 { left: 16px; top: 58px; width: 12px; height: 70px; transform: rotate(-28deg); animation-delay: 0.60s; }
+
+    .letter-e .bar1 { left: 0; top: 0; width: 12px; height: 100%; animation-delay: 0.66s; }
+    .letter-e .bar2 { left: 12px; top: 0; width: 46px; height: 12px; animation-delay: 0.72s; }
+    .letter-e .bar3 { left: 12px; top: 52px; width: 46px; height: 12px; animation-delay: 0.78s; }
+    .letter-e .bar4 { left: 12px; bottom: 0; width: 46px; height: 12px; animation-delay: 0.84s; }
+
+    .letter-b .bar1 { left: 0; top: 0; width: 12px; height: 100%; animation-delay: 0.90s; }
+    .letter-b .bar2 { left: 12px; top: 0; width: 48px; height: 12px; animation-delay: 0.96s; }
+    .letter-b .bar3 { left: 12px; top: 52px; width: 48px; height: 12px; animation-delay: 1.02s; }
+    .letter-b .bar4 { left: 12px; bottom: 0; width: 48px; height: 12px; animation-delay: 1.08s; }
+    .letter-b .bar5 { right: 0; top: 14px; width: 12px; height: 34px; border-radius: 5px; animation-delay: 1.14s; }
+    .letter-b .bar6 { right: 0; bottom: 14px; width: 12px; height: 34px; border-radius: 5px; animation-delay: 1.20s; }
+
+    .letter-i .bar1 { left: 29px; top: 0; width: 12px; height: 100%; animation-delay: 1.26s; }
+    .letter-i .bar2 { left: 10px; top: 0; width: 50px; height: 12px; animation-delay: 1.32s; }
+    .letter-i .bar3 { left: 10px; bottom: 0; width: 50px; height: 12px; animation-delay: 1.38s; }
+
+    .letter-g .bar1 { left: 0; top: 0; width: 12px; height: 100%; animation-delay: 1.44s; }
+    .letter-g .bar2 { left: 12px; top: 0; width: 50px; height: 12px; animation-delay: 1.50s; }
+    .letter-g .bar3 { left: 12px; bottom: 0; width: 50px; height: 12px; animation-delay: 1.56s; }
+    .letter-g .bar4 { right: 0; top: 52px; width: 24px; height: 12px; animation-delay: 1.62s; }
+    .letter-g .bar5 { right: 0; top: 34px; width: 12px; height: 24px; animation-delay: 1.68s; }
+
+    @keyframes assemble {
+      from { transform: scaleY(0.2); opacity: 0; }
+      to { transform: scaleY(1); opacity: 1; }
+    }
+
+    /* soft cinematic glow */
+    .light {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      background: rgba(56,189,248,0.12);
+      border-radius: 50%;
+      filter: blur(35px);
+      top: 40px;
+      left: 150px;
+    }
+
+    /* TABLE */
+    .table {
+      position: absolute;
+      bottom: 80px;
+      width: 100%;
+      height: 10px;
+      background: #334155;
+      border-radius: 10px;
+    }
+
+    /* PERSON */
+    .person {
+      position: absolute;
+      bottom: 90px;
+      width: 70px;
+      height: 120px;
+    }
+
+    .head {
+      width: 22px;
+      height: 22px;
+      background: #e2e8f0;
+      border-radius: 50%;
+      margin: auto;
+    }
+
+    .body {
+      width: 16px;
+      height: 80px;
+      background: #38bdf8;
+      margin: auto;
+      border-radius: 10px;
+    }
+
+    .arm {
+      position: absolute;
+      top: 55px;
+      width: 36px;
+      height: 8px;
+      background: #38bdf8;
+      border-radius: 6px;
+    }
+
+    .arm.left { left: -40px; }
+    .arm.right { right: -40px; }
+
+    /* POSITIONS */
+    .center { left: calc(50% - 35px); }
+
+    /* TEA CUPS */
+    .cup {
+      width: 16px;
+      height: 16px;
+      background: #f59e0b;
+      border-radius: 50%;
+      position: absolute;
+      bottom: 105px;
+      animation: steam 1.3s infinite alternate;
+    }
+
+    .cup1 { left: 95px; }
+    .cup2 { right: 95px; }
+
+    @keyframes steam {
+      0% { transform: translateY(0px) scale(1); opacity: 0.6; }
+      100% { transform: translateY(-6px) scale(1.2); opacity: 1; }
+    }
+
+    /* HANDSHAKE BAR (CENTER FOCUS) */
+    .handshake {
+      position: absolute;
+      top: 150px;
+      left: calc(50% - 60px);
+      width: 120px;
+      height: 8px;
+      background: #f8fafc;
+      border-radius: 5px;
+      animation: shake 1.2s infinite alternate;
+    }
+
+    @keyframes shake {
+      0% { transform: translateY(0px); }
+      100% { transform: translateY(8px); }
+    }
+
+    .cup1 { left: calc(50% - 80px); }
+    .cup2 { left: calc(50% + 60px); }
+
+    .splash-btn {
+      margin-top: 26px;
+      padding: 14px 28px;
+      background: #38bdf8;
+      color: #020617;
+      border: none;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .splash-btn:hover {
+      transform: translateY(-2px);
+      opacity: 0.98;
+    }
+
+    /* LOADING TEXT */
+    .loading-text {
+      margin-top: 18px;
+      color: #94a3b8;
+      font-size: 15px;
+      animation: fade 2s infinite;
+    }
+
+    @keyframes fade {
+      0%,100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    /* ================= MAIN WEBSITE ================= */
+
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 30px;
+      background: #020617;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .nav-links a {
+      color: white;
+      text-decoration: none;
+    }
+
+    .auth-btn {
+      padding: 8px 16px;
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .auth-btn:hover {
+      background: #0ea5e9;
+    }
+
+    .user-info {
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .logout-btn {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .logout-btn:hover {
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+    }
+
+    .profile {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .profile:hover {
+      background: rgba(56, 189, 248, 0.25);
+    }
+
+    .profile.hidden {
+      display: none;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #38bdf8;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .profile-menu {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      width: 240px;
+      background: #1e293b;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+      padding: 16px;
+      display: none;
+      z-index: 10002;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .profile-menu.active {
+      display: block;
+    }
+
+    .profile-menu p {
+      margin: 0 0 8px;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .profile-menu button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #f8fafc;
+      background: rgba(56, 189, 248, 0.15);
+      transition: all 0.2s ease;
+    }
+
+    .profile-menu button:hover {
+      background: rgba(56, 189, 248, 0.25);
+    }
+
+    .profile-menu .logout-btn {
+      background: transparent;
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      margin-top: 12px;
+    }
+
+    .auth-message {
+      margin: 0 0 18px;
+      color: #94a3b8;
+      font-size: 14px;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .edit-profile-modal .modal-content {
+      max-width: 440px;
+    }
+
+    .edit-profile-modal .submit-btn {
+      width: 100%;
+    }
+
+    .edit-profile-modal .cancel-btn {
+      width: 100%;
+      margin-top: 12px;
+      background: transparent;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+    }
+
+    .hero {
+      text-align: center;
+      margin-top: 120px;
+      padding: 20px;
+    }
+
+    .hero h1 {
+      font-size: 55px;
+    }
+
+    .hero p {
+      color: #94a3b8;
+      font-size: 18px;
+    }
+
+    .btn {
+      margin-top: 25px;
+      padding: 12px 25px;
+      background: #3b82f6;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .skills {
+      margin-top: 100px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      transition: 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .card h3 {
+      color: #38bdf8;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 80px;
+      padding: 20px;
+      color: #64748b;
+    }
+
+    /* ================= PROJECT MODAL ================= */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10000;
+    }
+
+    .modal.active {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.35s ease;
+    }
+
+    #projectModal.modal.active {
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    #projectModal .modal-content {
+      width: 100%;
+      max-width: none;
+      height: 100%;
+      max-height: none;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    #projectModal .project-flow-shell {
+      flex: 1;
+      min-height: 0;
+      padding: clamp(18px, 3vw, 40px);
+      padding-top: clamp(54px, 6vw, 72px);
+    }
+
+    #projectModal .flow-steps-region {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #projectModal .flow-step.active {
+      padding-bottom: 8px;
+    }
+
+    #projectModal .modal-close {
+      z-index: 3;
+      top: clamp(10px, 2.5vw, 22px);
+      right: clamp(10px, 2.5vw, 22px);
+    }
+
+    #projectModal .flow-navigation {
+      flex-shrink: 0;
+      padding-top: 12px;
+      margin-top: auto;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+      background: linear-gradient(to top, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.65));
+    }
+
+    .modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.78);
+      backdrop-filter: blur(6px);
+    }
+
+    .modal-content {
+      position: relative;
+      background: linear-gradient(140deg, rgba(15, 23, 42, 0.95), rgba(22, 38, 67, 0.88));
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 24px;
+      box-shadow: 0 28px 80px rgba(2, 6, 23, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      width: 90%;
+      max-width: 900px;
+      max-height: 92vh;
+      overflow: hidden;
+      z-index: 10001;
+      animation: slideUp 0.45s ease;
+    }
+
+    .project-flow-shell {
+      position: relative;
+      padding: 30px 34px 26px;
+      min-height: 620px;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(56, 189, 248, 0.16), transparent 32%),
+        radial-gradient(circle at 86% 14%, rgba(59, 130, 246, 0.14), transparent 36%);
+    }
+
+    .project-flow-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .wizard-back {
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.45);
+      color: #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      visibility: hidden;
+    }
+
+    .wizard-back.show {
+      visibility: visible;
+    }
+
+    .wizard-back:hover {
+      border-color: #38bdf8;
+      color: #38bdf8;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
+    }
+
+    .flow-kicker {
+      color: #38bdf8;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .flow-title {
+      margin: 6px 0 4px;
+      font-size: 32px;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+
+    .flow-subtitle {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .flow-progress {
+      margin: 10px 0 22px;
+    }
+
+    .flow-progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.7);
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .flow-progress-fill {
+      width: 16.666%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.6);
+      transition: width 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .flow-progress-labels {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      margin-top: 10px;
+      color: #94a3b8;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .flow-step {
+      display: none;
+      animation: stepFade 0.35s ease;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .flow-step.active {
+      display: block;
+    }
+
+    .flow-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      margin-top: 12px;
+    }
+
+    .flow-card {
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.58);
+      padding: 20px;
+      cursor: pointer;
+      transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+    }
+
+    .flow-card:hover {
+      transform: translateY(-4px) scale(1.01);
+      border-color: rgba(56, 189, 248, 0.75);
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.28);
+      background: rgba(56, 189, 248, 0.09);
+    }
+
+    .flow-card.selected {
+      border-color: #38bdf8;
+      box-shadow: 0 0 26px rgba(56, 189, 248, 0.42);
+      background: rgba(56, 189, 248, 0.13);
+    }
+
+    .flow-card h3 {
+      margin: 0 0 8px;
+      color: #f8fafc;
+      font-size: 18px;
+    }
+
+    .flow-card p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .skill-card {
+      position: relative;
+      padding-left: 44px;
+    }
+
+    .skill-card input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .skill-card::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background: rgba(2, 6, 23, 0.55);
+      transition: all 0.2s ease;
+    }
+
+    .skill-card.selected::before {
+      border-color: #38bdf8;
+      background: #38bdf8;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+    }
+
+    .details-form {
+      display: grid;
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    .details-form label {
+      display: block;
+      margin-bottom: 6px;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .details-form input,
+    .details-form textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.52);
+      color: #f8fafc;
+      font-size: 14px;
+      padding: 12px 14px;
+      box-sizing: border-box;
+      transition: all 0.22s ease;
+    }
+
+    .details-form textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .details-form input:focus,
+    .details-form textarea:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15), 0 0 18px rgba(56, 189, 248, 0.2);
+    }
+
+    .motive-box {
+      margin-top: 12px;
+    }
+
+    .motive-box textarea {
+      width: 100%;
+      min-height: 170px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.34);
+      background: rgba(15, 23, 42, 0.62);
+      color: #f8fafc;
+      font-size: 15px;
+      line-height: 1.5;
+      padding: 16px;
+      box-sizing: border-box;
+      transition: all 0.22s ease;
+    }
+
+    .motive-box textarea:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14), 0 0 20px rgba(56, 189, 248, 0.28);
+    }
+
+    .quote-rotator {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      background: rgba(56, 189, 248, 0.08);
+      color: #bae6fd;
+      font-size: 14px;
+      min-height: 24px;
+      animation: quotePulse 3s ease-in-out infinite;
+    }
+
+    .complete-screen {
+      position: relative;
+      text-align: center;
+      overflow: hidden;
+      padding: 42px 12px 18px;
+      min-height: 360px;
+      border-radius: 20px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .complete-screen::before {
+      content: "";
+      position: absolute;
+      inset: -20% -8%;
+      background: radial-gradient(circle at center, rgba(56, 189, 248, 0.2), transparent 55%);
+      pointer-events: none;
+    }
+
+    .particles {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.8);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.9);
+      animation: floatParticle 7s linear infinite;
+    }
+
+    .complete-title {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 10px;
+      font-size: 44px;
+      color: #7dd3fc;
+      text-shadow: 0 0 24px rgba(56, 189, 248, 0.55);
+    }
+
+    .complete-subtext {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 24px;
+      color: #e2e8f0;
+    }
+
+    .complete-actions {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .invite-panel {
+      position: relative;
+      z-index: 1;
+      margin-top: 28px;
+      text-align: left;
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      background: rgba(2, 6, 23, 0.55);
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .invite-panel.hidden {
+      display: none;
+    }
+
+    .invite-panel h4 {
+      margin: 0 0 8px;
+      color: #e2e8f0;
+      font-size: 16px;
+    }
+
+    .invite-panel-budget-hint {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .suggestion-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .suggestion-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.65);
+    }
+
+    .suggestion-card strong {
+      color: #f8fafc;
+      font-size: 14px;
+    }
+
+    .suggestion-meta {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+
+    .invite-match-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .invite-match-pill {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #082f49;
+      background: linear-gradient(135deg, #bae6fd, #38bdf8);
+      padding: 6px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .invite-match-pill.loose {
+      background: rgba(148, 163, 184, 0.35);
+      color: #e2e8f0;
+    }
+
+    .wizard-join-matches-intro {
+      margin: 0 0 14px;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .wizard-join-expect {
+      margin-bottom: 18px;
+    }
+
+    .wizard-join-expect label {
+      display: block;
+      margin-bottom: 6px;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .wizard-join-expect input {
+      max-width: 220px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.52);
+      color: #f8fafc;
+      font-size: 14px;
+      padding: 10px 12px;
+    }
+
+    #joinMatchProjectList {
+      margin-bottom: 20px;
+    }
+
+    #wizardJoinDashboardBtn {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .flow-btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .flow-btn.primary {
+      color: #082f49;
+      background: linear-gradient(135deg, #7dd3fc, #38bdf8);
+      box-shadow: 0 12px 24px rgba(56, 189, 248, 0.34);
+    }
+
+    .flow-btn.secondary {
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .flow-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .flow-navigation {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      gap: 12px;
+    }
+
+    .flow-error {
+      min-height: 20px;
+      color: #fda4af;
+      font-size: 13px;
+    }
+
+    @keyframes stepFade {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes quotePulse {
+      0%, 100% { opacity: 0.65; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes floatParticle {
+      0% { transform: translateY(110%) scale(0.6); opacity: 0; }
+      15% { opacity: 1; }
+      100% { transform: translateY(-18%) scale(1.25); opacity: 0; }
+    }
+
+    /* =======================
+       DASHBOARD CORE
+    ======================= */
+    .dashboard-root {
+      display: none;
+      min-height: 100vh;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+
+    .dashboard-root.active {
+      display: block;
+    }
+
+    .dashboard-shell {
+      display: grid;
+      grid-template-columns: 250px 1fr 310px;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+      gap: 14px;
+      padding: 14px;
+      box-sizing: border-box;
+    }
+
+    .dashboard-topbar {
+      grid-column: 1 / 4;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 32px rgba(2, 6, 23, 0.45);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .dashboard-topbar h3 {
+      margin: 0;
+      font-size: 20px;
+      color: #7dd3fc;
+    }
+
+    .dashboard-topbar .topbar-search {
+      flex: 1;
+      max-width: 460px;
+      margin: 0 14px;
+    }
+
+    .dashboard-topbar input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.7);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: #e2e8f0;
+      box-sizing: border-box;
+    }
+
+    .dashboard-topbar input:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+    }
+
+    .dashboard-top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dashboard-pill-btn {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.65);
+      color: #cbd5e1;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .dashboard-pill-btn:hover {
+      border-color: #38bdf8;
+      color: #38bdf8;
+      transform: translateY(-1px);
+    }
+
+    .dashboard-sidebar {
+      background: rgba(30, 41, 59, 0.62);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 14px;
+      backdrop-filter: blur(8px);
+      padding: 14px;
+      box-shadow: 0 10px 26px rgba(2, 6, 23, 0.42);
+    }
+
+    .dashboard-nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .dashboard-nav button {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 11px 12px;
+      text-align: left;
+      cursor: pointer;
+      color: #cbd5e1;
+      background: rgba(15, 23, 42, 0.45);
+      transition: all 0.2s ease;
+    }
+
+    .dashboard-nav button:hover,
+    .dashboard-nav button.active {
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(56, 189, 248, 0.14);
+      color: #7dd3fc;
+    }
+
+    .dashboard-main {
+      background: rgba(30, 41, 59, 0.58);
+      border: 1px solid rgba(56, 189, 248, 0.14);
+      border-radius: 14px;
+      padding: 14px;
+      overflow-y: auto;
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.36);
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .dashboard-right {
+      background: rgba(30, 41, 59, 0.58);
+      border: 1px solid rgba(56, 189, 248, 0.14);
+      border-radius: 14px;
+      padding: 14px;
+      overflow-y: auto;
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.36);
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .dashboard-card {
+      background: rgba(15, 23, 42, 0.64);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 14px;
+      padding: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .dashboard-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 10px 24px rgba(56, 189, 248, 0.1);
+    }
+
+    .dashboard-card h4 {
+      margin: 0 0 10px;
+      color: #7dd3fc;
+      font-size: 15px;
+    }
+
+    .progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.75);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    }
+
+    .mini-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .tag-chip {
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.5);
+      padding: 8px 10px;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .board-columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .board-col {
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.5);
+      padding: 10px;
+      min-height: 130px;
+    }
+
+    .board-col h5 {
+      margin: 0 0 8px;
+      color: #cbd5e1;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .task-item {
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 6px;
+      background: rgba(30, 41, 59, 0.6);
+      font-size: 13px;
+      color: #e2e8f0;
+    }
+
+    .dashboard-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .chat-log {
+      max-height: 130px;
+      overflow-y: auto;
+      display: grid;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .chat-msg {
+      padding: 7px 9px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.72);
+      color: #e2e8f0;
+      font-size: 13px;
+    }
+
+    .inline-form {
+      display: flex;
+      gap: 8px;
+    }
+
+    .inline-form input {
+      flex: 1;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.75);
+      border-radius: 10px;
+      color: #e2e8f0;
+      padding: 9px 10px;
+    }
+
+    .inline-form button {
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      color: #082f49;
+      font-weight: 700;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+
+    .notif-pop {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      background: rgba(30, 41, 59, 0.92);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      border-radius: 12px;
+      color: #e2e8f0;
+      padding: 12px 14px;
+      box-shadow: 0 14px 28px rgba(2, 6, 23, 0.55);
+      z-index: 11000;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .member-main-wrap {
+      width: 100%;
+      min-height: 100vh;
+      padding: 14px;
+      box-sizing: border-box;
+    }
+
+    .member-topbar {
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .member-tabbar {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .member-tab-btn {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(30, 41, 59, 0.65);
+      color: #cbd5e1;
+      border-radius: 999px;
+      padding: 9px 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 110px;
+    }
+
+    .member-tab-btn.active {
+      border-color: #38bdf8;
+      color: #7dd3fc;
+      background: rgba(56, 189, 248, 0.15);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
+    }
+
+    .member-content {
+      width: 100%;
+      display: grid;
+      gap: 12px;
+    }
+
+    .feed-post {
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.62);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .post-image-wrap {
+      margin-top: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(30, 41, 59, 0.65);
+    }
+
+    .post-image-wrap img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .post-image-meta {
+      padding: 10px;
+      border-top: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .feed-post-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .feed-author {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feed-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #7dd3fc;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .feed-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .post-comments {
+      margin-top: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .post-comment-item {
+      font-size: 12px;
+      color: #cbd5e1;
+      background: rgba(30, 41, 59, 0.5);
+      border-radius: 9px;
+      padding: 6px 8px;
+    }
+
+    .recommend-row {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(220px, 1fr);
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .recommend-card {
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(30, 41, 59, 0.7);
+      padding: 10px;
+    }
+
+    .member-top-icons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      position: relative;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid rgba(148, 163, 184, 0.34);
+      background: rgba(15, 23, 42, 0.62);
+      color: #e2e8f0;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .icon-badge {
+      position: absolute;
+      right: -3px;
+      top: -3px;
+      background: #38bdf8;
+      color: #082f49;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 2px 5px;
+    }
+
+    .dropdown-panel {
+      position: absolute;
+      right: 0;
+      top: 46px;
+      width: 290px;
+      max-height: 320px;
+      overflow-y: auto;
+      z-index: 11010;
+      background: rgba(30, 41, 59, 0.96);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      box-shadow: 0 14px 30px rgba(2, 6, 23, 0.6);
+      padding: 10px;
+      display: none;
+    }
+
+    .dropdown-panel.show {
+      display: block;
+    }
+
+    /* ================= AUTH MODAL ================= */
+    .auth-modal {
+      max-width: 500px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 12px 0;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 2px solid transparent;
+    }
+
+    .auth-tab.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+    }
+
+    .auth-tab:hover {
+      color: #cbd5e1;
+    }
+
+    .auth-form {
+      display: none;
+    }
+
+    .auth-form.active {
+      display: block;
+    }
+
+    .auth-message {
+      margin: 0 0 18px;
+      color: #94a3b8;
+      font-size: 14px;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .otp-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #334155;
+    }
+
+    .otp-section input {
+      text-align: center;
+      font-size: 18px;
+      letter-spacing: 4px;
+    }
+
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 28px;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      color: #38bdf8;
+    }
+
+    .modal-title {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 800;
+      color: #38bdf8;
+      text-align: center;
+    }
+
+    .modal-subtitle {
+      margin: 0 0 24px;
+      font-size: 14px;
+      color: #cbd5e1;
+      text-align: center;
+    }
+
+    .form-section {
+      margin-bottom: 24px;
+    }
+
+    .form-section h3 {
+      margin: 0 0 14px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      padding: 12px 14px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.6);
+      color: white;
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #38bdf8;
+      background: rgba(15, 23, 42, 0.8);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .checkbox-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      min-height: 120px;
+      opacity: 1;
+      transition: opacity 0.25s ease;
+    }
+
+    .checkbox-group.fade-out {
+      opacity: 0;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      transition: all 0.2s ease;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .role-placeholder {
+      grid-column: 1 / -1;
+      padding: 20px;
+      border-radius: 14px;
+      border: 1px dashed rgba(148, 163, 184, 0.45);
+      background: rgba(30, 41, 59, 0.45);
+      color: #94a3b8;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .checkbox-label:hover {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #38bdf8;
+    }
+
+    .checkbox-label span {
+      font-size: 13px;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .radio-label:hover {
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .radio-label input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #38bdf8;
+    }
+
+    .radio-label span {
+      font-size: 14px;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      border: none;
+      border-radius: 10px;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 12px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* MOBILE RESPONSIVE */
+    @media (max-width: 768px) {
+      .dashboard-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+      }
+
+      .dashboard-topbar {
+        grid-column: 1;
+        flex-wrap: wrap;
+      }
+
+      .dashboard-topbar .topbar-search {
+        order: 3;
+        flex-basis: 100%;
+        margin: 0;
+      }
+
+      .board-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-sidebar {
+        display: none;
+      }
+
+      .member-tabbar {
+        justify-content: flex-start;
+      }
+
+      #projectModal .project-flow-shell {
+        min-height: 100vh;
+        padding: 16px 16px 20px;
+        padding-top: 52px;
+      }
+
+      .project-flow-shell {
+        padding: 22px 20px 18px;
+        min-height: 82vh;
+      }
+
+      .flow-title {
+        font-size: 25px;
+      }
+
+      .flow-progress-labels {
+        font-size: 9px;
+      }
+
+      .flow-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .complete-title {
+        font-size: 34px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ================= SPLASH SCREEN ================= -->
+<div id="splash">
+
+  <div class="scene">
+    <div class="brand-title">MAKE BIG</div>
+
+    <div class="stick-word">
+      <div class="stick-letter letter-m">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="stick-letter letter-a">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="stick-letter letter-k">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="stick-letter letter-e">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="stick-letter letter-b">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="stick-letter letter-i">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="stick-letter letter-g">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+    </div>
+    <div class="brand-subtitle">Build big ideas together</div>
+    <div class="light"></div>
+    <div class="table"></div>
+
+    <!-- COMBINED CENTRAL STICK FIGURE -->
+    <div class="person center">
+      <div class="head"></div>
+      <div class="body"></div>
+      <div class="arm left"></div>
+      <div class="arm right"></div>
+    </div>
+
+    <!-- HANDSHAKE -->
+    <div class="handshake"></div>
+
+    <!-- TEA / COFFEE -->
+    <div class="cup cup1"></div>
+    <div class="cup cup2"></div>
+
+  </div>
+
+  <div class="loading-text">
+    Build the future with every stick.
+  </div>
+
+</div>
+
+<!-- ================= MAIN WEBSITE ================= -->
+
+<div class="navbar">
+  <div class="nav-left">
+    <div id="profileContainer" class="profile hidden" onclick="toggleProfileMenu()">
+      <div class="avatar" id="avatar">U</div>
+    </div>
+    <div class="logo">Make Big</div>
+    <div id="profileMenu" class="profile-menu" onclick="event.stopPropagation()">
+      <p id="userName"></p>
+      <p id="userContact"></p>
+      <button type="button" onclick="openEditProfile()">Edit Profile</button>
+      <button type="button" class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a href="#">Home</a>
+    <a href="#">Explore</a>
+    <a href="#" id="navProjectsLink">Projects</a>
+    <div id="authSection">
+      <a href="javascript:void(0)" id="loginBtn" class="auth-btn" onclick="openAuth()">Login</a>
+    </div>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>Build Big Ideas Together</h1>
+  <p>Connect developers, filmmakers, writers, musicians & creators</p>
+  <button class="btn" id="startProjectBtn" onclick="handleStartProject()">Start a Project</button>
+</div>
+
+<div class="skills">
+  <h2>All Creative Fields in One Place</h2>
+
+  <div class="grid">
+    <div class="card"><h3>Web & Software</h3></div>
+    <div class="card"><h3>Filmmaking</h3></div>
+    <div class="card"><h3>Literature</h3></div>
+    <div class="card"><h3>Music</h3></div>
+    <div class="card"><h3>Content Creation</h3></div>
+    <div class="card"><h3>Design & Art</h3></div>
+    <div class="card"><h3>Game Development</h3></div>
+  </div>
+</div>
+
+<div class="footer">
+  © 2026 Make Big — Built for creators
+</div>
+
+<div id="dashboardRoot" class="dashboard-root"></div>
+
+<!-- ================= PROJECT MODAL ================= -->
+<div id="projectModal" class="modal">
+  <div class="modal-overlay" onclick="closeProjectModal()"></div>
+  <div class="modal-content project-flow-modal-inner">
+    <button class="modal-close" onclick="closeProjectModal()">✕</button>
+    <div class="project-flow-shell">
+      <div class="project-flow-header">
+        <button id="wizardBack" class="wizard-back" type="button" onclick="wizardPrev()">← Back</button>
+        <div>
+          <p class="flow-kicker">Make Big Creation Flow</p>
+          <h2 id="wizardTitle" class="flow-title">Choose your path</h2>
+          <p id="wizardSubtitle" class="flow-subtitle">Select how you want to begin.</p>
+        </div>
+      </div>
+
+      <div class="flow-progress">
+        <div class="flow-progress-track">
+          <div id="wizardProgressFill" class="flow-progress-fill"></div>
+        </div>
+        <div class="flow-progress-labels">
+          <span>Step 1</span>
+          <span>Step 2</span>
+          <span>Step 3</span>
+          <span>Step 4</span>
+          <span>Step 5</span>
+          <span>Complete</span>
+        </div>
+      </div>
+
+      <div class="flow-steps-region">
+
+      <div id="wizardStep1" class="flow-step active">
+        <div class="flow-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+          <div class="flow-card" onclick="selectEntry('create')">
+            <h3>Create Project</h3>
+            <p>Start your own project and build your dream team.</p>
+          </div>
+          <div class="flow-card" onclick="selectEntry('join')">
+            <h3>Join Project</h3>
+            <p>Find projects that need your skills and collaborate.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="wizardStep2" class="flow-step">
+        <div id="categoryGrid" class="flow-grid"></div>
+      </div>
+
+      <div id="wizardStep3" class="flow-step">
+        <div id="skillGrid" class="flow-grid"></div>
+      </div>
+
+      <div id="wizardStep4" class="flow-step">
+        <div class="details-form">
+          <div>
+            <label for="wizardProjectName">Project Name</label>
+            <input id="wizardProjectName" type="text" placeholder="Neon Dream Studio Platform">
+          </div>
+          <div>
+            <label for="wizardShortDesc">Short Description</label>
+            <textarea id="wizardShortDesc" placeholder="Describe your project in one punchy paragraph."></textarea>
+          </div>
+          <div id="wizardTeamSizeRow">
+            <label for="wizardTeamSize">Team Size Needed</label>
+            <input id="wizardTeamSize" type="number" min="1" max="100" placeholder="6">
+          </div>
+          <div>
+            <label for="wizardDeadline">Deadline</label>
+            <input id="wizardDeadline" type="date">
+          </div>
+          <div>
+            <label for="wizardCoverImage">Upload Cover Image</label>
+            <input id="wizardCoverImage" type="file" accept="image/*">
+          </div>
+        </div>
+      </div>
+
+      <div id="wizardStep5" class="flow-step">
+        <div class="motive-box">
+          <label id="wizardMotiveLabel" for="wizardVision" style="display:block;margin-bottom:8px;color:#cbd5e1;font-weight:700;">What is your vision for this project?</label>
+          <textarea id="wizardVision" placeholder="We want to create a short sci-fi film that explores dreams and reality."></textarea>
+          <div id="quoteRotator" class="quote-rotator"></div>
+        </div>
+      </div>
+
+      <div id="wizardStep6" class="flow-step">
+        <div id="wizardCreateBudget" class="salary-form">
+          <h3>Budget & Compensation</h3>
+          <p>Set the salary range you can offer for team members.</p>
+          <div>
+            <label for="wizardMinSalary">Minimum Salary (per month)</label>
+            <input id="wizardMinSalary" type="number" placeholder="5000" min="0">
+          </div>
+          <div>
+            <label for="wizardMaxSalary">Maximum Salary (per month)</label>
+            <input id="wizardMaxSalary" type="number" placeholder="15000" min="0">
+          </div>
+          <div>
+            <label for="wizardCurrency">Currency</label>
+            <select id="wizardCurrency">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="INR">INR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="wizardJoinMatches" style="display: none;">
+          <p class="wizard-join-matches-intro">These open roles are ranked for your chosen category and skills. Add an expected monthly amount to prioritize pay-aligned teams.</p>
+          <div class="wizard-join-expect">
+            <label for="wizardJoinExpectSalary">Expected monthly compensation (optional)</label>
+            <input id="wizardJoinExpectSalary" type="number" min="0" placeholder="e.g. 8500">
+          </div>
+          <div id="joinMatchProjectList" class="flow-grid"></div>
+          <button type="button" id="wizardJoinDashboardBtn" class="flow-btn primary" onclick="enterDashboard()">Continue to dashboard</button>
+        </div>
+      </div>
+
+      <div id="wizardStep7" class="flow-step">
+        <div class="complete-screen">
+          <div class="particles" id="wizardParticles"></div>
+          <h3 id="wizardCompleteTitle" class="complete-title">Your project is ready.</h3>
+          <p id="wizardCompleteSubtext" class="complete-subtext">Start building with creators around the world.</p>
+          <div class="complete-actions">
+            <button id="wizardPrimaryAction" class="flow-btn primary" type="button" onclick="enterDashboard()">Enter Dashboard</button>
+            <button id="wizardSecondaryAction" class="flow-btn secondary" type="button" onclick="inviteMembers()">Invite people</button>
+          </div>
+          <div id="inviteMembersPanel" class="invite-panel hidden">
+            <h4 id="invitePanelHeading">Suggested people for your stack</h4>
+            <p id="inviteBudgetHint" class="invite-panel-budget-hint"></p>
+            <p id="inviteContextLine" class="invite-panel-budget-hint" style="margin-top:-6px;"></p>
+            <div id="invitePeopleList" class="suggestion-list"></div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+
+      <div class="flow-navigation">
+        <span id="wizardError" class="flow-error"></span>
+        <button id="wizardNextBtn" class="flow-btn primary" type="button" onclick="wizardNext()">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= AUTH MODAL ================= -->
+<div id="authModal" class="modal">
+  <div class="modal-overlay" onclick="closeAuthModal()"></div>
+  <div class="modal-content auth-modal">
+    <button class="modal-close" onclick="closeAuthModal()">✕</button>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('signin')">Sign In</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+    <div id="authMessage" class="auth-message">Login to access project creation.</div>
+
+    <!-- SIGN IN FORM -->
+    <div id="signinForm" class="auth-form active">
+      <h2 class="modal-title">Welcome Back</h2>
+      <p class="modal-subtitle">Sign in to your account</p>
+
+      <form id="signinFormEl">
+        <div class="form-group">
+          <label for="signinContact">Email or Phone</label>
+          <input type="text" id="signinContact" placeholder="Enter email or phone" required>
+        </div>
+
+        <button type="button" class="submit-btn" onclick="sendOTP('signin')">Send OTP</button>
+
+        <div id="signinOTPSection" class="otp-section" style="display: none;">
+          <div class="form-group">
+            <label for="signinOTP">Enter OTP</label>
+            <input type="text" id="signinOTP" placeholder="6-digit code" maxlength="6" required>
+          </div>
+          <button type="submit" class="submit-btn">Verify & Sign In</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- SIGN UP FORM -->
+    <div id="signupForm" class="auth-form">
+      <h2 class="modal-title">Create Account</h2>
+      <p class="modal-subtitle">Join the Make Big community</p>
+
+      <form id="signupFormEl">
+        <div class="form-group">
+          <label for="signupName">Full Name</label>
+          <input type="text" id="signupName" placeholder="Enter your name" required>
+        </div>
+
+        <div class="form-group">
+          <label>Contact Method</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="contactType" value="email" checked>
+              <span>Email</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="contactType" value="phone">
+              <span>Phone</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="signupContact">Email or Phone</label>
+          <input type="text" id="signupContact" placeholder="Enter email or phone" required>
+        </div>
+
+        <div class="form-group">
+          <label for="signupSkills">Your Skills (comma separated)</label>
+          <input type="text" id="signupSkills" placeholder="e.g. Frontend Development, UI Design, Video Editing">
+        </div>
+
+        <div class="form-group">
+          <label for="signupHobbies">Your Hobbies (comma separated)</label>
+          <input type="text" id="signupHobbies" placeholder="e.g. Photography, Gaming, Music Production">
+        </div>
+
+        <button type="button" class="submit-btn" onclick="sendOTP('signup')">Send OTP</button>
+
+        <div id="signupOTPSection" class="otp-section" style="display: none;">
+          <div class="form-group">
+            <label for="signupOTP">Enter OTP</label>
+            <input type="text" id="signupOTP" placeholder="6-digit code" maxlength="6" required>
+          </div>
+          <button type="submit" class="submit-btn">Verify & Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= EDIT PROFILE MODAL ================= -->
+<div id="editProfileModal" class="modal edit-profile-modal">
+  <div class="modal-overlay" onclick="closeEditProfile()"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeEditProfile()">✕</button>
+    <h2 class="modal-title">Edit Profile</h2>
+    <p class="modal-subtitle">Update your profile (this powers matching + invites)</p>
+    <form id="editProfileForm">
+      <div class="form-group">
+        <label for="editName">Name</label>
+        <input type="text" id="editName" placeholder="Your name" required>
+      </div>
+      <div class="form-group">
+        <label for="editContact">Email or Phone</label>
+        <input type="text" id="editContact" placeholder="Your contact" required>
+      </div>
+      <div class="form-group">
+        <label for="editRole">Profile type</label>
+        <select id="editRole">
+          <option value="member">I want to join projects</option>
+          <option value="creator">I create projects</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="editTagline">Tagline</label>
+        <input type="text" id="editTagline" placeholder="Short one-liner (ex: Full-stack dev building SaaS)">
+      </div>
+      <div class="form-group">
+        <label for="editCategoryIds">Categories (comma separated ids)</label>
+        <input type="text" id="editCategoryIds" placeholder="web, mobile, ai">
+      </div>
+      <div class="form-group">
+        <label for="editSkills">Skills / Roles (comma separated)</label>
+        <input type="text" id="editSkills" placeholder="Frontend Developer, UI/UX Designer">
+      </div>
+      <div class="form-group">
+        <label for="editHobbies">Hobbies / Interests (comma separated)</label>
+        <input type="text" id="editHobbies" placeholder="Photography, Gaming, Music Production">
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="editAvailableForInvites">
+          <span>Show me in Invite People (available for invites)</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="editRateMin">My expected monthly (min)</label>
+        <input type="number" id="editRateMin" min="0" placeholder="5000">
+      </div>
+      <div class="form-group">
+        <label for="editRateMax">My expected monthly (max)</label>
+        <input type="number" id="editRateMax" min="0" placeholder="12000">
+      </div>
+      <div class="form-group">
+        <label for="editRateCurrency">Currency</label>
+        <select id="editRateCurrency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="INR">INR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <button type="submit" class="submit-btn">Save</button>
+      <button type="button" class="cancel-btn" onclick="closeEditProfile()">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<!-- SPLASH REMOVE -->
+<script>
+  function hideSplash() {
+    document.getElementById("splash").style.display = "none";
+  }
+
+  // ================= AUTHENTICATION SYSTEM =================
+  let currentOTP = null;
+  let currentUser = null;
+  const appState = {
+    user: null,
+    role: null,
+    currentProject: null,
+    view: "home",
+    activeTab: "home",
+    posts: [],
+    projects: [],
+    people: [],
+    notifications: [],
+    recommendations: []
+  };
+
+  function checkAuth() {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (user && user.isLoggedIn) {
+      currentUser = user;
+      appState.user = user;
+      hydrateActiveProjectFromStorage();
+      updateUIForLoggedIn(user);
+      return true;
+    }
+    appState.user = null;
+    updateUIForLoggedOut();
+    return false;
+  }
+
+  function updateUIForLoggedIn(user) {
+    const authSection = document.getElementById('authSection');
+    authSection.innerHTML = '';
+    document.getElementById('profileContainer').classList.remove('hidden');
+    loadUserProfile(user);
+    appState.user = user;
+    document.getElementById('startProjectBtn').textContent = 'Start a Project';
+    document.getElementById('startProjectBtn').style.opacity = '1';
+  }
+
+  function setAuthMessage(message) {
+    const messageEl = document.getElementById('authMessage');
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+  }
+
+  function updateUIForLoggedOut(message = 'Login to access project creation.') {
+    const authSection = document.getElementById('authSection');
+    authSection.innerHTML = '<a href="javascript:void(0)" id="loginBtn" class="auth-btn" onclick="openAuth()">Login</a>';
+    document.getElementById('profileContainer').classList.add('hidden');
+    document.getElementById('profileMenu').classList.remove('active');
+    document.getElementById('startProjectBtn').textContent = 'Login to Start a Project';
+    document.getElementById('startProjectBtn').style.opacity = '0.6';
+    setAuthMessage(message);
+  }
+
+  function openAuth() {
+    const modal = document.getElementById('authModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    switchTab('signin');
+  }
+
+  function toggleProfileMenu() {
+    const profileMenu = document.getElementById('profileMenu');
+    profileMenu.classList.toggle('active');
+  }
+
+  function loadUserProfile(user) {
+    if (!user) return;
+    document.getElementById('userName').textContent = user.name;
+    document.getElementById('userContact').textContent = user.contact;
+    document.getElementById('avatar').textContent = user.name.trim().charAt(0).toUpperCase() || 'U';
+  }
+
+  function openEditProfile() {
+    const modal = document.getElementById('editProfileModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    const user = JSON.parse(localStorage.getItem('user')) || {};
+    document.getElementById('editName').value = user.name || '';
+    document.getElementById('editContact').value = user.contact || '';
+    document.getElementById('editSkills').value = (user.skills || []).join(', ');
+    document.getElementById('editHobbies').value = (user.hobbies || []).join(', ');
+    // Load backend profile (if server running), otherwise from local cache
+    const cached = JSON.parse(localStorage.getItem("makeBigProfile") || "null");
+    const applyProfileToForm = (profile) => {
+      if (!profile) return;
+      document.getElementById("editRole").value = profile.role || "member";
+      document.getElementById("editTagline").value = profile.tagline || "";
+      document.getElementById("editCategoryIds").value = (profile.categoryIds || []).join(", ");
+      document.getElementById("editSkills").value = (profile.skills || (user.skills || [])).join(", ");
+      document.getElementById("editAvailableForInvites").checked = Boolean(profile.availableForInvites);
+      document.getElementById("editRateMin").value = profile.rateMin ?? "";
+      document.getElementById("editRateMax").value = profile.rateMax ?? "";
+      document.getElementById("editRateCurrency").value = profile.currency || "USD";
+    };
+    if (cached && cached.contact && cached.contact.toLowerCase() === (user.contact || "").toLowerCase()) {
+      applyProfileToForm(cached);
+    }
+    const contact = user.contact || "";
+    if (contact) {
+      fetch(`/api/profile?contact=${encodeURIComponent(contact)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.profile) applyProfileToForm(data.profile);
+        })
+        .catch(() => {});
+    }
+  }
+
+  function closeEditProfile() {
+    const modal = document.getElementById('editProfileModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = 'auto';
+  }
+
+  function saveProfile(event) {
+    event.preventDefault();
+    const name = document.getElementById('editName').value.trim();
+    const contact = document.getElementById('editContact').value.trim();
+    if (!name || !contact) {
+      alert('Please fill in both fields.');
+      return;
+    }
+    const user = { name, contact, isLoggedIn: true, skills: (document.getElementById('editSkills').value || '').split(',').map(s => s.trim()).filter(Boolean), hobbies: (document.getElementById('editHobbies').value || '').split(',').map(h => h.trim()).filter(Boolean) };
+    localStorage.setItem('user', JSON.stringify(user));
+    loadUserProfile(user);
+    updateUIForLoggedIn(user);
+    const profile = {
+      contact,
+      role: document.getElementById("editRole").value,
+      tagline: document.getElementById("editTagline").value.trim(),
+      categoryIds: document.getElementById("editCategoryIds").value.split(",").map(s => s.trim()).filter(Boolean),
+      skills: document.getElementById("editSkills").value.split(",").map(s => s.trim()).filter(Boolean),
+      availableForInvites: document.getElementById("editAvailableForInvites").checked,
+      rateMin: document.getElementById("editRateMin").value === "" ? "" : parseInt(document.getElementById("editRateMin").value, 10),
+      rateMax: document.getElementById("editRateMax").value === "" ? "" : parseInt(document.getElementById("editRateMax").value, 10),
+      currency: document.getElementById("editRateCurrency").value
+    };
+    localStorage.setItem("makeBigProfile", JSON.stringify(profile));
+    fetch("/api/profile/upsert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile)
+    }).then(() => apiGetSeed()).catch(() => {});
+    closeEditProfile();
+  }
+
+  function closeAuthModal() {
+    const modal = document.getElementById('authModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = 'auto';
+    document.getElementById('signinFormEl').reset();
+    document.getElementById('signupFormEl').reset();
+    document.getElementById('signinOTPSection').style.display = 'none';
+    document.getElementById('signupOTPSection').style.display = 'none';
+    setAuthMessage('Login to access project creation.');
+  }
+
+  function closeAuth() {
+    closeAuthModal();
+  }
+
+  function switchTab(tab) {
+    const tabs = document.querySelectorAll('.auth-tab');
+    const forms = document.querySelectorAll('.auth-form');
+
+    tabs.forEach(t => t.classList.remove('active'));
+    forms.forEach(f => f.classList.remove('active'));
+
+    document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+    document.getElementById(`${tab}Form`).classList.add('active');
+  }
+
+  function generateOTP() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  function sendOTP(type) {
+    const contact = document.getElementById(`${type}Contact`).value;
+    if (!contact) {
+      alert('Please enter your email or phone');
+      return;
+    }
+
+    currentOTP = generateOTP();
+    alert(`OTP sent to ${contact}: ${currentOTP}`); // Simulation for testing
+
+    document.getElementById(`${type}OTPSection`).style.display = 'block';
+    setAuthMessage('Enter the OTP sent to your contact.');
+  }
+
+  function verifyOTP(type) {
+    const enteredOTP = document.getElementById(`${type}OTP`).value;
+    if (enteredOTP !== currentOTP) {
+      alert('Invalid OTP. Please try again.');
+      return false;
+    }
+    return true;
+  }
+
+  function handleSignin(event) {
+    event.preventDefault();
+    if (!verifyOTP('signin')) return;
+
+    const contact = document.getElementById('signinContact').value.trim();
+    let user = JSON.parse(localStorage.getItem('user'));
+
+    if (!user || user.contact.trim().toLowerCase() !== contact.toLowerCase()) {
+      alert('Account not found. Please sign up first.');
+      return;
+    }
+
+    user.isLoggedIn = true;
+    localStorage.setItem('user', JSON.stringify(user));
+    currentUser = user;
+    updateUIForLoggedIn(user);
+    // Persist/ensure user exists on backend (optional if server running)
+    fetch("/api/users/upsert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: user.name, contact: user.contact })
+    }).catch(() => {});
+    closeAuthModal();
+  }
+
+  function handleSignup(event) {
+    event.preventDefault();
+    if (!verifyOTP('signup')) return;
+
+    const name = document.getElementById('signupName').value.trim();
+    const contact = document.getElementById('signupContact').value.trim();
+    const skills = document.getElementById('signupSkills').value.split(',').map(s => s.trim()).filter(Boolean);
+    const hobbies = document.getElementById('signupHobbies').value.split(',').map(h => h.trim()).filter(Boolean);
+
+    if (!name || !contact) {
+      alert('Please enter both name and contact information.');
+      return;
+    }
+
+    const user = {
+      name,
+      contact,
+      isLoggedIn: true,
+      skills: skills.length ? skills : [],
+      hobbies: hobbies.length ? hobbies : []
+    };
+
+    localStorage.setItem('user', JSON.stringify(user));
+    currentUser = user;
+    updateUIForLoggedIn(user);
+    // Create/update backend user record (optional if server running)
+    fetch("/api/users/upsert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: user.name, contact: user.contact })
+    }).catch(() => {});
+    closeAuthModal();
+  }
+
+  function logout() {
+    localStorage.removeItem('user');
+    localStorage.removeItem('makeBigActiveProject');
+    currentUser = null;
+    appState.user = null;
+    appState.role = null;
+    appState.currentProject = null;
+    appState.view = "home";
+    document.getElementById('profileMenu').classList.remove('active');
+    document.getElementById('profileContainer').classList.add('hidden');
+    updateUIForLoggedOut('You have been logged out.');
+    location.reload(); // Reload to reset all states
+  }
+
+  function handleStartProject() {
+    if (!checkAuth()) {
+      openAuth();
+      setAuthMessage('Please login to create a project');
+      return;
+    }
+    openProjectModal();
+  }
+
+  document.addEventListener('click', function(event) {
+    const profileMenu = document.getElementById('profileMenu');
+    const profileContainer = document.getElementById('profileContainer');
+    if (!profileMenu || !profileContainer) return;
+    if (!profileMenu.classList.contains('active')) return;
+    if (!profileMenu.contains(event.target) && !profileContainer.contains(event.target)) {
+      profileMenu.classList.remove('active');
+    }
+  });
+
+  // Initialize auth check on page load
+  window.onload = function() {
+    checkAuth();
+    renderApp();
+    const navProjects = document.getElementById("navProjectsLink");
+    if (navProjects) navProjects.addEventListener("click", handleNavbarProjectsNav);
+    apiGetSeed();
+    const SPLASH_MS = 3400;
+    setTimeout(() => {
+      hideSplash();
+    }, SPLASH_MS);
+  };
+
+  // ================= PROJECT MODAL FUNCTIONALITY =================
+  function openProjectModal() {
+    const modal = document.getElementById("projectModal");
+    modal.classList.add("active");
+    document.body.style.overflow = "hidden";
+    initProjectWizard();
+  }
+
+  function closeProjectModal() {
+    const modal = document.getElementById("projectModal");
+    modal.classList.remove("active");
+    document.body.style.overflow = "auto";
+    if (wizardState.quoteInterval) {
+      clearInterval(wizardState.quoteInterval);
+      wizardState.quoteInterval = null;
+    }
+  }
+
+  const wizardCategories = [
+    { id: "web", title: "Web Development", blurb: "Websites, SaaS apps" },
+    { id: "mobile", title: "Mobile App Development", blurb: "Android / iOS apps" },
+    { id: "game", title: "Game Development", blurb: "PC, mobile & console games" },
+    { id: "ai", title: "AI & Machine Learning", blurb: "AI systems & models" },
+    { id: "security", title: "Cybersecurity", blurb: "Security tools, ethical hacking" },
+    { id: "cloud", title: "Cloud Computing", blurb: "Cloud infrastructure & services" },
+    { id: "devops", title: "DevOps", blurb: "Deployment automation" },
+    { id: "data", title: "Data Science", blurb: "Data analysis systems" },
+    { id: "web3", title: "Blockchain / Web3", blurb: "Decentralized apps" },
+    { id: "embedded", title: "Embedded Systems", blurb: "Hardware-integrated software" },
+    { id: "arvr", title: "AR / VR Development", blurb: "Virtual & augmented reality" },
+    { id: "film", title: "Filmmaking", blurb: "Film & episodic storytelling" },
+    { id: "music", title: "Music", blurb: "Recording & composition" },
+    { id: "writing", title: "Writing", blurb: "Scripts & long-form work" },
+    { id: "design", title: "Design", blurb: "Visual & product design" },
+    { id: "content", title: "Content Creation", blurb: "Creator-led media" },
+    { id: "photography", title: "Photography", blurb: "Photo & editorial" },
+    { id: "animation", title: "Animation", blurb: "2D/3D & motion" },
+    { id: "marketing", title: "Marketing", blurb: "Growth & brand" },
+    { id: "education", title: "Education", blurb: "Learning products" },
+    { id: "health", title: "Health & Wellness", blurb: "Fitness & wellbeing" }
+  ];
+
+  const wizardSkillsMap = {
+    web: ["Frontend Developer", "Backend Developer", "Full Stack Developer", "UI/UX Designer", "Solutions Architect"],
+    mobile: ["iOS Developer", "Android Developer", "React Native Developer", "Mobile UI Designer", "QA Mobile"],
+    game: ["Game Designer", "Unity / Unreal Developer", "3D Artist", "Level Designer", "Technical Artist", "Console / PC Programmer"],
+    ai: ["ML Engineer", "AI Researcher", "MLOps Engineer", "Data Engineer", "LLM Application Developer"],
+    security: ["Security Engineer", "Penetration Tester", "SOC Analyst", "Security Architect", "GRC Specialist"],
+    cloud: ["Cloud Architect", "AWS / Azure / GCP Engineer", "Site Reliability Engineer", "Solutions Engineer", "FinOps Analyst"],
+    devops: ["DevOps Engineer", "CI/CD Specialist", "Platform Engineer", "Infrastructure as Code", "Release Manager"],
+    data: ["Data Scientist", "Data Analyst", "BI Developer", "Quantitative Analyst", "Visualization Specialist"],
+    web3: ["Smart Contract Developer", "Blockchain Engineer", "dApp Frontend Developer", "Web3 Product Designer", "Tokenomics Consultant"],
+    embedded: ["Embedded Software Engineer", "Firmware Developer", "IoT Engineer", "Hardware-Software Integration", "RTOS Specialist"],
+    arvr: ["AR / VR Engineer", "Unity / Unreal XR Developer", "3D Environment Artist", "XR Interaction Designer", "Technical Artist XR"],
+    film: ["Director", "Editor", "Cinematographer", "Writer", "Actor", "Music Composer"],
+    music: ["Singer", "Producer", "Lyricist", "Guitarist"],
+    writing: ["Story Writer", "Script Writer", "Editor", "Poet"],
+    design: ["Graphic Designer", "Product Designer", "Illustrator", "Motion Designer"],
+    content: ["Video Creator", "Editor", "Thumbnail Designer", "Social Media Manager"],
+    photography: ["Photographer", "Photo Editor", "Portrait Specialist", "Event Photographer", "Product Photographer"],
+    animation: ["2D Animator", "3D Animator", "Motion Graphics Artist", "Character Designer", "Storyboard Artist"],
+    marketing: ["Digital Marketer", "SEO Specialist", "Social Media Strategist", "Content Marketer", "Brand Manager"],
+    education: ["Educator", "Curriculum Developer", "E-Learning Specialist", "Trainer", "Educational Content Creator"],
+    health: ["Fitness Trainer", "Nutritionist", "Mental Health Coach", "Wellness Consultant", "Health Content Creator"]
+  };
+
+  // These are now loaded from the backend (server seeds `db.json`).
+  let OPEN_MARKET_PROJECTS = [
+    { id: "mp1", categoryId: "web", name: "SaaS Analytics Hub", roles: ["Frontend Developer", "Backend Developer", "UI/UX Designer"], salaryMin: 6000, salaryMax: 11000, currency: "USD", desc: "B2B dashboard for creator-led businesses." },
+    { id: "mp2", categoryId: "web", name: "Commerce API Rewrite", roles: ["Full Stack Developer", "Solutions Architect"], salaryMin: 7000, salaryMax: 13000, currency: "USD", desc: "High-scale checkout APIs and recurring billing." },
+    { id: "mp3", categoryId: "mobile", name: "Wellness Companion App", roles: ["iOS Developer", "Android Developer", "QA Mobile"], salaryMin: 6500, salaryMax: 12000, currency: "USD", desc: "Consumer health journeys on iOS and Android." },
+    { id: "mp4", categoryId: "ai", name: "Model Fine-Tuning Studio", roles: ["ML Engineer", "MLOps Engineer", "LLM Application Developer"], salaryMin: 9000, salaryMax: 16500, currency: "USD", desc: "Internal tools for customizing and deploying AI models." },
+    { id: "mp5", categoryId: "game", name: "Roguelike PC & Console Pilot", roles: ["Unity / Unreal Developer", "Technical Artist", "Game Designer"], salaryMin: 5200, salaryMax: 9800, currency: "USD", desc: "Indie studio prototyping a procedural action title." },
+    { id: "mp6", categoryId: "security", name: "Purple-Team Simulation Lab", roles: ["Security Engineer", "Penetration Tester"], salaryMin: 7500, salaryMax: 13500, currency: "USD", desc: "Continuous attack simulations for SaaS fleets." },
+    { id: "mp7", categoryId: "cloud", name: "Multi-Cloud Cost Guard", roles: ["Cloud Architect", "FinOps Analyst"], salaryMin: 8000, salaryMax: 14000, currency: "USD", desc: "Observability and spend controls across AWS/Azure/GCP." },
+    { id: "mp8", categoryId: "devops", name: "Release Automation Sprint", roles: ["DevOps Engineer", "Platform Engineer"], salaryMin: 6800, salaryMax: 11500, currency: "USD", desc: "Harden CI/CD pipelines and progressive delivery." },
+    { id: "mp9", categoryId: "data", name: "Creator Revenue Insights", roles: ["Data Scientist", "BI Developer"], salaryMin: 7200, salaryMax: 12500, currency: "USD", desc: "Predictive analytics over cross-platform payouts." },
+    { id: "mp10", categoryId: "web3", name: "Loyalty dApp Expansion", roles: ["Smart Contract Developer", "dApp Frontend Developer"], salaryMin: 8800, salaryMax: 15000, currency: "USD", desc: "On-chain perks for community-powered brands." },
+    { id: "mp11", categoryId: "embedded", name: "Sensor Mesh Firmware", roles: ["Embedded Software Engineer", "Firmware Developer"], salaryMin: 7000, salaryMax: 12600, currency: "USD", desc: "Low-power gateways for logistics IoT fleets." },
+    { id: "mp12", categoryId: "arvr", name: "Immersive Training Module", roles: ["AR / VR Engineer", "XR Interaction Designer"], salaryMin: 7600, salaryMax: 13200, currency: "USD", desc: "Enterprise XR safety training prototypes." },
+    { id: "mp13", categoryId: "film", name: "CineVerse Short-Film Collective", roles: ["Director", "Editor", "Writer"], salaryMin: 3200, salaryMax: 7200, currency: "USD", desc: "Collaborative anthology built for festivals." },
+    { id: "mp14", categoryId: "music", name: "BeatLink Remote Sessions", roles: ["Producer", "Lyricist"], salaryMin: 2800, salaryMax: 6500, currency: "USD", desc: "Distributed album with weekly live critiques." },
+    { id: "mp15", categoryId: "design", name: "Product Design Systems Guild", roles: ["Product Designer", "Motion Designer"], salaryMin: 5500, salaryMax: 10200, currency: "USD", desc: "Multi-brand libraries for SaaS unicorns." },
+    { id: "mp16", categoryId: "content", name: "Growth Content Sprint Lab", roles: ["Video Creator", "Social Media Manager"], salaryMin: 4000, salaryMax: 7800, currency: "USD", desc: "Rapid experimentation with creator-facing brands." },
+    { id: "mp17", categoryId: "marketing", name: "Lifecycle Marketing Pods", roles: ["Digital Marketer", "SEO Specialist"], salaryMin: 4500, salaryMax: 8800, currency: "USD", desc: "Lifecycle experiments across paid & organic channels." },
+    { id: "mp18", categoryId: "photography", name: "E-commerce Shoot Pipeline", roles: ["Photographer", "Photo Editor"], salaryMin: 3500, salaryMax: 6900, currency: "USD", desc: "High-volume SKU photography for marketplace sellers." },
+    { id: "mp19", categoryId: "animation", name: "Neural Cinema Previz", roles: ["3D Animator", "Storyboard Artist"], salaryMin: 4800, salaryMax: 9100, currency: "USD", desc: "Generative scene boarding for episodic IPs." },
+    { id: "mp20", categoryId: "writing", name: "Transmedia Writers Room", roles: ["Script Writer", "Story Writer"], salaryMin: 3600, salaryMax: 7400, currency: "USD", desc: "Room spinning up companion fiction for streamed shows." },
+    { id: "mp21", categoryId: "education", name: "Async Bootcamp Forge", roles: ["Educator", "E-Learning Specialist"], salaryMin: 4200, salaryMax: 8000, currency: "USD", desc: "Interactive cohort curricula for STEM learners." },
+    { id: "mp22", categoryId: "health", name: "Tele-Wellness Studio", roles: ["Fitness Trainer", "Nutritionist"], salaryMin: 3200, salaryMax: 6800, currency: "USD", desc: "Hybrid wellness programming for creator communities." }
+  ];
+
+  let MOCK_INVITE_CREATORS = [
+    { id: "tc1", name: "Elena Park", initials: "EP", categoryIds: ["web", "design"], skills: ["Frontend Developer", "UI/UX Designer"], rateMin: 5800, rateMax: 8600, currency: "USD", tagline: "Design systems shipped for three SaaS scale-ups." },
+    { id: "tc2", name: "Jordan Meyer", initials: "JM", categoryIds: ["web", "devops"], skills: ["Backend Developer", "DevOps Engineer"], rateMin: 7200, rateMax: 11800, currency: "USD", tagline: "Kubernetes + Postgres specialist for realtime apps." },
+    { id: "tc3", name: "Sana Ali", initials: "SA", categoryIds: ["mobile", "game"], skills: ["React Native Developer", "Unity / Unreal Developer"], rateMin: 6400, rateMax: 10400, currency: "USD", tagline: "Shipped mobile games & companion apps across stores." },
+    { id: "tc4", name: "Vik Rao", initials: "VR", categoryIds: ["ai", "data"], skills: ["ML Engineer", "Data Scientist"], rateMin: 9200, rateMax: 15200, currency: "USD", tagline: "LLM tooling + experimentation pipelines." },
+    { id: "tc5", name: "Morgan Lee", initials: "ML", categoryIds: ["film", "animation"], skills: ["Director", "3D Animator"], rateMin: 4500, rateMax: 8200, currency: "USD", tagline: "Hybrid live-action / CG episodic pipelines." },
+    { id: "tc6", name: "Priya Shah", initials: "PS", categoryIds: ["content", "marketing"], skills: ["Video Creator", "Digital Marketer"], rateMin: 4200, rateMax: 7800, currency: "USD", tagline: "Creator-led growth experiments with viral formats." },
+    { id: "tc7", name: "Chris Ortiz", initials: "CO", categoryIds: ["security", "cloud"], skills: ["Security Engineer", "Cloud Architect"], rateMin: 8800, rateMax: 14200, currency: "USD", tagline: "Zero-trust rollouts plus cloud hardening audits." },
+    { id: "tc8", name: "Aisha Boone", initials: "AB", categoryIds: ["web3", "web"], skills: ["Smart Contract Developer", "Full Stack Developer"], rateMin: 9000, rateMax: 14800, currency: "USD", tagline: "Audited contracts + slick dApp frontends." },
+    { id: "tc9", name: "Noah Clemens", initials: "NC", categoryIds: ["embedded"], skills: ["Firmware Developer"], rateMin: 6900, rateMax: 11600, currency: "USD", tagline: "RTOS + BSP experience for wearable stacks." },
+    { id: "tc10", name: "River Kim", initials: "RK", categoryIds: ["arvr"], skills: ["AR / VR Engineer", "XR Interaction Designer"], rateMin: 7400, rateMax: 12400, currency: "USD", tagline: "Hand-tracked XR prototypes shipped to pilots." },
+    { id: "tc11", name: "Generic Polyglot", initials: "GP", categoryIds: ["web", "mobile", "ai"], skills: ["Full Stack Developer", "Solutions Architect"], rateMin: 6000, rateMax: 12000, currency: "USD", tagline: "Cross-stack generalist ready for ambiguous builds." },
+    { id: "tc12", name: "Indie Synth Duo", initials: "IS", categoryIds: ["music"], skills: ["Producer", "Lyricist"], rateMin: 2500, rateMax: 5200, currency: "USD", tagline: "Remote scoring + arrangement for interactive media." },
+    { id: "tc13", name: "Diego Navarro", initials: "DN", categoryIds: ["photography", "design"], skills: ["Photographer", "Photo Editor"], rateMin: 3800, rateMax: 7200, currency: "USD", tagline: "Studio + on-location shoots for product and lifestyle brands." },
+    { id: "tc14", name: "Amara Singh", initials: "AS", categoryIds: ["writing", "film"], skills: ["Script Writer", "Story Writer"], rateMin: 3400, rateMax: 6800, currency: "USD", tagline: "Serialized drama and pitch decks for streamers." },
+    { id: "tc15", name: "Leo Park", initials: "LP", categoryIds: ["education", "content"], skills: ["Educator", "E-Learning Specialist"], rateMin: 4000, rateMax: 7600, currency: "USD", tagline: "Async cohort courses with interactive assessments." },
+    { id: "tc16", name: "Riley Chen", initials: "RC", categoryIds: ["health", "content"], skills: ["Fitness Trainer", "Wellness Consultant"], rateMin: 3000, rateMax: 6200, currency: "USD", tagline: "Hybrid coaching programs for remote teams." },
+    { id: "tc17", name: "Tessa Bloom", initials: "TB", categoryIds: ["marketing", "content"], skills: ["SEO Specialist", "Content Marketer"], rateMin: 4600, rateMax: 9000, currency: "USD", tagline: "Organic acquisition loops for SaaS and creator brands." },
+    { id: "tc18", name: "Omar Haddad", initials: "OH", categoryIds: ["data", "ai"], skills: ["Data Analyst", "Data Scientist"], rateMin: 6800, rateMax: 11800, currency: "USD", tagline: "Dashboards, forecasting, and experimentation readouts." },
+    { id: "tc19", name: "Yuki Tanaka", initials: "YT", categoryIds: ["devops", "cloud"], skills: ["CI/CD Specialist", "AWS / Azure / GCP Engineer"], rateMin: 7400, rateMax: 12800, currency: "USD", tagline: "GitOps pipelines and multi-region deploy hardening." },
+    { id: "tc20", name: "Fatima Noor", initials: "FN", categoryIds: ["photography", "marketing"], skills: ["Portrait Specialist", "Digital Marketer"], rateMin: 3600, rateMax: 7000, currency: "USD", tagline: "Campaign-ready portrait drops and paid social kits." }
+  ];
+
+  function formatSalaryBand(minV, maxV, cur) {
+    return `${cur} ${Number(minV).toLocaleString()} – ${Number(maxV).toLocaleString()} / month`;
+  }
+
+  async function apiGetSeed() {
+    try {
+      const res = await fetch("/api/seed", { method: "GET" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.people) && data.people.length) MOCK_INVITE_CREATORS = data.people;
+      if (Array.isArray(data.openMarketProjects) && data.openMarketProjects.length) OPEN_MARKET_PROJECTS = data.openMarketProjects;
+    } catch (e) {
+      // If server isn't running (opening index.html directly), keep frontend defaults.
+    }
+  }
+
+  async function apiGetNotifications() {
+    try {
+      const contact = appState.user && appState.user.contact ? appState.user.contact : "";
+      if (!contact) return;
+      const res = await fetch(`/api/notifications?contact=${encodeURIComponent(contact)}`, { method: "GET" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.notifications)) {
+        appState.notifications = data.notifications.map(n => n.message);
+      }
+    } catch (e) {}
+  }
+
+  function budgetBandOverlapScore(projMin, projMax, rateMin, rateMax) {
+    if (!Number.isFinite(projMin) || !Number.isFinite(projMax) || projMax < projMin) return 50;
+    const lo = Math.max(projMin, rateMin);
+    const hi = Math.min(projMax, rateMax);
+    if (hi >= lo) {
+      const overlap = hi - lo + 1;
+      const pSpan = Math.max(projMax - projMin + 1, 1);
+      const cSpan = Math.max(rateMax - rateMin + 1, 1);
+      return Math.min(100, Math.round(55 + (overlap / Math.min(pSpan, cSpan)) * 45));
+    }
+    const gap = Math.min(Math.abs(rateMax - projMin), Math.abs(projMax - rateMin));
+    const scale = Math.max(projMax, rateMax, 1);
+    return Math.max(8, Math.round(45 - (gap / scale) * 80));
+  }
+
+  function normalizeSkillLabel(s) {
+    return String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function skillAlignmentForInvite(selectedSkills, person) {
+    const pNorm = person.skills.map(normalizeSkillLabel);
+    const hay = `${person.tagline} ${pNorm.join(" ")}`.toLowerCase();
+    let exact = 0;
+    let partial = 0;
+    (selectedSkills || []).forEach(sel => {
+      const n = normalizeSkillLabel(sel);
+      if (!n) return;
+      const hit = pNorm.some(ps => ps === n || ps.includes(n) || n.includes(ps));
+      if (hit) exact += 1;
+      else if (hay.includes(n) || n.split(/[/\s]+/).some(part => part.length > 3 && hay.includes(part))) partial += 1;
+    });
+    const exactScore = Math.min(48, exact * 16);
+    const partialScore = Math.min(22, partial * 9);
+    return { exact, partial, skillScore: exactScore + partialScore };
+  }
+
+  function extractInviteKeywords() {
+    const chunks = [
+      document.getElementById("wizardProjectName")?.value || "",
+      document.getElementById("wizardShortDesc")?.value || "",
+      document.getElementById("wizardVision")?.value || ""
+    ].join(" ");
+    const raw = chunks.toLowerCase().match(/[a-z0-9][a-z0-9+#.]{2,}/g) || [];
+    const stop = new Set(["the", "and", "for", "with", "this", "that", "from", "your", "our", "are", "you", "want", "will", "can", "has", "have", "was", "were", "into", "about", "team", "project", "build", "make", "need", "looking"]);
+    return raw.filter(w => !stop.has(w)).slice(0, 40);
+  }
+
+  function keywordBoostForInvite(keywords, person) {
+    if (!keywords.length) return 0;
+    const hay = `${person.tagline} ${person.skills.join(" ")}`.toLowerCase();
+    let hits = 0;
+    keywords.forEach(k => {
+      if (hay.includes(k)) hits += 1;
+    });
+    return Math.min(28, hits * 5);
+  }
+
+  function scoreInvitePerson(person, ctx) {
+    const catPts = person.categoryIds.includes(ctx.categoryId) ? 22 : 0;
+    const { skillScore } = skillAlignmentForInvite(ctx.selectedSkills, person);
+    const budgetPts = budgetBandOverlapScore(ctx.projMin, ctx.projMax, person.rateMin, person.rateMax);
+    const keyPts = keywordBoostForInvite(ctx.keywords, person);
+    const raw = catPts + skillScore + budgetPts * 0.55 + keyPts;
+    return Math.min(100, Math.round(raw));
+  }
+
+  function salaryExpectationFit(expect, project) {
+    if (!expect || Number.isNaN(expect)) return 74;
+    if (expect >= project.salaryMin && expect <= project.salaryMax) return 100;
+    const mid = (project.salaryMin + project.salaryMax) / 2;
+    const drift = Math.abs(expect - mid) / Math.max(expect, mid);
+    return Math.max(40, Math.round(100 - drift * 110));
+  }
+
+  function countSkillSignals(skills, roleBlob) {
+    if (!skills || !skills.length) return 2;
+    const blob = Array.isArray(roleBlob) ? roleBlob.join(" ").toLowerCase() : String(roleBlob).toLowerCase();
+    let hits = 0;
+    skills.forEach(skill => {
+      skill
+        .toLowerCase()
+        .split(/[^a-z0-9+.#]+/)
+        .forEach(tok => {
+          if (tok.length > 2 && blob.includes(tok)) hits += 1;
+        });
+    });
+    return Math.min(hits, 8);
+  }
+
+  function buildMarketMatches(categoryId, skills, expectMonthly) {
+    const expectNum = typeof expectMonthly === "number" && !Number.isNaN(expectMonthly) ? expectMonthly : null;
+    const pool = OPEN_MARKET_PROJECTS.filter(p => p.categoryId === categoryId);
+    const source = pool.length ? pool : OPEN_MARKET_PROJECTS;
+    const rows = source.map(proj => {
+      const skillHits = countSkillSignals(skills, proj.roles);
+      const salaryScore = salaryExpectationFit(expectNum, proj);
+      const score = Math.min(96, Math.round(skillHits * 14 + salaryScore * 0.42 + 12));
+      return {
+        id: proj.id,
+        name: proj.name,
+        category: wizardCategories.find(c => c.id === proj.categoryId)?.title || proj.categoryId,
+        desc: proj.desc,
+        roles: proj.roles.slice(),
+        match: score,
+        salaryLabel: formatSalaryBand(proj.salaryMin, proj.salaryMax, proj.currency)
+      };
+    }).sort((a, b) => b.match - a.match);
+    return rows;
+  }
+
+  const wizardCopy = [
+    { title: "Choose your path", subtitle: "Select how you want to begin." },
+    { title: "Select category", subtitle: "Pick one world you want to build in." },
+    { title: "Select skills", subtitle: "Choose all skills needed for your project." },
+    { title: "Project details", subtitle: "Add the essentials your team needs." },
+    { title: "Project motive", subtitle: "Share the vision that inspires your team." },
+    { title: "Budget & compensation", subtitle: "Set the salary range for your team." },
+    { title: "Launch ready", subtitle: "Your creator journey is now unlocked." }
+  ];
+
+  const quotes = [
+    "Big projects begin with one bold decision.",
+    "A clear vision attracts the right creators.",
+    "Collaboration turns ideas into movements."
+  ];
+  const joinQuotes = [
+    "Great teams are built by people who show up with purpose.",
+    "Your skills can unlock someone else's big vision.",
+    "The right project can change your creative journey."
+  ];
+
+  const wizardState = {
+    step: 1,
+    entry: "",
+    category: "",
+    skills: [],
+    quoteIndex: 0,
+    quoteInterval: null
+  };
+
+  function initProjectWizard() {
+    wizardState.step = 1;
+    wizardState.entry = "";
+    wizardState.category = "";
+    wizardState.skills = [];
+    wizardState.quoteIndex = 0;
+    clearWizardInputs();
+    const joinExpect = document.getElementById("wizardJoinExpectSalary");
+    if (joinExpect) delete joinExpect.dataset.liveBound;
+    const invitePanel = document.getElementById("inviteMembersPanel");
+    if (invitePanel) invitePanel.classList.add("hidden");
+    renderCategoryCards();
+    renderSkillCards();
+    renderParticles();
+    startQuotes();
+    updateWizardStep();
+  }
+
+  function clearWizardInputs() {
+    ["wizardProjectName", "wizardShortDesc", "wizardTeamSize", "wizardDeadline", "wizardVision", "wizardMinSalary", "wizardMaxSalary", "wizardJoinExpectSalary"].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) element.value = "";
+    });
+    const coverImage = document.getElementById("wizardCoverImage");
+    if (coverImage) coverImage.value = "";
+    setWizardError("");
+  }
+
+  function renderCategoryCards() {
+    const grid = document.getElementById("categoryGrid");
+    grid.innerHTML = "";
+    wizardCategories.forEach(category => {
+      const card = document.createElement("div");
+      card.className = `flow-card ${wizardState.category === category.id ? "selected" : ""}`;
+      card.onclick = () => selectCategory(category.id);
+      const blurb = category.blurb ? category.blurb : `Build with creators in ${category.title}.`;
+      card.innerHTML = `
+        <h3>${category.title}</h3>
+        <p>${blurb}</p>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function renderSkillCards() {
+    const grid = document.getElementById("skillGrid");
+    grid.innerHTML = "";
+    const skills = wizardSkillsMap[wizardState.category] || [];
+
+    if (skills.length === 0) {
+      const emptyCard = document.createElement("div");
+      emptyCard.className = "flow-card";
+      emptyCard.style.cursor = "default";
+      emptyCard.innerHTML = "<h3>Select a category first</h3><p>Skills will appear once category is selected.</p>";
+      grid.appendChild(emptyCard);
+      return;
+    }
+
+    skills.forEach(skill => {
+      const selected = wizardState.skills.includes(skill);
+      const card = document.createElement("label");
+      card.className = `flow-card skill-card ${selected ? "selected" : ""}`;
+      card.innerHTML = `<input type="checkbox" ${selected ? "checked" : ""}><h3>${skill}</h3><p>Tap to include this skill in your team.</p>`;
+      card.onclick = function(event) {
+        event.preventDefault();
+        toggleSkill(skill);
+      };
+      grid.appendChild(card);
+    });
+  }
+
+  function selectEntry(mode) {
+    wizardState.entry = mode;
+    wizardState.quoteIndex = 0;
+    updateStep4ForRole();
+    updateStep5And6Content();
+    startQuotes();
+    wizardNext();
+  }
+
+  function selectCategory(categoryId) {
+    wizardState.category = categoryId;
+    wizardState.skills = [];
+    renderCategoryCards();
+    renderSkillCards();
+    setWizardError("");
+  }
+
+  function toggleSkill(skill) {
+    if (wizardState.skills.includes(skill)) {
+      wizardState.skills = wizardState.skills.filter(item => item !== skill);
+    } else {
+      wizardState.skills.push(skill);
+    }
+    renderSkillCards();
+    setWizardError("");
+  }
+
+  function wizardNext() {
+    if (!validateWizardStep()) return;
+    const maxStep = wizardState.entry === "join" ? 6 : 7;
+    if (wizardState.step < maxStep) {
+      wizardState.step += 1;
+      updateWizardStep();
+    }
+  }
+
+  function wizardPrev() {
+    if (wizardState.step > 1) {
+      wizardState.step -= 1;
+      updateWizardStep();
+      setWizardError("");
+    }
+  }
+
+  function validateWizardStep() {
+    if (wizardState.step === 1 && !wizardState.entry) {
+      setWizardError("Please choose Create Project or Join Project to continue.");
+      return false;
+    }
+    if (wizardState.step === 2 && !wizardState.category) {
+      setWizardError("Select one category.");
+      return false;
+    }
+    if (wizardState.step === 3 && wizardState.skills.length === 0) {
+      setWizardError("Choose at least one skill.");
+      return false;
+    }
+    if (wizardState.step === 4) {
+      const name = document.getElementById("wizardProjectName").value.trim();
+      const desc = document.getElementById("wizardShortDesc").value.trim();
+      const teamSize = document.getElementById("wizardTeamSize").value;
+      const deadline = document.getElementById("wizardDeadline").value;
+      if (wizardState.entry === "join") {
+        if (!name || !desc || !deadline) {
+          setWizardError("Fill your name, intro, and joining availability.");
+          return false;
+        }
+      } else if (!name || !desc || !teamSize || !deadline) {
+        setWizardError("Fill all project details before moving ahead.");
+        return false;
+      }
+    }
+    if (wizardState.step === 6 && wizardState.entry === "create") {
+      const minSalary = document.getElementById("wizardMinSalary").value;
+      const maxSalary = document.getElementById("wizardMaxSalary").value;
+      if (!minSalary || !maxSalary || parseInt(minSalary) > parseInt(maxSalary)) {
+        setWizardError("Set a valid salary range.");
+        return false;
+      }
+    }
+    if (wizardState.step === 5) {
+      const vision = document.getElementById("wizardVision").value.trim();
+      if (!vision) {
+        setWizardError("Share your project vision to complete setup.");
+        return false;
+      }
+    }
+    setWizardError("");
+    return true;
+  }
+
+  function updateWizardStep() {
+    const steps = document.querySelectorAll(".flow-step");
+    steps.forEach(step => step.classList.remove("active"));
+    document.getElementById(`wizardStep${wizardState.step}`).classList.add("active");
+
+    const copy = wizardCopy[wizardState.step - 1];
+    const isJoin = wizardState.entry === "join";
+    let title = copy.title;
+    let subtitle = copy.subtitle;
+    if (wizardState.step === 5 && isJoin) {
+      title = "Your joining intent";
+      subtitle = "Tell teams what value you will bring.";
+    }
+    if (wizardState.step === 6 && isJoin) {
+      title = "Matched projects";
+      subtitle = "Open roles tuned to your category, skills, and optional pay expectation.";
+    }
+    if (wizardState.step === 4 && isJoin) {
+      title = "Join preferences";
+      subtitle = "Tell us what projects and teams you want to join.";
+    }
+    document.getElementById("wizardTitle").textContent = title;
+    document.getElementById("wizardSubtitle").textContent = subtitle;
+    const totalSteps = isJoin ? 6 : 7;
+    document.getElementById("wizardProgressFill").style.width = `${(wizardState.step / totalSteps) * 100}%`;
+
+    const budgetPanel = document.getElementById("wizardCreateBudget");
+    const joinMatchPanel = document.getElementById("wizardJoinMatches");
+    if (budgetPanel && joinMatchPanel) {
+      const budgetVisible = wizardState.step === 6 && !isJoin;
+      budgetPanel.style.display = budgetVisible ? "" : "none";
+      joinMatchPanel.style.display = wizardState.step === 6 && isJoin ? "block" : "none";
+      if (wizardState.step === 6 && isJoin) renderJoinWizardMatches();
+    }
+
+    const backBtn = document.getElementById("wizardBack");
+    backBtn.classList.toggle("show", wizardState.step > 1);
+
+    const nextBtn = document.getElementById("wizardNextBtn");
+    const maxStep = isJoin ? 6 : 7;
+    if (wizardState.step >= maxStep) {
+      nextBtn.style.display = "none";
+    } else {
+      nextBtn.style.display = "inline-block";
+      if (wizardState.step === maxStep - 1 && isJoin) {
+        nextBtn.textContent = "View matching projects";
+      } else {
+        nextBtn.textContent = wizardState.step === maxStep - 1 ? "Complete Setup" : "Next";
+      }
+    }
+
+    const invitePanel = document.getElementById("inviteMembersPanel");
+    if (wizardState.step === 7 && wizardState.entry === "create" && invitePanel && !invitePanel.classList.contains("hidden")) {
+      renderInviteSuggestions();
+    }
+  }
+
+  function updateStep4ForRole() {
+    const labels = document.querySelectorAll("#wizardStep4 label");
+    const isJoin = wizardState.entry === "join";
+    const teamRow = document.getElementById("wizardTeamSizeRow");
+    if (teamRow) teamRow.style.display = isJoin ? "none" : "";
+    if (labels.length < 5) return;
+
+    labels[0].textContent = isJoin ? "Your Name" : "Project Name";
+    labels[1].textContent = isJoin ? "Your Intro / Summary" : "Short Description";
+    labels[2].textContent = "Team Size Needed";
+    labels[3].textContent = isJoin ? "Joining Availability" : "Deadline";
+    labels[4].textContent = isJoin ? "Upload Portfolio / Resume" : "Upload Cover Image";
+
+    document.getElementById("wizardProjectName").placeholder = isJoin ? "Enter your full name" : "Neon Dream Studio Platform";
+    document.getElementById("wizardShortDesc").placeholder = isJoin ? "I am a frontend developer looking to contribute to high-impact products." : "Describe your project in one punchy paragraph.";
+    document.getElementById("wizardTeamSize").placeholder = isJoin ? "5" : "6";
+  }
+
+  function updateStep5And6Content() {
+    const isJoin = wizardState.entry === "join";
+    const motiveLabel = document.getElementById("wizardMotiveLabel");
+    const visionInput = document.getElementById("wizardVision");
+    const completeTitle = document.getElementById("wizardCompleteTitle");
+    const completeSubtext = document.getElementById("wizardCompleteSubtext");
+    const primaryAction = document.getElementById("wizardPrimaryAction");
+    const secondaryAction = document.getElementById("wizardSecondaryAction");
+
+    if (isJoin) {
+      motiveLabel.textContent = "Why do you want to join this project?";
+      visionInput.placeholder = "I want to join this project to contribute my skills, learn from the team, and create meaningful work together.";
+      completeTitle.textContent = "You are ready to join.";
+      completeSubtext.textContent = "Connect with creators and start collaborating today.";
+      primaryAction.textContent = "Explore Projects";
+      secondaryAction.textContent = "Complete Profile";
+    } else {
+      motiveLabel.textContent = "What is your vision for this project?";
+      visionInput.placeholder = "We want to create a short sci-fi film that explores dreams and reality.";
+      completeTitle.textContent = "Your project is ready.";
+      completeSubtext.textContent = "Start building with creators around the world.";
+      primaryAction.textContent = "Enter Dashboard";
+      secondaryAction.textContent = "Invite people";
+    }
+  }
+
+  function renderJoinWizardMatches() {
+    const list = document.getElementById("joinMatchProjectList");
+    if (!list) return;
+    const input = document.getElementById("wizardJoinExpectSalary");
+    let expectParsed = NaN;
+    if (input && input.value.trim()) {
+      expectParsed = parseInt(input.value, 10);
+    }
+    const expectMonthly = Number.isFinite(expectParsed) ? expectParsed : null;
+    if (input && !input.dataset.liveBound) {
+      input.dataset.liveBound = "1";
+      input.addEventListener("input", renderJoinWizardMatches);
+    }
+    const rows = buildMarketMatches(wizardState.category, wizardState.skills || [], expectMonthly);
+    list.innerHTML = "";
+    const top = rows.slice(0, 8);
+    if (!top.length) {
+      list.innerHTML = "<p class=\"flow-subtitle\" style=\"grid-column:1/-1;\">We will personalize projects on your dashboard after you finish.</p>";
+      return;
+    }
+    top.forEach(proj => {
+      const card = document.createElement("div");
+      card.className = "flow-card";
+      card.style.cursor = "default";
+      card.innerHTML = `
+        <h3>${proj.name}</h3>
+        <p>${proj.desc}</p>
+        <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">Budget: ${proj.salaryLabel}</p>
+        <p style="font-size:12px;color:#94a3b8;">Roles: ${proj.roles.join(", ")}</p>
+        <p style="margin-top:10px;color:#38bdf8;font-weight:700;font-size:13px;">${proj.match}% match</p>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function setWizardError(message) {
+    document.getElementById("wizardError").textContent = message;
+  }
+
+  function startQuotes() {
+    const quoteRotator = document.getElementById("quoteRotator");
+    const selectedQuotes = wizardState.entry === "join" ? joinQuotes : quotes;
+    quoteRotator.textContent = selectedQuotes[0];
+    if (wizardState.quoteInterval) {
+      clearInterval(wizardState.quoteInterval);
+    }
+    wizardState.quoteInterval = setInterval(() => {
+      wizardState.quoteIndex = (wizardState.quoteIndex + 1) % selectedQuotes.length;
+      quoteRotator.textContent = selectedQuotes[wizardState.quoteIndex];
+    }, 2800);
+  }
+
+  function renderParticles() {
+    const particles = document.getElementById("wizardParticles");
+    particles.innerHTML = "";
+    for (let i = 0; i < 28; i += 1) {
+      const particle = document.createElement("span");
+      particle.className = "particle";
+      particle.style.left = `${Math.random() * 100}%`;
+      particle.style.animationDelay = `${Math.random() * 6}s`;
+      particle.style.animationDuration = `${6 + Math.random() * 4}s`;
+      particle.style.opacity = `${0.3 + Math.random() * 0.7}`;
+      particles.appendChild(particle);
+    }
+  }
+
+  function enterDashboard() {
+    const projectData = getProjectDataFromWizard();
+    if (wizardState.entry === "join") {
+      showNotification("Setup saved. Opening your dashboard with matched projects.");
+    } else {
+      showNotification("Project created successfully. Opening dashboard.");
+    }
+    // Publish created projects to backend (if server running)
+    if (wizardState.entry === "create" && appState.user && appState.user.contact) {
+      const payload = {
+        ownerContact: appState.user.contact,
+        name: projectData.name,
+        desc: projectData.description,
+        categoryId: projectData.categoryId,
+        category: projectData.category,
+        roles: projectData.skills || [],
+        salaryMin: projectData.salaryMin ? parseInt(projectData.salaryMin, 10) : 0,
+        salaryMax: projectData.salaryMax ? parseInt(projectData.salaryMax, 10) : 0,
+        currency: projectData.salaryCurrency || "USD"
+      };
+      if (payload.salaryMin && payload.salaryMax && payload.roles.length && payload.categoryId) {
+        fetch("/api/projects/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).then(() => apiGetSeed()).catch(() => {});
+      }
+    }
+    activateDashboard(projectData);
+    closeProjectModal();
+  }
+
+  let invitePanelInputsBound = false;
+  let invitePanelRefreshTimer = null;
+
+  function scheduleInviteSuggestionsRefresh() {
+    const panel = document.getElementById("inviteMembersPanel");
+    if (!panel || panel.classList.contains("hidden")) return;
+    clearTimeout(invitePanelRefreshTimer);
+    invitePanelRefreshTimer = setTimeout(() => renderInviteSuggestions(), 160);
+  }
+
+  function bindInvitePanelLiveInputs() {
+    if (invitePanelInputsBound) return;
+    invitePanelInputsBound = true;
+    ["wizardMinSalary", "wizardMaxSalary", "wizardCurrency", "wizardVision", "wizardShortDesc", "wizardProjectName"].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input", scheduleInviteSuggestionsRefresh);
+      el.addEventListener("change", scheduleInviteSuggestionsRefresh);
+    });
+  }
+
+  function renderInviteSuggestions() {
+    const panel = document.getElementById("inviteMembersPanel");
+    const heading = document.getElementById("invitePanelHeading");
+    const hint = document.getElementById("inviteBudgetHint");
+    const contextLine = document.getElementById("inviteContextLine");
+    const mount = document.getElementById("invitePeopleList");
+    if (!panel || !hint || !mount) return;
+
+    const min = parseInt(document.getElementById("wizardMinSalary").value, 10);
+    const max = parseInt(document.getElementById("wizardMaxSalary").value, 10);
+    const cur = document.getElementById("wizardCurrency").value;
+    const cat = wizardState.category;
+    const categoryTitle = wizardCategories.find(c => c.id === cat)?.title || "your category";
+    const selectedSkills = wizardState.skills.length ? wizardState.skills.slice() : [];
+    const keywords = extractInviteKeywords();
+    const projMin = Number.isFinite(min) ? min : NaN;
+    const projMax = Number.isFinite(max) ? max : NaN;
+    const bandValid = Number.isFinite(projMin) && Number.isFinite(projMax) && projMax >= projMin;
+
+    if (heading) {
+      heading.textContent = `People matched to ${categoryTitle}`;
+    }
+
+    if (bandValid) {
+      hint.textContent = `Ranking uses your budget ${formatSalaryBand(projMin, projMax, cur)}, the roles you selected, your project copy, and this category.`;
+    } else {
+      hint.textContent = "Add a min and max salary on the previous step to prioritize creators who fit your budget band.";
+    }
+
+    if (contextLine) {
+      const skillLine = selectedSkills.length
+        ? `Roles you asked for: ${selectedSkills.join(", ")}.`
+        : "Pick skills earlier in the flow for tighter matches.";
+      const keyLine = keywords.length ? ` Keywords from your pitch: ${keywords.slice(0, 8).join(", ")}${keywords.length > 8 ? "…" : ""}.` : "";
+      contextLine.textContent = skillLine + keyLine;
+    }
+
+    const ctx = {
+      categoryId: cat,
+      selectedSkills,
+      keywords,
+      projMin: bandValid ? projMin : NaN,
+      projMax: bandValid ? projMax : NaN
+    };
+
+    const scored = MOCK_INVITE_CREATORS.map(person => {
+      const { exact, partial } = skillAlignmentForInvite(selectedSkills, person);
+      const matchPct = scoreInvitePerson(person, ctx);
+      const budgetOverlap = bandValid ? budgetBandOverlapScore(projMin, projMax, person.rateMin, person.rateMax) : null;
+      const lo = Math.max(projMin, person.rateMin);
+      const hi = Math.min(projMax, person.rateMax);
+      const overlaps = bandValid && hi >= lo;
+      return { person, exact, partial, matchPct, budgetOverlap, overlaps };
+    }).sort((a, b) => b.matchPct - a.matchPct);
+
+    mount.innerHTML = "";
+    const top = scored.slice(0, 12);
+    top.forEach(({ person, exact, partial, matchPct, overlaps }) => {
+      const row = document.createElement("div");
+      row.className = "suggestion-card";
+      const skillNote = exact
+        ? `${exact} exact role match${exact > 1 ? "es" : ""}${partial ? ` · ${partial} partial` : ""}`
+        : partial
+          ? `${partial} partial skill match${partial > 1 ? "es" : ""}`
+          : "Broad fit — refine skills on step 3 for sharper results";
+      const budgetNote = !bandValid
+        ? "Set a salary band to score budget fit."
+        : overlaps
+          ? "Inside your budget band."
+          : "Outside your min–max band; still listed if strong on skills or pitch keywords.";
+      const pillClass = matchPct >= 52 ? "invite-match-pill" : "invite-match-pill loose";
+      row.innerHTML = `
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <strong>${person.name}</strong>
+            <div class="invite-match-row"><span class="${pillClass}">${matchPct}% fit</span></div>
+          </div>
+          <div class="suggestion-meta">${person.tagline}</div>
+          <div class="suggestion-meta">${person.skills.join(" · ")}</div>
+          <div class="suggestion-meta">Typical band: ${formatSalaryBand(person.rateMin, person.rateMax, person.currency)}</div>
+          <div class="suggestion-meta">${skillNote} · ${budgetNote}</div>
+        </div>
+        <button type="button" class="dashboard-pill-btn" data-invite-id="${person.id}">Invite</button>
+      `;
+      row.querySelector("[data-invite-id]").addEventListener("click", ev => {
+        const id = ev.currentTarget.getAttribute("data-invite-id");
+        const p = MOCK_INVITE_CREATORS.find(x => x.id === id);
+        const name = p ? p.name : "Creator";
+        showNotification(`Invite drafted for ${name} (${matchPct}% fit for your inputs).`);
+        const fromContact = (appState.user && appState.user.contact) ? appState.user.contact : "";
+        const projectName = document.getElementById("wizardProjectName")?.value || "";
+        if (fromContact) {
+          fetch("/api/invites", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fromContact, toPersonId: id, projectName })
+          }).catch(() => {});
+        }
+      });
+      mount.appendChild(row);
+    });
+  }
+
+  function inviteMembers() {
+    if (wizardState.entry === "join") {
+      showNotification("Finish your onboarding from the Projects tab.");
+      return;
+    }
+    const panel = document.getElementById("inviteMembersPanel");
+    if (!panel) return;
+    bindInvitePanelLiveInputs();
+    panel.classList.toggle("hidden");
+    if (!panel.classList.contains("hidden")) {
+      renderInviteSuggestions();
+    }
+  }
+
+  /* =======================
+     DASHBOARD CORE
+  ======================= */
+  const dashboardState = {
+    creator: {
+      activeNav: "Dashboard",
+      tasks: {
+        todo: ["Finalize concept deck", "Define onboarding flow"],
+        inProgress: ["Create teaser content"],
+        completed: ["Team kickoff call"]
+      },
+      chat: ["Arjun: Welcome everyone!", "Maya: I can take UI screens."],
+      activity: ["New file uploaded: project-plan.pdf", "Task moved to In Progress"],
+      joinRequests: [
+        { id: "j1", name: "Rohan - Video Editor" },
+        { id: "j2", name: "Anika - Frontend Developer" }
+      ],
+      notifications: ["2 new comments on tasks", "1 join request pending"]
+    }
+  };
+
+  let dashboardDomCache = null;
+
+  function getProjectDataFromWizard() {
+    const categoryObj = wizardCategories.find(item => item.id === wizardState.category);
+    const mode = wizardState.entry === "join" ? "Joined Project" : "Created Project";
+    const enteredName = document.getElementById("wizardProjectName").value.trim();
+    const shortDesc = document.getElementById("wizardShortDesc").value.trim();
+    const joinProjectName = `${categoryObj ? categoryObj.title : "General"} Collaboration`;
+    const joinExpectEl = document.getElementById("wizardJoinExpectSalary");
+    let joinExpectSalary = "";
+    if (joinExpectEl && joinExpectEl.value.trim()) joinExpectSalary = joinExpectEl.value.trim();
+    const minSal = document.getElementById("wizardMinSalary") ? document.getElementById("wizardMinSalary").value : "";
+    const maxSal = document.getElementById("wizardMaxSalary") ? document.getElementById("wizardMaxSalary").value : "";
+    const cur = document.getElementById("wizardCurrency") ? document.getElementById("wizardCurrency").value : "USD";
+
+    const teamRaw = document.getElementById("wizardTeamSize") ? document.getElementById("wizardTeamSize").value : "";
+
+    return {
+      mode,
+      memberName: wizardState.entry === "join" ? enteredName : "",
+      name: wizardState.entry === "join" ? (joinProjectName || "Collaboration Opportunity") : (enteredName || "Untitled Project"),
+      description: shortDesc || "No description provided yet.",
+      category: categoryObj ? categoryObj.title : "General",
+      categoryId: wizardState.category,
+      skills: wizardState.skills.length ? wizardState.skills.slice() : ["Collaboration"],
+      teamSize: wizardState.entry === "join" ? "Self" : (teamRaw || "N/A"),
+      deadline: document.getElementById("wizardDeadline").value || "Flexible",
+      vision: document.getElementById("wizardVision").value.trim() || "Vision to be updated.",
+      joinExpectSalary,
+      salaryMin: minSal,
+      salaryMax: maxSal,
+      salaryCurrency: cur
+    };
+  }
+
+  function activateDashboard(projectData) {
+    appState.currentProject = projectData;
+    try {
+      localStorage.setItem("makeBigActiveProject", JSON.stringify(projectData));
+    } catch (e) {}
+    appState.role = wizardState.entry === "join" ? "member" : "creator";
+    appState.view = appState.role === "member" ? "social_dashboard" : "dashboard";
+    if (appState.role === "member") {
+      initializeMemberState(projectData);
+    }
+    renderApp();
+  }
+
+  function initializeMemberState(projectData) {
+    const createAiImage = (title, c1, c2) => {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='700'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/></linearGradient></defs><rect width='1200' height='700' fill='url(#g)'/><circle cx='220' cy='180' r='140' fill='rgba(255,255,255,0.16)'/><circle cx='960' cy='520' r='180' fill='rgba(255,255,255,0.12)'/><text x='80' y='370' fill='white' font-size='58' font-family='Arial' font-weight='700'>${title}</text></svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    };
+
+    if (appState.posts.length === 0) {
+      appState.posts = [
+        {
+          id: "post1",
+          avatar: "NT",
+          name: "Nova Team",
+          timestamp: "2h ago",
+          text: "Sprint update: authentication flow completed.",
+          likes: 12,
+          liked: false,
+          comments: ["Great progress!", "Can I contribute to UI?"],
+          imageTitle: "AI Sprint Board",
+          imageDesc: "Realtime sprint visibility powered by AI insights.",
+          imageUrl: createAiImage("AI Sprint Board", "#1d4ed8", "#0ea5e9")
+        },
+        {
+          id: "post2",
+          avatar: "AS",
+          name: "Asha",
+          timestamp: "5h ago",
+          text: "Looking for collaborators for AI short film project.",
+          likes: 8,
+          liked: false,
+          comments: ["Interested!", "Sent connection request."],
+          imageTitle: "Neural Cinema Concept",
+          imageDesc: "Generative scene boards for a collaborative sci-fi short.",
+          imageUrl: createAiImage("Neural Cinema", "#7c3aed", "#2563eb")
+        },
+        {
+          id: "post3",
+          avatar: "RJ",
+          name: "Ria Jain",
+          timestamp: "8h ago",
+          text: "We just completed user interviews for the creator dashboard.",
+          likes: 14,
+          liked: false,
+          comments: ["Can you share highlights?"]
+        },
+        {
+          id: "post4",
+          avatar: "KM",
+          name: "Karan M",
+          timestamp: "1d ago",
+          text: "Our cross-team collab boosted project velocity by 23%.",
+          likes: 21,
+          liked: false,
+          comments: ["Amazing result!", "Need this workflow doc."]
+        },
+        {
+          id: "post5",
+          avatar: "ML",
+          name: "Mia Lee",
+          timestamp: "1d ago",
+          text: "Published the first interactive prototype for feedback.",
+          likes: 17,
+          liked: false,
+          comments: ["Looks clean.", "Will test tonight."]
+        }
+      ];
+    }
+
+    if (appState.people.length === 0) {
+      appState.people = [
+        { id: "u1", name: "Nisha Rao", skills: "UI/UX, Figma", bio: "Designs clean, conversion-focused user journeys.", connected: false, avatar: "NR", activeProjects: ["Future Frames", "Creator OS"] },
+        { id: "u2", name: "Kabir Jain", skills: "Backend, Node.js", bio: "Builds scalable APIs and realtime systems.", connected: true, avatar: "KJ", activeProjects: ["AI Podcast Suite"] },
+        { id: "u3", name: "Mia George", skills: "Content Strategy", bio: "Turns ideas into viral content formats.", connected: false, avatar: "MG", activeProjects: ["Growth Content Sprint"] }
+      ];
+    }
+
+    if (appState.notifications.length === 0) {
+      appState.notifications = [
+        "Connection request from Nisha Rao",
+        "Task update in AI Podcast Suite",
+        "Your post got 8 likes",
+        "New comment on your progress update"
+      ];
+    }
+
+    appState.recommendations = buildRecommendations(projectData);
+    const derivedProjects = appState.recommendations.map(reco => ({
+      id: `mp-${reco.id}`,
+      name: reco.name,
+      category: reco.category,
+      status: `${reco.match}% fit`,
+      progress: Math.min(92, Math.max(38, Math.round(Number(reco.match) * 0.9))),
+      description: `${reco.desc} Roles: ${reco.roles.join(", ")}${reco.salaryLabel ? ` · ${reco.salaryLabel}` : ""}`
+    }));
+    if (derivedProjects.length) {
+      appState.projects = derivedProjects;
+    } else if (appState.projects.length === 0) {
+      appState.projects = [
+        {
+          id: "p-placeholder",
+          name: `${projectData.category} opportunities`,
+          category: projectData.category,
+          status: "New matches soon",
+          progress: 40,
+          description: "Adjust your filters in Explore to widen matches."
+        }
+      ];
+    }
+    appState.activeTab = wizardState.entry === "join" ? "projects" : "home";
+  }
+
+  function buildRecommendations(projectData) {
+    const catId = projectData.categoryId || wizardCategories.find(c => c.title === projectData.category)?.id || "web";
+    const expectMonthly = projectData.joinExpectSalary ? parseInt(projectData.joinExpectSalary, 10) : NaN;
+    const expect = Number.isFinite(expectMonthly) ? expectMonthly : null;
+    let rows = buildMarketMatches(catId, projectData.skills || [], expect);
+    rows = rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      desc: row.desc,
+      roles: row.roles,
+      match: row.match,
+      salaryLabel: row.salaryLabel
+    }));
+    if (!rows.length) {
+      rows = buildMarketMatches("web", projectData.skills || [], expect).map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        desc: row.desc,
+        roles: row.roles,
+        match: row.match,
+        salaryLabel: row.salaryLabel
+      }));
+    }
+    return rows.slice(0, 8);
+  }
+
+  function renderApp() {
+    const homeSections = [
+      document.querySelector(".navbar"),
+      document.querySelector(".hero"),
+      document.querySelector(".skills"),
+      document.querySelector(".footer")
+    ];
+    const dashboardRoot = document.getElementById("dashboardRoot");
+
+    if (appState.view === "dashboard" || appState.view === "social_dashboard") {
+      homeSections.forEach(section => {
+        if (section) section.style.display = "none";
+      });
+      dashboardRoot.classList.add("active");
+      renderDashboard();
+      document.body.style.overflow = "auto";
+      return;
+    }
+
+    dashboardRoot.classList.remove("active");
+    homeSections.forEach(section => {
+      if (section) section.style.display = "";
+    });
+  }
+
+  function renderDashboard() {
+    const root = document.getElementById("dashboardRoot");
+    if (!dashboardDomCache) {
+      dashboardDomCache = {};
+    }
+    if (appState.role === "member") {
+      renderMemberDashboard(root);
+      return;
+    }
+    renderCreatorDashboard(root);
+  }
+
+  /* =======================
+     DASHBOARD COMPONENTS
+  ======================= */
+  function createTopBar(options = {}) {
+    const { searchPlaceholder = "Search tasks, members, files...", onNotification, inviteLabel = "Invite Member", onInvite } = options;
+    const topBar = document.createElement("header");
+    topBar.className = "dashboard-topbar";
+    topBar.innerHTML = `
+      <h3 id="dashboardProjectName">Project Dashboard</h3>
+      <div class="topbar-search"><input id="dashboardSearch" type="text" placeholder="${searchPlaceholder}"></div>
+      <div class="dashboard-top-actions">
+        <button id="dashboardNotifBtn" class="dashboard-pill-btn">Notifications</button>
+        <button id="dashboardInviteBtn" class="dashboard-pill-btn">${inviteLabel}</button>
+        <button id="dashboardProfileBtn" class="dashboard-pill-btn">Profile</button>
+      </div>
+    `;
+    topBar.querySelector("#dashboardNotifBtn").addEventListener("click", onNotification || (() => showNotification("You have 3 unread updates.")));
+    topBar.querySelector("#dashboardInviteBtn").addEventListener("click", onInvite || handleInviteMember);
+    topBar.querySelector("#dashboardProfileBtn").addEventListener("click", () => renderProfileDropdown());
+    return topBar;
+  }
+
+  function createSidebar(items, activeKey, handler) {
+    const sidebar = document.createElement("aside");
+    sidebar.className = "dashboard-sidebar";
+    sidebar.innerHTML = `<div id="dashboardNav" class="dashboard-nav"></div>`;
+    const nav = sidebar.querySelector("#dashboardNav");
+    items.forEach(item => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = item;
+      button.dataset.nav = item;
+      if (item === activeKey) button.classList.add("active");
+      button.addEventListener("click", handler);
+      nav.appendChild(button);
+    });
+    return sidebar;
+  }
+
+  function createOverviewSection() {
+    const project = appState.currentProject || {};
+    const completedTasks = JSON.parse(localStorage.getItem('completedTasks') || '[]');
+    const todoTasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+    const inProgressTasks = JSON.parse(localStorage.getItem('inProgressTasks') || '[]');
+    const totalTasks = completedTasks.length + todoTasks.length + inProgressTasks.length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+    
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <h4>Project Overview</h4>
+      <div class="dashboard-row"><span>${project.category || "General"}</span><span>${project.mode || "Active"}</span></div>
+      <p style="margin:0 0 10px;color:#cbd5e1;">${project.description || "No description available."}</p>
+      <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+      <p style="margin:8px 0 0;color:#94a3b8;font-size:13px;">Progress: ${progress}% (${completedTasks.length}/${totalTasks} tasks) | Deadline: ${project.deadline || "Flexible"}</p>
+    `;
+    return section;
+  }
+
+  function createTeamSection() {
+    const project = appState.currentProject || {};
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const teamMembers = JSON.parse(localStorage.getItem('teamMembers') || '[]');
+    const userDisplayName = appState.user ? appState.user.name : "Creator";
+    
+    const membersList = [
+      { name: userDisplayName, role: "Project Lead" },
+      ...teamMembers.map(m => ({ name: m.name, role: m.role }))
+    ];
+    
+    const chips = membersList.map(m => `<div class="tag-chip">${m.name} - ${m.role}</div>`).join("");
+    
+    section.innerHTML = `
+      <h4>Team Members (${membersList.length})</h4>
+      <div class="mini-grid">
+        ${chips || '<div class="tag-chip">Just you for now</div>'}
+      </div>
+      <p style="margin:10px 0 0;color:#94a3b8;font-size:13px;">Team size needed: ${project.teamSize || "N/A"}</p>
+      <button class="dashboard-pill-btn" id="addTeamMemberBtn" style="margin-top: 10px; width: 100%;">Add Team Member</button>
+    `;
+    
+    section.querySelector("#addTeamMemberBtn").addEventListener("click", handleAddTeamMember);
+    return section;
+  }
+
+  function handleAddTeamMember() {
+    const modal = document.createElement("div");
+    modal.className = "modal active";
+    modal.innerHTML = `
+      <div class="modal-overlay"></div>
+      <div class="modal-content" style="max-width: 440px;">
+        <button class="modal-close" type="button">✕</button>
+        <h2 class="modal-title">Add Team Member</h2>
+        <p class="modal-subtitle">Invite or add a team member to your project</p>
+        <form id="addTeamForm">
+          <div class="form-group">
+            <label for="memberName">Team Member Name</label>
+            <input type="text" id="memberName" placeholder="Enter name" required>
+          </div>
+          <div class="form-group">
+            <label for="memberRole">Role / Position</label>
+            <input type="text" id="memberRole" placeholder="e.g. Frontend Developer, Designer" required>
+          </div>
+          <div class="form-group">
+            <label for="memberContact">Email or Phone (optional)</label>
+            <input type="text" id="memberContact" placeholder="Contact info">
+          </div>
+          <button type="submit" class="submit-btn">Add Member</button>
+          <button type="button" class="cancel-btn" onclick="this.closest('.modal').remove()">Cancel</button>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    modal.querySelector(".modal-overlay").addEventListener("click", () => modal.remove());
+    modal.querySelector(".modal-close").addEventListener("click", () => modal.remove());
+    
+    modal.querySelector("#addTeamForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("memberName").value;
+      const role = document.getElementById("memberRole").value;
+      const contact = document.getElementById("memberContact").value;
+      
+      const teamMembers = JSON.parse(localStorage.getItem('teamMembers') || '[]');
+      teamMembers.push({ name, role, contact, addedAt: new Date().toISOString() });
+      localStorage.setItem('teamMembers', JSON.stringify(teamMembers));
+      
+      showNotification(`${name} added as ${role}`);
+      modal.remove();
+      renderCreatorMainSections(document.querySelector(".dashboard-main"));
+    });
+  }
+
+  function createWhoYouNeedSection() {
+    const project = appState.currentProject || {};
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const chips = (project.skills || []).map(skill => `<div class="tag-chip">${skill}</div>`).join("");
+    section.innerHTML = `<h4>Who You Need</h4><div class="mini-grid">${chips || '<div class="tag-chip">No skills selected</div>'}</div>`;
+    return section;
+  }
+
+  function createTaskBoard() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <div class="dashboard-row">
+        <h4 style="margin:0;">Task Board</h4>
+        <form id="addTaskForm" class="inline-form" style="max-width:350px;">
+          <input id="newTaskInput" type="text" placeholder="Add new task">
+          <button type="submit">Add Task</button>
+        </form>
+      </div>
+      <div class="board-columns">
+        <div class="board-col"><h5>To Do</h5><div id="todoTasks"></div></div>
+        <div class="board-col"><h5>In Progress</h5><div id="inProgressTasks"></div></div>
+        <div class="board-col"><h5>Completed</h5><div id="completedTasks"></div></div>
+      </div>
+    `;
+    section.querySelector("#addTaskForm").addEventListener("submit", handleAddTask);
+    return section;
+  }
+
+  function createChatSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <h4>Live Chat</h4>
+      <div id="chatLog" class="chat-log"></div>
+      <form id="chatForm" class="inline-form">
+        <input id="chatInput" type="text" placeholder="Type message">
+        <button type="submit">Send</button>
+      </form>
+    `;
+    section.querySelector("#chatForm").addEventListener("submit", handleSendMessage);
+    return section;
+  }
+
+  function createFeedSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `<h4>Project Feed</h4><div id="projectFeedList"></div>`;
+    return section;
+  }
+
+  function createFilesSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <h4>Shared Files</h4>
+      <div class="mini-grid">
+        <div class="tag-chip">project-brief.pdf</div>
+        <div class="tag-chip">brand-moodboard.png</div>
+        <div class="tag-chip">roadmap-v1.xlsx</div>
+      </div>
+    `;
+    return section;
+  }
+
+  function createProjectsListSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const currentProject = appState.currentProject || {};
+    section.innerHTML = `
+      <h4>Your Projects</h4>
+      <div class="mini-grid">
+        <div class="tag-chip">
+          <strong>${currentProject.name || 'Untitled Project'}</strong>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">${currentProject.category || 'General'}</div>
+        </div>
+      </div>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 12px;">Total: 1 active project</p>
+    `;
+    return section;
+  }
+
+  function createMeetingsSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <h4>Upcoming Meetings</h4>
+      <div style="color: #94a3b8; font-size: 13px; padding: 16px;">
+        <p>No meetings scheduled yet.</p>
+        <button class="dashboard-pill-btn" style="margin-top: 10px; width: 100%;">Schedule Meeting</button>
+      </div>
+    `;
+    section.querySelector("button").addEventListener("click", () => {
+      showNotification("Meeting scheduling feature coming soon!");
+    });
+    return section;
+  }
+
+  function createSettingsSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <h4>Project Settings</h4>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="padding: 12px; border: 1px solid rgba(148,163,184,0.2); border-radius: 8px;">
+          <div style="color: #cbd5e1; font-size: 13px; font-weight: 600;">Project Visibility</div>
+          <div style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Public</div>
+        </div>
+        <div style="padding: 12px; border: 1px solid rgba(148,163,184,0.2); border-radius: 8px;">
+          <div style="color: #cbd5e1; font-size: 13px; font-weight: 600;">Project Status</div>
+          <div style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Active</div>
+        </div>
+        <button class="dashboard-pill-btn" style="width: 100%;">Edit Settings</button>
+      </div>
+    `;
+    return section;
+  }
+
+  function createActivitySection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `<h4>Activity Feed</h4><div id="activityFeed"></div>`;
+    return section;
+  }
+
+  function createJoinRequestSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `<h4>Join Requests</h4><div id="joinRequests"></div>`;
+    return section;
+  }
+
+  function createNotificationsSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const notifications = JSON.parse(localStorage.getItem('projectNotifications') || '[]');
+    section.innerHTML = `
+      <h4>Notifications</h4>
+      <div id="notificationsList"></div>
+    `;
+    const list = section.querySelector("#notificationsList");
+    if (notifications.length === 0) {
+      const emptyEl = document.createElement("p");
+      emptyEl.style.color = "#94a3b8";
+      emptyEl.style.fontSize = "13px";
+      emptyEl.textContent = "No new notifications";
+      list.appendChild(emptyEl);
+    } else {
+      notifications.forEach((notif, idx) => {
+        const row = document.createElement("div");
+        row.className = "dashboard-row";
+        row.style.paddingBottom = "8px";
+        row.style.borderBottom = "1px solid rgba(148,163,184,0.2)";
+        row.style.marginBottom = "8px";
+        row.innerHTML = `
+          <span style="font-size:13px;color:#cbd5e1;">${notif}</span>
+          <button class="dashboard-pill-btn" data-notif-idx="${idx}" style="font-size: 11px; padding: 4px 8px;">Dismiss</button>
+        `;
+        row.querySelector("button").addEventListener("click", (e) => {
+          const idx = parseInt(e.currentTarget.dataset.notifIdx);
+          const notifs = JSON.parse(localStorage.getItem('projectNotifications') || '[]');
+          notifs.splice(idx, 1);
+          localStorage.setItem('projectNotifications', JSON.stringify(notifs));
+          hydrateCreatorRightPanel();
+        });
+        list.appendChild(row);
+      });
+    }
+    return section;
+  }
+
+  function createTrendingSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `<h4>Trending Creators</h4><div id="trendingCreators"></div>`;
+    return section;
+  }
+
+  function createSalaryTrackingSection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const project = appState.currentProject || {};
+    const salaryMin = parseInt(project.salaryMin) || 0;
+    const salaryMax = parseInt(project.salaryMax) || 0;
+    const avgSalary = salaryMin && salaryMax ? Math.round((salaryMin + salaryMax) / 2) : 0;
+    const currency = project.salaryCurrency || "USD";
+    
+    // Get salary data from localStorage or default
+    const salaryData = JSON.parse(localStorage.getItem('userSalaryData') || '{"given": 0, "pending": 0, "currency": "' + currency + '"}');
+    const totalGiven = salaryData.given || 0;
+    const pending = salaryData.pending || 0;
+    
+    section.innerHTML = `
+      <h4>💰 Salary & Compensation Tracker</h4>
+      <div class="dashboard-row" style="margin-bottom: 12px;">
+        <span style="color: #cbd5e1;">Budget Range:</span>
+        <span style="color: #7dd3fc; font-weight: 600;">${currency} ${salaryMin.toLocaleString()} - ${salaryMax.toLocaleString()} / month</span>
+      </div>
+      <div class="dashboard-row" style="margin-bottom: 12px;">
+        <span style="color: #cbd5e1;">Total Allocated:</span>
+        <span style="color: #38bdf8; font-weight: 600;">${currency} ${totalGiven.toLocaleString()}</span>
+      </div>
+      <div class="dashboard-row" style="margin-bottom: 12px;">
+        <span style="color: #cbd5e1;">Pending/Remaining:</span>
+        <span style="color: #f59e0b; font-weight: 600;">${currency} ${pending.toLocaleString()}</span>
+      </div>
+      <div class="progress-track" style="margin-bottom: 8px;">
+        <div class="progress-fill" style="width: ${avgSalary > 0 ? Math.min(100, (totalGiven / avgSalary) * 100) : 0}%; background: linear-gradient(90deg, #f59e0b, #ec4899);"></div>
+      </div>
+      <p style="margin: 0; color: #94a3b8; font-size: 13px;">
+        ${avgSalary > 0 ? `${Math.round((totalGiven / avgSalary) * 100)}% of monthly budget allocated` : 'Set budget range on project creation'}
+      </p>
+      <div style="margin-top: 12px; display: flex; gap: 8px;">
+        <button class="dashboard-pill-btn" id="addSalaryBtn" style="flex: 1;">Add Payment</button>
+        <button class="dashboard-pill-btn" id="viewSalaryHistoryBtn" style="flex: 1;">History</button>
+      </div>
+    `;
+    
+    section.querySelector("#addSalaryBtn").addEventListener("click", handleAddSalary);
+    section.querySelector("#viewSalaryHistoryBtn").addEventListener("click", handleViewSalaryHistory);
+    return section;
+  }
+
+  function renderCreatorMainSections(main) {
+    main.innerHTML = "";
+    main.appendChild(createOverviewSection());
+    main.appendChild(createWhoYouNeedSection());
+    main.appendChild(createTeamSection());
+    main.appendChild(createTaskBoard());
+    main.appendChild(createChatSection());
+    main.appendChild(createFeedSection());
+    main.appendChild(createFilesSection());
+    hydrateTaskColumns();
+    hydrateChat();
+    hydrateFeed();
+  }
+
+  function createRightPanel() {
+    const fragment = document.createDocumentFragment();
+    fragment.appendChild(createActivitySection());
+    fragment.appendChild(createJoinRequestSection());
+    fragment.appendChild(createNotificationsSection());
+    return fragment;
+  }
+
+  function renderCreatorRightSections(right) {
+    right.innerHTML = "";
+    right.appendChild(createRightPanel());
+    hydrateCreatorRightPanel();
+  }
+
+  function hydrateTaskColumns() {
+    const addTasks = (containerId, items) => {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.style.color = "#94a3b8";
+        empty.style.fontSize = "12px";
+        empty.textContent = "No tasks";
+        container.appendChild(empty);
+      } else {
+        items.forEach(item => {
+          const el = document.createElement("div");
+          el.className = "task-item";
+          el.textContent = item;
+          container.appendChild(el);
+        });
+      }
+    };
+    
+    const todoTasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+    const inProgressTasks = JSON.parse(localStorage.getItem('inProgressTasks') || '[]');
+    const completedTasks = JSON.parse(localStorage.getItem('completedTasks') || '[]');
+    
+    addTasks("todoTasks", todoTasks);
+    addTasks("inProgressTasks", inProgressTasks);
+    addTasks("completedTasks", completedTasks);
+  }
+
+  function hydrateChat() {
+    const log = document.getElementById("chatLog");
+    log.innerHTML = "";
+    const messages = JSON.parse(localStorage.getItem('projectChat') || '[]');
+    if (messages.length === 0) {
+      const emptyMsg = document.createElement("div");
+      emptyMsg.style.color = "#94a3b8";
+      emptyMsg.style.fontSize = "13px";
+      emptyMsg.textContent = "No messages yet. Start a conversation!";
+      log.appendChild(emptyMsg);
+    } else {
+      messages.forEach(message => {
+        const msg = document.createElement("div");
+        msg.className = "chat-msg";
+        msg.textContent = message;
+        log.appendChild(msg);
+      });
+    }
+  }
+
+  function hydrateFeed() {
+    const list = document.getElementById("projectFeedList");
+    if (!list) return;
+    list.innerHTML = "";
+    const activities = JSON.parse(localStorage.getItem('projectActivity') || '[]');
+    if (activities.length === 0) {
+      const emptyItem = document.createElement("div");
+      emptyItem.style.color = "#94a3b8";
+      emptyItem.style.fontSize = "13px";
+      emptyItem.textContent = "Project activity will appear here.";
+      list.appendChild(emptyItem);
+    } else {
+      activities.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "tag-chip";
+        row.style.marginBottom = "6px";
+        row.textContent = item;
+        list.appendChild(row);
+      });
+    }
+  }
+
+  function hydrateMemberFeed() {
+    const list = document.getElementById("memberFeedList");
+    if (!list) return;
+    list.innerHTML = "";
+    appState.posts.forEach(post => {
+      const row = document.createElement("div");
+      row.className = "feed-post";
+      row.innerHTML = `
+        <div class="feed-post-head">
+          <div class="feed-author">
+            <span class="feed-avatar">${post.avatar}</span>
+            <div>
+              <div style="color:#e2e8f0;font-size:13px;">${post.name}</div>
+              <div style="color:#94a3b8;font-size:11px;">${post.timestamp}</div>
+            </div>
+          </div>
+          <span style="color:#94a3b8;font-size:11px;">${post.likes} likes</span>
+        </div>
+        <p style="margin:0;color:#cbd5e1;">${post.text}</p>
+        <div class="feed-actions">
+          <button class="dashboard-pill-btn" data-post-id="${post.id}">${post.liked ? "Liked" : "Like"}</button>
+          <button class="dashboard-pill-btn">Comment</button>
+        </div>
+        <div class="post-comments">${post.comments.map(comment => `<div class="post-comment-item">${comment}</div>`).join("")}</div>
+      `;
+      row.querySelector("[data-post-id]").addEventListener("click", handleLikeToggle);
+      list.appendChild(row);
+    });
+  }
+
+  function renderRecommendations() {
+    const container = document.getElementById("recommendationList");
+    if (!container) return;
+    container.innerHTML = "";
+    appState.recommendations.forEach(project => {
+      const card = document.createElement("div");
+      card.className = "recommend-card";
+      const salaryLine = project.salaryLabel ? `<p style="margin:0 0 8px;color:#94a3b8;font-size:12px;">${project.salaryLabel}</p>` : "";
+      card.innerHTML = `
+        <div class="dashboard-row" style="margin-bottom:6px;">
+          <strong style="color:#e2e8f0;">${project.name}</strong>
+          <span style="color:#38bdf8;font-size:12px;">${project.match}% match</span>
+        </div>
+        <p style="margin:0 0 6px;color:#94a3b8;font-size:12px;">${project.category}</p>
+        <p style="margin:0 0 8px;color:#cbd5e1;font-size:12px;">${project.desc}</p>
+        ${salaryLine}
+        <p style="margin:0 0 8px;color:#94a3b8;font-size:12px;">Roles: ${project.roles.join(", ")}</p>
+        <button class="dashboard-pill-btn" data-reco-id="${project.id}">Join</button>
+      `;
+      card.querySelector("[data-reco-id]").addEventListener("click", () => showNotification(`Join request sent for ${project.name}`));
+      container.appendChild(card);
+    });
+  }
+
+  function hydrateActiveProjectFromStorage() {
+    try {
+      const raw = localStorage.getItem("makeBigActiveProject");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.name) appState.currentProject = parsed;
+      if (parsed && parsed.mode === "Joined Project") appState.role = "member";
+      else if (parsed && parsed.mode === "Created Project") appState.role = "creator";
+    } catch (e) {}
+  }
+
+  function handleNavbarProjectsNav(event) {
+    event.preventDefault();
+    if (!checkAuth()) {
+      openAuth();
+      setAuthMessage("Login to view your projects.");
+      return;
+    }
+    hydrateActiveProjectFromStorage();
+    if (!appState.currentProject || !localStorage.getItem("user")) {
+      showNotification("You have not created or joined a project yet. Tap “Start a Project”.");
+      return;
+    }
+    appState.view = appState.role === "member" ? "social_dashboard" : "dashboard";
+    if (appState.role === "member") {
+      appState.activeTab = "projects";
+    }
+    renderApp();
+    showNotification("Opened your Projects workspace.");
+  }
+
+  function hydrateCreatorRightPanel() {
+    const activity = document.getElementById("activityFeed");
+    const activities = JSON.parse(localStorage.getItem('projectActivity') || '[]');
+    activity.innerHTML = activities.length ?
+      activities.map(item => `<div class="tag-chip" style="margin-bottom:6px;">${item}</div>`).join("")
+      : '<p style="color:#94a3b8;font-size:13px;">No activity yet</p>';
+
+    const joins = document.getElementById("joinRequests");
+    const joinRequests = JSON.parse(localStorage.getItem('joinRequests') || '[]');
+    joins.innerHTML = "";
+    if (joinRequests.length === 0) {
+      const emptyEl = document.createElement("p");
+      emptyEl.style.color = "#94a3b8";
+      emptyEl.style.fontSize = "13px";
+      emptyEl.textContent = "No join requests";
+      joins.appendChild(emptyEl);
+    } else {
+      joinRequests.forEach((req, idx) => {
+        const row = document.createElement("div");
+        row.className = "dashboard-row";
+        row.innerHTML = `
+          <span style="font-size:13px;color:#cbd5e1;">${req.name} - ${req.role}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="dashboard-pill-btn" data-join-idx="${idx}" data-action="approve">Approve</button>
+            <button class="dashboard-pill-btn" data-join-idx="${idx}" data-action="reject">Reject</button>
+          </div>
+        `;
+        row.querySelectorAll("button").forEach(btn => btn.addEventListener("click", (e) => {
+          const idx = e.currentTarget.dataset.joinIdx;
+          const action = e.currentTarget.dataset.action;
+          const joinRequests = JSON.parse(localStorage.getItem('joinRequests') || '[]');
+          joinRequests.splice(parseInt(idx), 1);
+          localStorage.setItem('joinRequests', JSON.stringify(joinRequests));
+          hydrateCreatorRightPanel();
+          showNotification(`Join request ${action}d.`);
+        }));
+        joins.appendChild(row);
+      });
+    }
+
+    const notifs = document.getElementById("notificationsList");
+    if (notifs) {
+      const notifications = JSON.parse(localStorage.getItem('projectNotifications') || '[]');
+      notifs.innerHTML = notifications.length ?
+        notifications.map(item => `<div class="tag-chip" style="margin-bottom:6px;">${item}</div>`).join("")
+        : '<p style="color:#94a3b8;font-size:13px;">No notifications</p>';
+    }
+  }
+
+  function updateTopBarProjectName() {
+    const title = document.getElementById("dashboardProjectName");
+    if (!title || !appState.currentProject) return;
+    title.textContent = appState.currentProject.name || "Project Dashboard";
+  }
+
+  function updateSidebarSelection(activeNav) {
+    const buttons = document.querySelectorAll("#dashboardNav button");
+    buttons.forEach(btn => btn.classList.toggle("active", btn.dataset.nav === activeNav));
+  }
+
+  /* =======================
+     DASHBOARD EVENTS
+  ======================= */
+  function handleCreatorSidebarNavigation(event) {
+    dashboardState.creator.activeNav = event.currentTarget.dataset.nav;
+    updateSidebarSelection(dashboardState.creator.activeNav);
+    
+    const main = document.querySelector(".dashboard-main");
+    if (!main) return;
+    main.innerHTML = "";
+    
+    // Handle navigation for all tabs
+    switch(dashboardState.creator.activeNav) {
+      case "Dashboard":
+        main.appendChild(createOverviewSection());
+        main.appendChild(createWhoYouNeedSection());
+        main.appendChild(createTeamSection());
+        main.appendChild(createTaskBoard());
+        main.appendChild(createChatSection());
+        hydrateTaskColumns();
+        hydrateChat();
+        break;
+      case "Projects":
+        main.appendChild(createProjectsListSection());
+        break;
+      case "Team":
+        main.appendChild(createTeamSection());
+        break;
+      case "Chat":
+        main.appendChild(createChatSection());
+        hydrateChat();
+        break;
+      case "Tasks":
+        main.appendChild(createTaskBoard());
+        hydrateTaskColumns();
+        break;
+      case "Salary":
+        main.appendChild(createSalaryTrackingSection());
+        main.appendChild(createSalaryHistorySection());
+        break;
+      case "Files":
+        main.appendChild(createFilesSection());
+        break;
+      case "Feed":
+        main.appendChild(createFeedSection());
+        hydrateFeed();
+        break;
+      case "Meetings":
+        main.appendChild(createMeetingsSection());
+        break;
+      case "Settings":
+        main.appendChild(createSettingsSection());
+        break;
+      default:
+        main.appendChild(createOverviewSection());
+    }
+    
+    showNotification(`${dashboardState.creator.activeNav} view selected.`);
+  }
+
+  function createSalaryHistorySection() {
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const history = JSON.parse(localStorage.getItem('salaryHistory') || '[]');
+    
+    section.innerHTML = `
+      <h4>Payment History</h4>
+      <div style="max-height: 400px; overflow-y: auto;">
+        ${history.length ? 
+          history.map((entry, idx) => `
+            <div class="dashboard-row" style="padding: 8px; border: 1px solid rgba(148,163,184,0.2); border-radius: 8px; margin-bottom: 8px;">
+              <div>
+                <div style="color: #cbd5e1;">${entry.name || 'Team Member'}</div>
+                <div style="color: #94a3b8; font-size: 12px;">${entry.date}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="color: #38bdf8; font-weight: 600;">${entry.currency} ${entry.amount.toLocaleString()}</div>
+                <div style="color: #94a3b8; font-size: 12px;">${entry.type}</div>
+              </div>
+            </div>
+          `).join('')
+          : '<p style="color: #94a3b8;">No payment history yet.</p>'
+        }
+      </div>
+    `;
+    return section;
+  }
+
+  function handleAddSalary() {
+    const modal = document.createElement("div");
+    modal.className = "modal active";
+    modal.innerHTML = `
+      <div class="modal-overlay"></div>
+      <div class="modal-content" style="max-width: 440px;">
+        <button class="modal-close" type="button">✕</button>
+        <h2 class="modal-title">Add Payment</h2>
+        <p class="modal-subtitle">Record salary or payment to team member</p>
+        <form id="addSalaryForm">
+          <div class="form-group">
+            <label for="salaryMemberName">Team Member Name</label>
+            <input type="text" id="salaryMemberName" placeholder="Enter name" required>
+          </div>
+          <div class="form-group">
+            <label for="salaryAmount">Amount</label>
+            <input type="number" id="salaryAmount" placeholder="0" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="salaryType">Payment Type</label>
+            <select id="salaryType">
+              <option value="Monthly">Monthly Salary</option>
+              <option value="Bonus">Bonus</option>
+              <option value="Advance">Advance</option>
+              <option value="Partial">Partial Payment</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="salaryCurrency">Currency</label>
+            <select id="salaryCurrency">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="INR">INR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+          <button type="submit" class="submit-btn">Add Payment</button>
+          <button type="button" class="cancel-btn" onclick="this.closest('.modal').remove()">Cancel</button>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    modal.querySelector(".modal-overlay").addEventListener("click", () => modal.remove());
+    modal.querySelector(".modal-close").addEventListener("click", () => modal.remove());
+    
+    modal.querySelector("#addSalaryForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("salaryMemberName").value;
+      const amount = parseInt(document.getElementById("salaryAmount").value);
+      const type = document.getElementById("salaryType").value;
+      const currency = document.getElementById("salaryCurrency").value;
+      
+      // Save to history
+      const history = JSON.parse(localStorage.getItem('salaryHistory') || '[]');
+      history.push({
+        name,
+        amount,
+        type,
+        currency,
+        date: new Date().toLocaleDateString()
+      });
+      localStorage.setItem('salaryHistory', JSON.stringify(history));
+      
+      // Update salary data
+      const salaryData = JSON.parse(localStorage.getItem('userSalaryData') || '{"given": 0, "pending": 0, "currency": "' + currency + '"}');
+      salaryData.given += amount;
+      salaryData.currency = currency;
+      localStorage.setItem('userSalaryData', JSON.stringify(salaryData));
+      
+      showNotification(`Payment of ${currency} ${amount.toLocaleString()} added for ${name}`);
+      modal.remove();
+      handleSalaryNav(); // Refresh the view
+    });
+  }
+
+  function handleViewSalaryHistory() {
+    const history = JSON.parse(localStorage.getItem('salaryHistory') || '[]');
+    if (history.length === 0) {
+      showNotification("No payment history yet.");
+    } else {
+      showNotification(`Total ${history.length} payments recorded`);
+    }
+  }
+
+  function handleMemberSidebarNavigation(event) {
+    appState.activeTab = event.currentTarget.dataset.nav.toLowerCase();
+    updateSidebarSelection(event.currentTarget.dataset.nav);
+    renderMemberMainByNav();
+  }
+
+  function handleLikeToggle(event) {
+    const postId = event.currentTarget.dataset.postId;
+    const target = appState.posts.find(item => item.id === postId);
+    if (!target) return;
+    if (target.liked) {
+      target.likes = Math.max(0, target.likes - 1);
+    } else {
+      target.likes += 1;
+    }
+    target.liked = !target.liked;
+    renderFeed(document.getElementById("memberMainMount"));
+  }
+
+  function handleAddTask(event) {
+    event.preventDefault();
+    const input = document.getElementById("newTaskInput");
+    const value = input.value.trim();
+    if (!value) return;
+    const todoTasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+    todoTasks.push(value);
+    localStorage.setItem('todoTasks', JSON.stringify(todoTasks));
+    
+    // Add activity
+    const activities = JSON.parse(localStorage.getItem('projectActivity') || '[]');
+    activities.push(`New task added: ${value}`);
+    localStorage.setItem('projectActivity', JSON.stringify(activities));
+    
+    input.value = "";
+    hydrateTaskColumns();
+    showNotification("Task added to To Do.");
+  }
+
+  function handleSendMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById("chatInput");
+    const value = input.value.trim();
+    if (!value) return;
+    const sender = appState.user ? appState.user.name : "You";
+    const message = `${sender}: ${value}`;
+    
+    // Save to localStorage
+    const messages = JSON.parse(localStorage.getItem('projectChat') || '[]');
+    messages.push(message);
+    localStorage.setItem('projectChat', JSON.stringify(messages));
+    
+    // Add to activity
+    const activities = JSON.parse(localStorage.getItem('projectActivity') || '[]');
+    activities.push(`${sender} sent a message`);
+    localStorage.setItem('projectActivity', JSON.stringify(activities));
+    
+    input.value = "";
+    hydrateChat();
+    showNotification("Message sent");
+  }
+
+  function handleInviteMember() {
+    showNotification("Invite sent. Waiting for response.");
+  }
+
+  function handleJoinRequestAction(event) {
+    const requestId = event.currentTarget.dataset.joinId;
+    const action = event.currentTarget.dataset.action;
+    dashboardState.creator.joinRequests = dashboardState.creator.joinRequests.filter(item => item.id !== requestId);
+    hydrateCreatorRightPanel();
+    showNotification(`Join request ${action}d.`);
+  }
+
+  function handleCreatePost(event) {
+    event.preventDefault();
+    const input = document.getElementById("memberPostInput");
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    const author = appState.user ? appState.user.name : "You";
+    appState.posts.unshift({
+      id: `m${Date.now()}`,
+      avatar: author.slice(0, 2).toUpperCase(),
+      name: author,
+      timestamp: "Just now",
+      text,
+      likes: 0,
+      liked: false,
+      comments: []
+    });
+    input.value = "";
+    renderFeed(document.getElementById("memberMainMount"));
+    showNotification("Post published successfully.");
+  }
+
+  function handleProjectSearch(event) {
+    const value = event.target.value.trim().toLowerCase();
+    const category = document.getElementById("projectCategoryFilter").value;
+    const container = document.getElementById("memberProjectsList");
+    const list = appState.projects.filter(project => {
+      const nameMatch = project.name.toLowerCase().includes(value);
+      const categoryMatch = category === "all" || project.category === category;
+      return nameMatch && categoryMatch;
+    });
+    container.innerHTML = list.map(project => `
+      <div class="dashboard-card">
+        <div class="dashboard-row">
+          <strong style="color:#e2e8f0;">${project.name}</strong>
+          <span class="tag-chip">${project.status}</span>
+        </div>
+        <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;">${project.category} • ${project.description || ""}</p>
+        <div class="progress-track"><div class="progress-fill" style="width:${project.progress || 0}%"></div></div>
+        <div class="dashboard-row" style="margin-top:8px;">
+          <span style="font-size:12px;color:#94a3b8;">${project.progress || 0}% complete</span>
+          <button class="dashboard-pill-btn" data-open-project="${project.id}">Open</button>
+        </div>
+      </div>
+    `).join("");
+    container.querySelectorAll("[data-open-project]").forEach(btn => btn.addEventListener("click", () => showNotification("Project workspace opened.")));
+  }
+
+  function handleProjectFilter() {
+    const input = document.getElementById("projectSearchInput");
+    handleProjectSearch({ target: input });
+  }
+
+  function handleConnectToggle(event) {
+    const userId = event.currentTarget.dataset.userId;
+    const person = appState.people.find(item => item.id === userId);
+    if (!person) return;
+    person.connected = !person.connected;
+    renderPeople(document.getElementById("memberMainMount"));
+    showNotification(person.connected ? "Connection request sent." : "Connection removed.");
+  }
+
+  function renderProfileDropdown() {
+    const existing = document.getElementById("dashboardProfileMenu");
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    const menu = document.createElement("div");
+    menu.id = "dashboardProfileMenu";
+    menu.className = "notif-pop";
+    menu.style.top = "82px";
+    menu.style.bottom = "auto";
+    menu.innerHTML = `
+      <div style="display:grid;gap:6px;">
+        <button class="dashboard-pill-btn" id="profileViewBtn">View Profile</button>
+        <button class="dashboard-pill-btn" id="profileEditBtn">Edit Profile</button>
+        <button class="dashboard-pill-btn" id="profileSkillsBtn">Skills & Hobbies</button>
+        <button class="dashboard-pill-btn" id="profileProjectsBtn">My Projects</button>
+        <button class="dashboard-pill-btn" id="profileLogoutBtn">Logout</button>
+      </div>
+    `;
+    document.body.appendChild(menu);
+    menu.querySelector("#profileViewBtn").addEventListener("click", openUserProfileModal);
+    menu.querySelector("#profileEditBtn").addEventListener("click", () => {
+      existing.remove();
+      openEditProfile();
+    });
+    menu.querySelector("#profileSkillsBtn").addEventListener("click", () => {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const skills = (user.skills || []).join(", ");
+      const hobbies = (user.hobbies || []).join(", ");
+      showNotification(`Skills: ${skills || "None"}\nHobbies: ${hobbies || "None"}`);
+    });
+    menu.querySelector("#profileProjectsBtn").addEventListener("click", () => showNotification(`You are working on: ${appState.currentProject ? appState.currentProject.name : "No active project"}`));
+    menu.querySelector("#profileLogoutBtn").addEventListener("click", logout);
+    setTimeout(() => {
+      document.addEventListener("click", closeProfileMenuOnOutside, { once: true });
+    }, 0);
+  }
+
+  function openUserProfileModal() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const profile = JSON.parse(localStorage.getItem('makeBigProfile') || '{}');
+    
+    const modal = document.createElement("div");
+    modal.className = "modal active";
+    modal.innerHTML = `
+      <div class="modal-overlay"></div>
+      <div class="modal-content" style="max-width: 520px;">
+        <button class="modal-close" type="button">✕</button>
+        <h2 class="modal-title">${user.name || "Your Profile"}</h2>
+        <p class="modal-subtitle">${profile.tagline || "Profile details"}</p>
+        <div class="dashboard-card">
+          <div class="dashboard-row" style="margin-bottom: 12px;">
+            <span style="color: #94a3b8;">Name:</span>
+            <span style="color: #cbd5e1;">${user.name || "Not set"}</span>
+          </div>
+          <div class="dashboard-row" style="margin-bottom: 12px;">
+            <span style="color: #94a3b8;">Contact:</span>
+            <span style="color: #cbd5e1;">${user.contact || "Not set"}</span>
+          </div>
+          <div class="dashboard-row" style="margin-bottom: 12px;">
+            <span style="color: #94a3b8;">Profile Type:</span>
+            <span style="color: #cbd5e1;">${profile.role || "Not set"}</span>
+          </div>
+          ${user.skills && user.skills.length ? `
+          <div style="margin-bottom: 12px;">
+            <span style="color: #94a3b8; display: block; margin-bottom: 6px;">Skills:</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              ${user.skills.map(s => `<span class="tag-chip">${s}</span>`).join("")}
+            </div>
+          </div>
+          ` : ""}
+          ${user.hobbies && user.hobbies.length ? `
+          <div style="margin-bottom: 12px;">
+            <span style="color: #94a3b8; display: block; margin-bottom: 6px;">Hobbies:</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              ${user.hobbies.map(h => `<span class="tag-chip">${h}</span>`).join("")}
+            </div>
+          </div>
+          ` : ""}
+          ${profile.rateMin && profile.rateMax ? `
+          <div class="dashboard-row" style="margin-bottom: 12px;">
+            <span style="color: #94a3b8;">Expected Rate:</span>
+            <span style="color: #cbd5e1;">${profile.currency} ${profile.rateMin} - ${profile.rateMax} / month</span>
+          </div>
+          ` : ""}
+          <div class="inline-form">
+            <button type="button" class="dashboard-pill-btn" id="openEditFromModal" style="flex: 1;">Edit Profile</button>
+            <button type="button" class="dashboard-pill-btn" id="closeProfileModal" style="flex: 1;">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    modal.querySelector(".modal-overlay").addEventListener("click", () => modal.remove());
+    modal.querySelector(".modal-close").addEventListener("click", () => modal.remove());
+    modal.querySelector("#closeProfileModal").addEventListener("click", () => modal.remove());
+    modal.querySelector("#openEditFromModal").addEventListener("click", () => {
+      modal.remove();
+      openEditProfile();
+    });
+  }
+
+  function closeProfileMenuOnOutside(event) {
+    const menu = document.getElementById("dashboardProfileMenu");
+    if (!menu) return;
+    if (!menu.contains(event.target)) menu.remove();
+  }
+
+  function toggleMemberDropdown(targetId) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const all = document.querySelectorAll(".dropdown-panel");
+    all.forEach(panel => {
+      if (panel.id !== targetId) panel.classList.remove("show");
+    });
+    target.classList.toggle("show");
+  }
+
+  function renderCreatorDashboard(root) {
+    root.innerHTML = "";
+    const shell = document.createElement("div");
+    shell.className = "dashboard-shell";
+    const topBar = createTopBar();
+    const sidebar = createSidebar(["Dashboard", "Projects", "Team", "Chat", "Tasks", "Salary", "Files", "Feed", "Meetings", "Settings"], dashboardState.creator.activeNav, handleCreatorSidebarNavigation);
+    const main = document.createElement("main");
+    main.className = "dashboard-main";
+    const right = document.createElement("aside");
+    right.className = "dashboard-right";
+    shell.appendChild(topBar);
+    shell.appendChild(sidebar);
+    shell.appendChild(main);
+    shell.appendChild(right);
+    root.appendChild(shell);
+    renderCreatorMainSections(main);
+    renderCreatorRightSections(right);
+    updateTopBarProjectName();
+  }
+
+  function renderMemberDashboard(root) {
+    root.innerHTML = "";
+    const shell = document.createElement("div");
+    shell.className = "member-main-wrap";
+    const topBar = document.createElement("header");
+    topBar.className = "dashboard-topbar member-topbar";
+    topBar.innerHTML = `
+      <h3 id="dashboardProjectName">Make Big</h3>
+      <div class="topbar-search"><input id="dashboardSearch" type="text" placeholder="Search projects, people, posts..."></div>
+      <div class="member-top-icons">
+        <button id="memberBellBtn" class="icon-btn" type="button">🔔<span class="icon-badge">${appState.notifications.length}</span></button>
+        <button id="memberProfileBtn" class="icon-btn" type="button">👤</button>
+        <div id="memberNotifDropdown" class="dropdown-panel"></div>
+        <div id="memberProfileDropdown" class="dropdown-panel"></div>
+      </div>
+    `;
+
+    const tabBar = document.createElement("div");
+    tabBar.className = "member-tabbar";
+    const tabs = [
+      { id: "home", label: "Home" },
+      { id: "recommended", label: "Recommended" },
+      { id: "projects", label: "Projects" },
+      { id: "people", label: "People" }
+    ];
+    tabs.forEach(tab => {
+      const button = document.createElement("button");
+      button.className = `member-tab-btn ${appState.activeTab === tab.id ? "active" : ""}`;
+      button.type = "button";
+      button.dataset.tab = tab.id;
+      button.textContent = tab.label;
+      button.addEventListener("click", () => {
+        appState.activeTab = tab.id;
+        renderMemberMainByNav();
+      });
+      tabBar.appendChild(button);
+    });
+
+    const main = document.createElement("main");
+    main.className = "dashboard-main member-content";
+    main.id = "memberMainMount";
+    shell.appendChild(topBar);
+    shell.appendChild(tabBar);
+    shell.appendChild(main);
+    root.appendChild(shell);
+
+    topBar.querySelector("#memberBellBtn").addEventListener("click", () => {
+      renderNotificationsDropdown();
+      toggleMemberDropdown("memberNotifDropdown");
+    });
+    topBar.querySelector("#memberProfileBtn").addEventListener("click", () => {
+      renderMemberProfileDropdown();
+      toggleMemberDropdown("memberProfileDropdown");
+    });
+    renderMemberMainByNav();
+    updateTopBarProjectName();
+  }
+
+  function renderMemberMainByNav() {
+    const mount = document.getElementById("memberMainMount");
+    if (!mount) return;
+    if (appState.activeTab === "home") renderFeed(mount);
+    if (appState.activeTab === "recommended") renderRecommendedTab(mount);
+    if (appState.activeTab === "projects") renderProjects(mount);
+    if (appState.activeTab === "people") renderPeople(mount);
+    document.querySelectorAll(".member-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === appState.activeTab));
+  }
+
+  function renderFeed(mount) {
+    mount.innerHTML = "";
+    const createPost = document.createElement("section");
+    createPost.className = "dashboard-card";
+    createPost.innerHTML = `
+      <h4>Post Creation Box</h4>
+      <form id="memberPostForm" class="inline-form">
+        <input id="memberPostInput" type="text" placeholder="Share your update...">
+        <button type="submit">Post</button>
+      </form>
+    `;
+    createPost.querySelector("#memberPostForm").addEventListener("submit", handleCreatePost);
+    const feedCard = document.createElement("section");
+    feedCard.className = "dashboard-card";
+    feedCard.innerHTML = `<h4>Home Feed</h4><div id="memberFeedList"></div>`;
+    const recommendationCard = document.createElement("section");
+    recommendationCard.className = "dashboard-card";
+    recommendationCard.innerHTML = `<h4>🔥 Recommended Projects For You</h4><div id="recommendationList" class="recommend-row"></div>`;
+    mount.appendChild(createPost);
+    mount.appendChild(feedCard);
+    mount.appendChild(recommendationCard);
+    hydrateMemberFeed();
+    renderRecommendations();
+  }
+
+  function renderRecommendedTab(mount) {
+    mount.innerHTML = "";
+    const recommendationCard = document.createElement("section");
+    recommendationCard.className = "dashboard-card";
+    recommendationCard.innerHTML = `<h4>Recommended Projects</h4><div id="recommendationList" class="recommend-row"></div>`;
+    mount.appendChild(recommendationCard);
+    renderRecommendations();
+  }
+
+  function renderProjects(mount) {
+    mount.innerHTML = "";
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const categoryOptions = [
+      `<option value="all">All categories</option>`,
+      ...wizardCategories.map(c => `<option value="${c.title.replace(/"/g, "&quot;")}">${c.title}</option>`)
+    ].join("");
+    section.innerHTML = `
+      <h4>Projects</h4>
+      <p style="margin:0 0 10px;color:#94a3b8;font-size:13px;line-height:1.4;">
+        ${appState.currentProject ? `Showing matches for your profile (${appState.currentProject.category}).` : "You have no active collaboration yet — finish Start a Project first."}
+      </p>
+      <div class="inline-form" style="margin-bottom:10px;">
+        <input id="projectSearchInput" type="text" placeholder="Search projects">
+        <select id="projectCategoryFilter" style="border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.75);color:#e2e8f0;border-radius:10px;padding:9px 10px;">
+          ${categoryOptions}
+        </select>
+      </div>
+      <div id="memberProjectsList" class="mini-grid"></div>
+    `;
+    mount.appendChild(section);
+    const searchInput = section.querySelector("#projectSearchInput");
+    const categoryFilter = section.querySelector("#projectCategoryFilter");
+    searchInput.addEventListener("input", handleProjectSearch);
+    categoryFilter.addEventListener("change", handleProjectFilter);
+    handleProjectFilter();
+  }
+
+  function renderPeople(mount) {
+    mount.innerHTML = "";
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `
+      <h4>People</h4>
+      <div class="inline-form" style="margin-bottom:10px;">
+        <input id="peopleSearchInput" type="text" placeholder="Search people">
+      </div>
+      <div id="memberPeopleList"></div>
+    `;
+    mount.appendChild(section);
+    const list = section.querySelector("#memberPeopleList");
+    const renderList = () => {
+      const query = section.querySelector("#peopleSearchInput").value.trim().toLowerCase();
+      const filtered = appState.people.filter(person => person.name.toLowerCase().includes(query) || person.skills.toLowerCase().includes(query));
+      list.innerHTML = "";
+      filtered.forEach(person => {
+        const row = document.createElement("div");
+        row.className = "dashboard-row";
+        row.style.border = "1px solid rgba(148,163,184,0.2)";
+        row.style.borderRadius = "10px";
+        row.style.padding = "8px";
+        row.style.marginBottom = "7px";
+        row.innerHTML = `
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="feed-avatar">${person.avatar}</span>
+              <div>
+                <div style="color:#e2e8f0;font-size:13px;">${person.name}</div>
+                <div style="color:#94a3b8;font-size:12px;">${person.skills}</div>
+              </div>
+            </div>
+            <div style="color:#94a3b8;font-size:12px;margin-top:6px;">${person.bio}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="dashboard-pill-btn" data-user-id="${person.id}" data-action="connect">${person.connected ? "Connected" : "Connect"}</button>
+            <button class="dashboard-pill-btn" data-open-person="${person.id}">View</button>
+          </div>
+        `;
+        row.querySelector('[data-action="connect"]').addEventListener("click", handleConnectToggle);
+        row.querySelector('[data-open-person]').addEventListener("click", () => openPersonProfileModal(person));
+        list.appendChild(row);
+      });
+    };
+    section.querySelector("#peopleSearchInput").addEventListener("input", renderList);
+    renderList();
+  }
+
+  function renderNotifications(mount) {
+    mount.innerHTML = "";
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    section.innerHTML = `<h4>Notifications</h4><div id="memberNotifications"></div>`;
+    mount.appendChild(section);
+    section.querySelector("#memberNotifications").innerHTML = appState.notifications.map(item => `<div class="tag-chip" style="margin-bottom:6px;">${item}</div>`).join("");
+  }
+
+  function renderProfile(mount) {
+    mount.innerHTML = "";
+    const project = appState.currentProject || {};
+    const user = appState.user || { name: "User", skills: [], hobbies: [] };
+    const userName = user.name;
+    const section = document.createElement("section");
+    section.className = "dashboard-card";
+    const userSkills = (user.skills || []).length > 0 ? user.skills.join(", ") : "No skills added";
+    const userHobbies = (user.hobbies || []).length > 0 ? user.hobbies.join(", ") : "No hobbies added";
+    
+    section.innerHTML = `
+      <h4>Profile</h4>
+      <p style="margin:0 0 8px;color:#cbd5e1;"><strong>${userName}</strong></p>
+      <p style="margin:0 0 8px;color:#94a3b8;">Connections: ${appState.people.filter(person => person.connected).length}</p>
+      <p style="margin:0 0 8px;color:#94a3b8;"><strong>Skills:</strong> ${userSkills}</p>
+      <p style="margin:0 0 8px;color:#94a3b8;"><strong>Hobbies:</strong> ${userHobbies}</p>
+      <p style="margin:0 0 8px;color:#94a3b8;">My Posts: ${appState.posts.length}</p>
+      <p style="margin:0 0 8px;color:#94a3b8;">My Projects: ${appState.projects.length}</p>
+      <p style="margin:0 0 12px;color:#94a3b8;">Current Project: ${project.name || "None"}</p>
+      <div class="inline-form">
+        <button type="button" id="memberEditProfileBtn" class="dashboard-pill-btn" style="flex: 1;">Edit Profile</button>
+        <button type="button" id="memberLogoutBtn" class="dashboard-pill-btn" style="flex: 1;">Logout</button>
+      </div>
+    `;
+    mount.appendChild(section);
+    section.querySelector("#memberEditProfileBtn").addEventListener("click", openEditProfile);
+    section.querySelector("#memberLogoutBtn").addEventListener("click", logout);
+  }
+
+  function renderNotificationsDropdown() {
+    const dropdown = document.getElementById("memberNotifDropdown");
+    if (!dropdown) return;
+    apiGetNotifications();
+    dropdown.innerHTML = `
+      <h4 style="margin:0 0 8px;color:#7dd3fc;font-size:14px;">Notifications</h4>
+      ${appState.notifications.map(item => `<div class="tag-chip" style="margin-bottom:6px;">${item}</div>`).join("")}
+    `;
+  }
+
+  function renderMemberProfileDropdown() {
+    const dropdown = document.getElementById("memberProfileDropdown");
+    if (!dropdown) return;
+    const userName = appState.user ? appState.user.name : "User";
+    dropdown.innerHTML = `
+      <h4 style="margin:0 0 8px;color:#7dd3fc;font-size:14px;">${userName}</h4>
+      <button class="dashboard-pill-btn" id="dropdownViewProfile" style="width:100%;margin-bottom:6px;">View Profile</button>
+      <button class="dashboard-pill-btn" id="dropdownEditProfile" style="width:100%;margin-bottom:6px;">Edit Profile</button>
+      <button class="dashboard-pill-btn" id="dropdownMyProjects" style="width:100%;margin-bottom:6px;">My Projects</button>
+      <button class="dashboard-pill-btn" id="dropdownLogout" style="width:100%;">Logout</button>
+    `;
+    dropdown.querySelector("#dropdownViewProfile").addEventListener("click", () => {
+      const mount = document.getElementById("memberMainMount");
+      if (mount) renderProfile(mount);
+    });
+    dropdown.querySelector("#dropdownEditProfile").addEventListener("click", () => openEditProfile());
+    dropdown.querySelector("#dropdownMyProjects").addEventListener("click", () => {
+      appState.activeTab = "projects";
+      renderMemberMainByNav();
+    });
+    dropdown.querySelector("#dropdownLogout").addEventListener("click", logout);
+  }
+
+  function openPersonProfileModal(person) {
+    const existing = document.getElementById("personProfileModal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "personProfileModal";
+    modal.className = "modal active";
+    modal.innerHTML = `
+      <div class="modal-overlay"></div>
+      <div class="modal-content" style="max-width:520px;">
+        <button class="modal-close" type="button">✕</button>
+        <h2 class="modal-title">${person.name}</h2>
+        <p class="modal-subtitle">${person.skills}</p>
+        <div class="dashboard-card">
+          <p style="margin:0 0 8px;color:#cbd5e1;">${person.bio}</p>
+          <p style="margin:0 0 8px;color:#94a3b8;">Skills: ${person.skills}</p>
+          <p style="margin:0 0 10px;color:#94a3b8;">Active Projects: ${(person.activeProjects || []).join(", ")}</p>
+          <div class="inline-form">
+            <button type="button" class="dashboard-pill-btn" id="personConnectBtn">${person.connected ? "Connected" : "Connect"}</button>
+            <button type="button" class="dashboard-pill-btn" id="personMessageBtn">Message</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".modal-overlay").addEventListener("click", () => modal.remove());
+    modal.querySelector(".modal-close").addEventListener("click", () => modal.remove());
+    modal.querySelector("#personConnectBtn").addEventListener("click", () => {
+      person.connected = !person.connected;
+      showNotification(person.connected ? `Connected with ${person.name}` : `Disconnected from ${person.name}`);
+      modal.remove();
+      renderPeople(document.getElementById("memberMainMount"));
+    });
+    modal.querySelector("#personMessageBtn").addEventListener("click", () => showNotification(`Message sent to ${person.name}`));
+  }
+
+  function showNotification(message) {
+    const existing = document.getElementById("dashboardNotificationPopup");
+    if (existing) existing.remove();
+    const popup = document.createElement("div");
+    popup.id = "dashboardNotificationPopup";
+    popup.className = "notif-pop";
+    popup.textContent = message;
+    document.body.appendChild(popup);
+    setTimeout(() => {
+      if (popup.parentNode) popup.parentNode.removeChild(popup);
+    }, 2200);
+  }
+
+  // Handle auth form submissions
+  document.getElementById('signinFormEl').addEventListener('submit', handleSignin);
+  document.getElementById('signupFormEl').addEventListener('submit', handleSignup);
+  document.getElementById('editProfileForm').addEventListener('submit', saveProfile);
+
+  // Close auth modal when pressing ESC
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeAuthModal();
+      closeProjectModal();
+    }
+  });
+
+</script>
+
+</body>
+</html>  this is my code in upside left i had three home explore and projects in projects bar. show your project name and its details and if you not yet created or joimded show your not joined give me this prompt

@@ -1,0 +1,78 @@
+import jwt from "jsonwebtoken";
+import { verifySupabaseToken } from "../../lib/supabaseServer.js";
+
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.includes("change-me") || secret.includes("your-secret")) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET must be set to a strong random value in production");
+    }
+    console.warn("[auth] JWT_SECRET not set — using insecure dev fallback");
+    return "dev-only-insecure-secret";
+  }
+  return secret;
+}
+
+const SECRET = getJwtSecret();
+
+export function generateToken(userId, contact) {
+  return jwt.sign({ userId, contact }, SECRET, { expiresIn: "7d" });
+}
+
+export function verifyToken(token) {
+  try {
+    return jwt.verify(token, SECRET);
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
+  const supabaseUser = await verifySupabaseToken(token);
+  if (supabaseUser) {
+    req.user = supabaseUser;
+    return next();
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  req.user = decoded;
+  next();
+}
+
+// Socket.io auth middleware
+export function socketAuthMiddleware(socket, next) {
+  const token = socket.handshake.auth.token;
+
+  if (!token) {
+    return next(new Error("Authentication error"));
+  }
+
+  verifySupabaseToken(token)
+    .then((supabaseUser) => {
+      if (supabaseUser) {
+        socket.user = supabaseUser;
+        next();
+        return;
+      }
+
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        return next(new Error("Invalid token"));
+      }
+
+      socket.user = decoded;
+      next();
+    })
+    .catch(() => next(new Error("Invalid token")));
+  return;
+}
