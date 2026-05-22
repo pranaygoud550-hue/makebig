@@ -15,7 +15,9 @@
     "api:dev": "node server-new.js",
     "api:prod": "NODE_ENV=production node server-new.js",
     "dev:full": "node server-new.js & next dev",
-    "verify:deploy": "node scripts/verify-deploy-ready.mjs"
+    "verify:deploy": "node scripts/verify-deploy-ready.mjs",
+    "push:github": "node scripts/push-github.mjs",
+    "deploy:env": "node scripts/generate-deploy-env.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
