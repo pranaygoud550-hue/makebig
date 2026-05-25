@@ -91,8 +91,11 @@ export function mapApiError(raw: string | undefined | null, context?: string): s
     return 'Invalid email address';
   }
   if (lower.includes('password') && lower.includes('short')) return 'Password too short';
-  if (lower.includes('unauthorized') || lower.includes('jwt') || lower.includes('token')) {
+  if (lower.includes('unauthorized') || lower.includes('invalid token')) {
     return 'Session expired — sign out and sign in again';
+  }
+  if (lower.includes('no token provided') || lower.includes('sign in again')) {
+    return msg.includes('join') ? 'Sign in again to join this project' : 'Sign in again to continue';
   }
   if (lower.includes('cors')) return 'Server connection error — refresh the page';
   if (lower.includes('econnrefused') || lower.includes('fetch failed')) {

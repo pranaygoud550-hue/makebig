@@ -49,12 +49,13 @@ export async function authMiddleware(req, res, next) {
   next();
 }
 
-// Socket.io auth middleware
+// Socket.io auth middleware — token optional for read-only global events
 export function socketAuthMiddleware(socket, next) {
-  const token = socket.handshake.auth.token;
+  const token = socket.handshake.auth?.token;
 
   if (!token) {
-    return next(new Error("Authentication error"));
+    socket.user = null;
+    return next();
   }
 
   verifySupabaseToken(token)

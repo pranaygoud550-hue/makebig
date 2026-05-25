@@ -7,7 +7,24 @@
 
 const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
-const WEAK = ['change-me', 'your-secret', 'your@gmail.com', 'sk_test_...', 'USER:PASSWORD'];
+const WEAK = [
+  'change-me',
+  'CHANGE_THIS',
+  'REPLACE_WITH',
+  'your-secret',
+  'your@gmail.com',
+  'your_gmail@gmail.com',
+  'your_gmail_app_password',
+  'your_email@gmail.com',
+  'your_api_key',
+  'your_groq_key',
+  'generate_random_string',
+  'dev-secret-key',
+  'Pranay123',
+  'sk_test_...',
+  'USER:PASSWORD',
+  'YOUR_USER:YOUR_PASSWORD',
+];
 
 function isWeak(val) {
   if (!val) return true;
@@ -25,6 +42,21 @@ async function main() {
     ['JWT_SECRET', process.env.JWT_SECRET],
     ['FRONTEND_URL', process.env.FRONTEND_URL],
   ];
+
+  const envFiles = ['.env', 'backend/.env'];
+  for (const file of envFiles) {
+    try {
+      const { readFileSync, existsSync } = await import('fs');
+      const { join } = await import('path');
+      const p = join(process.cwd(), file);
+      if (existsSync(p) && readFileSync(p, 'utf8').includes('Pranay123')) {
+        console.log(`  ✗ ${file} — still contains default password "Pranay123"; rotate in Atlas`);
+        ok = false;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   for (const [name, val] of required) {
     if (isWeak(val)) {

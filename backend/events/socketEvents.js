@@ -150,14 +150,15 @@ export function setupSocketEvents(io) {
 
     // Team member status update
     socket.on("member_status_changed", async (data) => {
-      const { projectId, memberId, memberName, status } = data;
+      const { projectId, memberId, memberContact, memberName, status, role } = data;
       const roomName = `project_${projectId}`;
 
       io.to(roomName).emit("member_status_changed", {
         projectId,
-        memberId,
+        memberContact: memberContact || memberId,
         memberName,
         status,
+        role,
         timestamp: new Date(),
       });
 

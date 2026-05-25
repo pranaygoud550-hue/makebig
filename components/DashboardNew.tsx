@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ProjectData, User } from '@/lib/types';
 import { getInitials } from '@/lib/utils';
@@ -17,8 +17,9 @@ import { UpgradeGate } from './UpgradeGate';
 import { ShareProject } from './ShareProject';
 import { apiGetCofounderMatches } from '@/lib/api';
 import { useSubscription } from '@/lib/hooks/useSubscription';
+import { useNotifications } from '@/lib/hooks/useNotifications';
 import { BrandLogo } from '@/components/BrandLogo';
-import io from 'socket.io-client';
+import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 interface DashboardNewProps {
   project: ProjectData;
@@ -27,15 +28,6 @@ interface DashboardNewProps {
   onLogout: () => void;
   onProjectUpdate?: (project: ProjectData) => void;
   initialNav?: DashboardNavTab;
-}
-
-interface AppNotification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
 }
 
 export type DashboardNavTab =
@@ -63,25 +55,28 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'activity',  label: 'Activity',         icon: '⚡' },
 ];
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
-
 export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate, initialNav }: DashboardNewProps) {
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [activeNav, setActiveNav]       = useState<NavTab>(initialNav ?? 'dashboard');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifPanel, setShowNotifPanel]   = useState(false);
-  const [notifications, setNotifications]     = useState<AppNotification[]>([]);
-  const [loadingNotifs, setLoadingNotifs]     = useState(false);
   const [searchQuery, setSearchQuery]         = useState('');
   const [matchCount, setMatchCount]           = useState<number | null>(null);
   const [showFloatingTask, setShowFloatingTask] = useState(false);
   const isOwner = project.mode === 'create';
   const ownerContact = isOwner ? user?.contact : undefined;
   const { plan } = useSubscription(ownerContact);
+  const notifUserKey = user?.id || user?.contact;
+  const {
+    notifications,
+    loading: loadingNotifs,
+    unreadCount,
+    fetchNotifications,
+    markAllRead,
+  } = useNotifications(notifUserKey);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const { openProfile } = useProfileView();
 
   /* ── Deadline calc ── */
   const daysLeft = project.deadline
@@ -89,30 +84,14 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
     : null;
   const showDeadlineBanner = daysLeft !== null && daysLeft <= 7;
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  /* ── Fetch notifications ── */
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.id) return;
-    setLoadingNotifs(true);
-    try {
-      const res = await fetch(`${API}/api/users/${user.id}/notifications`);
-      const data = await res.json();
-      if (data.success) {
-        setNotifications((data.data.notifications || []).map((n: Record<string, unknown>) => ({
-          id: n.id || n._id,
-          type: n.type,
-          title: n.title,
-          message: n.message,
-          read: n.read,
-          createdAt: n.createdAt,
-        })));
-      }
-    } catch { /* API offline */ }
-    finally { setLoadingNotifs(false); }
-  }, [user?.id]);
-
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  /* ── Mark all read when panel opens ── */
+  const openNotifPanel = async () => {
+    setShowNotifPanel(true);
+    setShowProfileMenu(false);
+    if (unreadCount > 0) {
+      await markAllRead();
+    }
+  };
 
   useEffect(() => {
     if (initialNav) setActiveNav(initialNav);
@@ -125,28 +104,6 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
       if (result) setMatchCount(result.meta.total);
     });
   }, [project.id, ownerContact]);
-
-  /* ── Real-time: new notifications via socket ── */
-  useEffect(() => {
-    if (!user?.id || !project.id) return;
-    const socket = io(API, { transports: ['websocket', 'polling'] });
-
-    socket.on('new_notification', (notif: AppNotification) => {
-      setNotifications(prev => [notif, ...prev]);
-    });
-
-    return () => { socket.disconnect(); };
-  }, [user?.id, project.id]);
-
-  /* ── Mark all read when panel opens ── */
-  const openNotifPanel = async () => {
-    setShowNotifPanel(true);
-    setShowProfileMenu(false);
-    if (unreadCount > 0 && user?.id) {
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      await fetch(`${API}/api/users/${user.id}/notifications/read`, { method: 'PATCH' });
-    }
-  };
 
   /* ── Close dropdowns on outside click ── */
   useEffect(() => {
@@ -178,6 +135,13 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
     invite: '📩',
     task:   '✅',
     system: '⚙️',
+    post: '📝',
+    like: '❤️',
+    comment: '💬',
+    message: '💬',
+    activity: '👥',
+    mention: '@',
+    project_update: '📁',
   };
 
   function timeAgo(d: string) {
@@ -275,10 +239,21 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
                         <p>No notifications yet</p>
                       </div>
                     )}
-                    {notifications.map(n => (
-                      <div
+                    {notifications.map(n => {
+                      const actor =
+                        (n.metadata?.authorContact as string) ||
+                        (n.metadata?.liker as string) ||
+                        (n.metadata?.commenter as string) ||
+                        (n.metadata?.memberContact as string) ||
+                        (n.metadata?.senderContact as string) ||
+                        (n.metadata?.rater as string) ||
+                        null;
+                      return (
+                      <button
                         key={n.id}
-                        className={`flex gap-3 px-4 py-3 hover:bg-[#f8f9fa] transition-colors ${!n.read ? 'bg-[#EEF3FB]' : ''}`}
+                        type="button"
+                        onClick={() => actor && openProfile(String(actor), String(actor))}
+                        className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-[#f8f9fa] transition-colors ${!n.read ? 'bg-[#EEF3FB]' : ''}`}
                       >
                         <span className="text-xl shrink-0 mt-0.5">{notifIcon[n.type] || '📢'}</span>
                         <div className="flex-1 min-w-0">
@@ -287,8 +262,8 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
                           <p className="text-[10px] text-[#999] mt-1">{timeAgo(n.createdAt)}</p>
                         </div>
                         {!n.read && <span className="w-2 h-2 bg-[#0A66C2] rounded-full shrink-0 mt-1.5" />}
-                      </div>
-                    ))}
+                      </button>
+                    );})}
                   </div>
 
                   {notifications.length > 0 && (
@@ -461,7 +436,13 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
             )}
 
             {activeNav === 'team' && (
-              <TeamMembersView projectId={project.id} onInvite={() => setActiveNav('invite')} />
+              <TeamMembersView
+                projectId={project.id}
+                userId={user.id || user.contact}
+                userName={user.name}
+                userContact={user.contact}
+                onInvite={() => setActiveNav('invite')}
+              />
             )}
 
             {activeNav === 'matches' && (

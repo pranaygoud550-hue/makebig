@@ -21,13 +21,15 @@ const API_BASE =
 function otpAuthEndpoints(path: 'send-otp' | 'verify-otp') {
   const remote = `${API_BASE}/auth/${path}`;
   const local = `/api/auth/${path}`;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-  const useRemoteFirst = Boolean(apiUrl && !apiUrl.includes('localhost'));
-  return useRemoteFirst ? [remote, local] : [local, remote];
+  // Express owns OTP verification consumed by /users/upsert and /projects/join — try it first.
+  return [remote, local];
 }
 
 // Store JWT token locally
-let authToken: string | null = null;
+let authToken: string | null =
+  typeof window !== 'undefined'
+    ? localStorage.getItem('auth_token') || localStorage.getItem('makeBigToken')
+    : null;
 
 export function setAuthToken(token: string) {
   authToken = token;
@@ -688,6 +690,11 @@ export async function apiJoinProject(
       return { project: rowToProject(projectRow), message: 'Joined project' };
     }
 
+    const token = await getAuthTokenAsync();
+    if (!token) {
+      throw new Error('Sign in again to join this project');
+    }
+
     const res = await fetch(`${API_BASE}/projects/${projectId}/join`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
@@ -945,6 +952,7 @@ export async function apiGetUserNotifications(userId: string): Promise<any[]> {
 
     const res = await fetch(`${API_BASE}/users/${userId}/notifications`, {
       method: 'GET',
+      headers: getAuthHeaders(),
     });
     if (!res.ok) return [];
     const data = await res.json();

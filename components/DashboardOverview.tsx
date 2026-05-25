@@ -25,7 +25,7 @@ import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
 import { isValidMongoId } from '@/lib/projectMappers';
 import { getInitials } from '@/lib/utils';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import io from 'socket.io-client';
+import { connectProjectRoom } from '@/lib/realtime';
 
 interface DashboardOverviewProps {
   project: ProjectData;
@@ -303,21 +303,37 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
       return () => { supabase.removeChannel(channel); };
     }
 
-    const socket = io(API, { transports: ['websocket', 'polling'] });
-    socket.emit('join_room', `project_${project.id}`);
-    socket.on('task_created', ({ task }: { task: Record<string, unknown> }) =>
-      setTasks((p) => {
-        const n = normalizeTask(task);
-        return p.some((t) => t.id === n.id) ? p : [...p, n];
-      })
-    );
-    socket.on('task_updated', ({ task }: { task: Record<string, unknown> }) =>
-      setTasks((p) => p.map((t) => (t.id === String(task.id || task._id) ? normalizeTask(task) : t)))
-    );
-    socket.on('task_deleted', ({ taskId }: { taskId: string }) => setTasks(p => p.filter(t => t.id !== taskId)));
-    socket.on('member_status_changed', () => load());
-    return () => { socket.disconnect(); };
-  }, [project.id, load]);
+    let socket: Awaited<ReturnType<typeof connectProjectRoom>> = null;
+    let cancelled = false;
+
+    connectProjectRoom(project.id, {
+      id: user?.id,
+      name: user?.name,
+      contact: user?.contact,
+    }).then((s) => {
+      if (cancelled || !s) return;
+      socket = s;
+
+      socket.on('task_created', ({ task }: { task: Record<string, unknown> }) =>
+        setTasks((p) => {
+          const n = normalizeTask(task);
+          return p.some((t) => t.id === n.id) ? p : [...p, n];
+        })
+      );
+      socket.on('task_updated', ({ task }: { task: Record<string, unknown> }) =>
+        setTasks((p) => p.map((t) => (t.id === String(task.id || task._id) ? normalizeTask(task) : t)))
+      );
+      socket.on('task_deleted', ({ taskId }: { taskId: string }) =>
+        setTasks((p) => p.filter((t) => t.id !== taskId))
+      );
+      socket.on('member_status_changed', () => load());
+    });
+
+    return () => {
+      cancelled = true;
+      socket?.disconnect();
+    };
+  }, [project.id, load, user?.id, user?.name, user?.contact]);
 
   /* ── Create task ── */
   const handleCreateTask = async () => {

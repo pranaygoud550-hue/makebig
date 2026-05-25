@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
 import Link from 'next/link';
+import type { Socket } from 'socket.io-client';
 import { getAuthHeadersAsync } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
+import { connectProjectRoom, createApiSocket } from '@/lib/realtime';
+import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 const API = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:5001';
 
@@ -44,10 +47,12 @@ function PostCard({
   post,
   userContact,
   onLikeToggle,
+  onViewProfile,
 }: {
   post: FeedPost;
   userContact?: string;
   onLikeToggle: (id: string) => void;
+  onViewProfile?: (contact: string) => void;
 }) {
   const [showComments, setShowComments]   = useState(false);
   const [comments, setComments]           = useState<CommentItem[]>([]);
@@ -96,9 +101,13 @@ function PostCard({
     <div className="bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">
       {/* Post header */}
       <div className="px-5 pt-4 pb-2 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-[#0A66C2] flex items-center justify-center text-white text-sm font-bold shrink-0">
+        <button
+          type="button"
+          onClick={() => post.authorId && onViewProfile?.(post.authorId)}
+          className="w-10 h-10 rounded-full bg-[#0A66C2] flex items-center justify-center text-white text-sm font-bold shrink-0 hover:ring-2 hover:ring-[#0A66C2]/30 transition-all"
+        >
           {post.authorId?.slice(0, 2).toUpperCase() || 'MB'}
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -112,7 +121,13 @@ function PostCard({
               {post.projectCity && (
                 <span className="ml-2 text-xs text-[#999]">📍 {post.projectCity}</span>
               )}
-              <p className="text-xs text-[#999]">{post.authorId}</p>
+              <button
+                type="button"
+                onClick={() => post.authorId && onViewProfile?.(post.authorId)}
+                className="block text-xs text-[#666] hover:text-[#0A66C2] hover:underline text-left"
+              >
+                {post.authorId}
+              </button>
             </div>
             <span className="text-xs text-[#bbb] shrink-0">{timeAgo(post.createdAt)}</span>
           </div>
@@ -199,11 +214,21 @@ function PostCard({
               {comments.map(c => (
                 <div key={c.id} className="space-y-2">
                   <div className="flex gap-2">
-                    <div className="w-7 h-7 rounded-full bg-[#e0e0e0] flex items-center justify-center text-[#666] text-xs font-bold shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => c.authorId && onViewProfile?.(c.authorId)}
+                      className="w-7 h-7 rounded-full bg-[#e0e0e0] flex items-center justify-center text-[#666] text-xs font-bold shrink-0 hover:ring-2 hover:ring-[#0A66C2]/30"
+                    >
                       {c.authorId?.slice(0, 2).toUpperCase()}
-                    </div>
+                    </button>
                     <div className="flex-1 bg-[#f3f2ef] rounded-xl px-3 py-2">
-                      <p className="text-xs font-bold text-[#1d2226]">{c.authorId}</p>
+                      <button
+                        type="button"
+                        onClick={() => c.authorId && onViewProfile?.(c.authorId)}
+                        className="text-xs font-bold text-[#1d2226] hover:text-[#0A66C2] hover:underline"
+                      >
+                        {c.authorId}
+                      </button>
                       <p className="text-xs text-[#1d2226] mt-0.5 leading-relaxed">{c.body}</p>
                     </div>
                   </div>
@@ -211,11 +236,21 @@ function PostCard({
                   {/* Replies */}
                   {c.replies?.map(r => (
                     <div key={r.id} className="flex gap-2 ml-8">
-                      <div className="w-6 h-6 rounded-full bg-[#e0e0e0] flex items-center justify-center text-[#666] text-[10px] font-bold shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => r.authorId && onViewProfile?.(r.authorId)}
+                        className="w-6 h-6 rounded-full bg-[#e0e0e0] flex items-center justify-center text-[#666] text-[10px] font-bold shrink-0 hover:ring-2 hover:ring-[#0A66C2]/30"
+                      >
                         {r.authorId?.slice(0, 2).toUpperCase()}
-                      </div>
+                      </button>
                       <div className="flex-1 bg-[#f3f2ef] rounded-xl px-3 py-2">
-                        <p className="text-[10px] font-bold text-[#1d2226]">{r.authorId}</p>
+                        <button
+                          type="button"
+                          onClick={() => r.authorId && onViewProfile?.(r.authorId)}
+                          className="text-[10px] font-bold text-[#1d2226] hover:text-[#0A66C2] hover:underline"
+                        >
+                          {r.authorId}
+                        </button>
                         <p className="text-xs text-[#1d2226] mt-0.5">{r.body}</p>
                       </div>
                     </div>
@@ -431,6 +466,7 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
   const [loading, setLoading] = useState(true);
   const [page, setPage]       = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const { openProfile } = useProfileView();
 
   const loadPosts = useCallback(async (reset = false) => {
     setLoading(true);
@@ -456,6 +492,94 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
     if (!global && !projectId) return;
     loadPosts(true);
   }, [projectId, global]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Live updates via socket ── */
+  useEffect(() => {
+    let socket: Socket | null = null;
+    let cancelled = false;
+
+    const normalizePost = (raw: Record<string, unknown>): FeedPost => ({
+      id: String(raw.id || raw._id || ''),
+      projectId: String(raw.projectId || projectId || ''),
+      projectName: String(raw.projectName || ''),
+      projectSlug: raw.projectSlug ? String(raw.projectSlug) : undefined,
+      projectCategory: raw.projectCategory ? String(raw.projectCategory) : undefined,
+      projectCity: raw.projectCity ? String(raw.projectCity) : undefined,
+      authorId: String(raw.authorId || ''),
+      body: String(raw.body || ''),
+      imageUrl: raw.imageUrl ? String(raw.imageUrl) : undefined,
+      likeCount: Number(raw.likeCount || 0),
+      commentCount: Number(raw.commentCount || 0),
+      createdAt: String(raw.createdAt || new Date().toISOString()),
+    });
+
+    const attachListeners = (s: Socket) => {
+      const onPostCreated = (raw: Record<string, unknown>) => {
+        const post = normalizePost(raw);
+        if (!global && projectId && post.projectId !== projectId) return;
+        setPosts((prev) => (prev.some((p) => p.id === post.id) ? prev : [post, ...prev]));
+      };
+
+      const onFeedPost = (raw: Record<string, unknown>) => {
+        if (!global) return;
+        onPostCreated(raw);
+      };
+
+      const onPostLiked = ({
+        postId,
+        likeCount,
+      }: {
+        postId: string;
+        likeCount: number;
+      }) => {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId ? { ...p, likeCount } : p))
+        );
+      };
+
+      const onCommentAdded = ({
+        postId,
+      }: {
+        postId: string;
+      }) => {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId ? { ...p, commentCount: (p.commentCount || 0) + 1 } : p
+          )
+        );
+      };
+
+      s.on('post_created', onPostCreated);
+      s.on('feed_post_created', onFeedPost);
+      s.on('post_liked', onPostLiked);
+      s.on('comment_added', onCommentAdded);
+
+      return () => {
+        s.off('post_created', onPostCreated);
+        s.off('feed_post_created', onFeedPost);
+        s.off('post_liked', onPostLiked);
+        s.off('comment_added', onCommentAdded);
+      };
+    };
+
+    let detach: (() => void) | undefined;
+
+    (async () => {
+      if (global) {
+        socket = await createApiSocket();
+      } else if (projectId) {
+        socket = await connectProjectRoom(projectId, { contact: userContact });
+      }
+      if (cancelled || !socket) return;
+      detach = attachListeners(socket);
+    })();
+
+    return () => {
+      cancelled = true;
+      detach?.();
+      socket?.disconnect();
+    };
+  }, [projectId, global, userContact]);
 
   const handleLike = async (postId: string) => {
     if (!userContact) return;
@@ -503,6 +627,7 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
               post={post}
               userContact={userContact}
               onLikeToggle={handleLike}
+              onViewProfile={(contact) => openProfile(contact, contact)}
             />
           ))}
           {hasMore && (

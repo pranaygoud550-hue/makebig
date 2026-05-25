@@ -301,7 +301,7 @@ export default async function ProjectPage({ params }: { params: { slug: string }
                 href={`/?join=${project.slug}`}
                 className="block w-full py-2.5 bg-[#0A66C2] text-white text-center font-bold rounded-full hover:bg-[#004182] transition-colors text-sm"
               >
-                Apply to Join →
+                Join now →
               </Link>
               <Link
                 href="/explore"

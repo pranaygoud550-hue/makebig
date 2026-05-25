@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { useWizard } from '@/lib/hooks/useWizard';
 import { getSkillMatchCount } from '@/lib/utils';
@@ -10,6 +10,7 @@ import {
   showsSalaryForPurpose,
 } from '@/lib/projectPurpose';
 import { apiBrowseProjects, apiJoinProject, BrowseProject } from '@/lib/api';
+import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { getErrorMessage } from '@/lib/userErrors';
 import { INDIAN_CITIES } from '@/lib/indianCities';
 
@@ -17,6 +18,7 @@ interface ProjectWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: (data: ProjectData) => void;
+  initialEntry?: 'create' | 'join';
 }
 
 const iCls =
@@ -54,10 +56,133 @@ function CategoryTitle(id: string) {
   return WIZARD_CATEGORIES.find(c => c.id === id)?.title || id;
 }
 
-const CREATE_STEP_LABELS = ['What are you building?', 'Skills & Timeline', 'Review & Publish'];
-const JOIN_STEP_LABELS   = ['What can you bring?', 'Pick a project', 'Send your intro'];
+function browseToProjectData(
+  project: BrowseProject | null,
+  mode: 'join' | 'member',
+  skills: string[]
+): ProjectData {
+  const categoryTitle = CategoryTitle(project?.categoryId || '');
+  return {
+    id: project?.id,
+    slug: project?.slug,
+    name: project?.name || '',
+    description: project?.desc || '',
+    categoryId: project?.categoryId || 'all',
+    category: categoryTitle,
+    skills: skills.length ? skills : project?.roles || [],
+    deadline: '',
+    vision: '',
+    teamSize: 0,
+    salaryMin: project?.salaryMin || 0,
+    salaryMax: project?.salaryMax || 0,
+    salaryCurrency: project?.currency || 'INR',
+    mode,
+  };
+}
 
-export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardProps) {
+function ProjectPickCard({
+  project,
+  userSkills,
+  selected,
+  onSelect,
+  onJoinNow,
+  joining,
+}: {
+  project: BrowseProject;
+  userSkills: string[];
+  selected: boolean;
+  onSelect: () => void;
+  onJoinNow: () => void;
+  joining?: boolean;
+}) {
+  const matchCount = getSkillMatchCount(userSkills, project.roles || []);
+
+  return (
+    <div
+      className={`rounded-xl border-2 transition-all ${
+        selected
+          ? 'border-[#0A66C2] bg-[#EEF3FB]'
+          : 'border-[#d9d9d9] bg-white hover:border-[#0A66C2]/50'
+      }`}
+    >
+      <button type="button" onClick={onSelect} className="w-full text-left p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#0A66C2] bg-[#EEF3FB] px-2 py-0.5 rounded-full border border-[#0A66C2]/20">
+                {CategoryTitle(project.categoryId || '')}
+              </span>
+              {matchCount > 0 && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  matchCount >= 3
+                    ? 'text-green-700 bg-green-50 border-green-200'
+                    : 'text-amber-700 bg-amber-50 border-amber-200'
+                }`}>
+                  {matchCount} skill{matchCount !== 1 ? 's' : ''} match
+                </span>
+              )}
+            </div>
+            <p className="font-semibold text-[#1d2226]">{project.name}</p>
+            {project.desc && (
+              <p className="text-xs text-[#666] mt-0.5 line-clamp-2">{project.desc}</p>
+            )}
+            {(project.roles || []).length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {(project.roles || []).slice(0, 4).map(r => (
+                  <span
+                    key={r}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                      userSkills.some(s => s.toLowerCase() === r.toLowerCase())
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : 'bg-[#f3f2ef] text-[#666] border-[#e0e0e0]'
+                    }`}
+                  >
+                    {r}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="text-right shrink-0 space-y-1">
+            {showsSalaryForPurpose(
+              (project as { projectPurpose?: ProjectPurpose }).projectPurpose
+            ) &&
+              project.salaryMax &&
+              project.salaryMax > 0 && (
+              <p className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                {project.currency || 'INR'} {Number(project.salaryMax).toLocaleString('en-IN')}/mo
+              </p>
+            )}
+            {(project.joinedCount ?? 0) > 0 && (
+              <p className="text-[10px] text-[#999]">{project.joinedCount} joined</p>
+            )}
+            {selected && (
+              <span className="text-[10px] font-bold text-[#0A66C2]">Selected ✓</span>
+            )}
+          </div>
+        </div>
+      </button>
+      <div className="px-4 pb-4 pt-0">
+        <button
+          type="button"
+          onClick={onJoinNow}
+          disabled={joining}
+          className="w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182] disabled:opacity-50 transition-all"
+        >
+          {joining ? 'Joining…' : 'Join now — instant access'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const CREATE_STEP_LABELS = ['What are you building?', 'Skills & Timeline', 'Review & Publish'];
+const JOIN_STEP_LABELS   = ['What can you bring?', 'Explore & join'];
+const JOIN_STEP_COUNT = 2;
+const CREATE_STEP_COUNT = 3;
+
+export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry }: ProjectWizardProps) {
   const wizard = useWizard();
   const { state } = wizard;
 
@@ -77,15 +202,11 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
 
   /* ── Join flow local state ── */
   const [joinRole, setJoinRole]           = useState('');
-  const [joinExpectedSalary, setJoinExpectedSalary] = useState('');
-  const [joinSalaryCurrency, setJoinSalaryCurrency] = useState('INR');
   const [browseProjects, setBrowseProjects] = useState<BrowseProject[]>([]);
   const [browseLoading, setBrowseLoading]   = useState(false);
   const [selectedProject, setSelectedProject] = useState<BrowseProject | null>(null);
-  const [introMessage, setIntroMessage] = useState('');
-  const [sending, setSending]           = useState(false);
+  const [joiningProjectId, setJoiningProjectId] = useState<string | null>(null);
   const [sendError, setSendError]       = useState('');
-  const [joinSuccess, setJoinSuccess]   = useState(false);
 
   /* ── Shared ── */
   const [error, setError] = useState('');
@@ -93,37 +214,53 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
 
   const isJoin = state.entry === 'join';
   const stepLabels = isJoin ? JOIN_STEP_LABELS : CREATE_STEP_LABELS;
+  const stepTotal = isJoin ? JOIN_STEP_COUNT : CREATE_STEP_COUNT;
   const copy = wizard.getWizardCopy();
-  const progress = state.entry === '' ? 0 : Math.round((state.step / 3) * 100);
+  const progress = state.entry === '' ? 0 : Math.round((state.step / stepTotal) * 100);
 
-  /* ── Fetch projects when Join step 2 is reached ── */
+  /* ── Fetch projects when Join step 2 is reached (dynamic by user + skills) ── */
   useEffect(() => {
-    if (isJoin && state.step === 2) {
-      setBrowseLoading(true);
-      apiBrowseProjects().then(list => {
-        setBrowseProjects(list);
-        setBrowseLoading(false);
-      });
-    }
-  }, [isJoin, state.step]);
+    if (!isJoin || state.step !== 2) return;
 
-  /* ── Pre-fill intro message when project is selected ── */
-  useEffect(() => {
-    if (!selectedProject) return;
-    const skillsStr = state.skills.slice(0, 3).join(', ');
+    let cancelled = false;
+    setBrowseLoading(true);
+
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    const userName = stored ? (JSON.parse(stored)?.name || 'there') : 'there';
-    const joinPaid =
-      showsSalaryForPurpose(
-        (selectedProject as { projectPurpose?: ProjectPurpose }).projectPurpose
-      ) ||
-      ((selectedProject.salaryMax || 0) > 0);
-    const salaryPart =
-      joinPaid && joinExpectedSalary
-        ? ` My expected compensation is ${joinSalaryCurrency} ${Number(joinExpectedSalary).toLocaleString('en-IN')}/month.`
-        : '';
-    setIntroMessage(`Hi, I'm ${userName}. I can contribute ${skillsStr || 'my skills'}.${salaryPart} I'd love to join "${selectedProject.name}".`);
-  }, [selectedProject, state.skills, joinExpectedSalary, joinSalaryCurrency]);
+    const excludeContact = stored ? JSON.parse(stored)?.contact : undefined;
+
+    apiBrowseProjects(undefined, excludeContact)
+      .then(list => {
+        if (cancelled) return;
+        setBrowseProjects(filterAllowedProjects(list));
+      })
+      .catch(() => {
+        if (!cancelled) setBrowseProjects([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBrowseLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isJoin, state.step, state.skills.join('|')]);
+
+  const { similarProjects } = useMemo(() => {
+    const ranked = browseProjects.map(project => ({
+      project,
+      matchCount: getSkillMatchCount(state.skills, project.roles || []),
+    }));
+    const similar = ranked
+      .filter(item => item.matchCount > 0)
+      .sort((a, b) => b.matchCount - a.matchCount);
+    return { similarProjects: similar };
+  }, [browseProjects, state.skills]);
+
+  /* ── Pre-fill join role hint from skills ── */
+  useEffect(() => {
+    if (!isJoin || joinRole || state.skills.length === 0) return;
+    setJoinRole(state.skills[0]);
+  }, [isJoin, joinRole, state.skills]);
 
   /* ── Close city dropdown on outside click ── */
   useEffect(() => {
@@ -136,19 +273,25 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  /* ── Reset when wizard closes ── */
+  /* ── Reset when wizard closes; optional pre-selected join/create ── */
   useEffect(() => {
     if (!isOpen) {
       wizard.reset();
       setProjectName(''); setProjectDesc(''); setDeadline('');
       setCreateSalaryMin(''); setCreateSalaryMax(''); setCreateCurrency('INR');
       setProjectCity(''); setProjectState(''); setCityInput(''); setShowCityDrop(false);
-      setJoinRole(''); setJoinExpectedSalary(''); setJoinSalaryCurrency('INR');
-      setSelectedProject(null); setIntroMessage('');
-      setSendError(''); setSending(false); setJoinSuccess(false);
+      setJoinRole('');
+      setSelectedProject(null);
+      setJoiningProjectId(null);
+      setSendError('');
       setPublishing(false); setError('');
+      setBrowseProjects([]);
+      return;
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (initialEntry) {
+      wizard.selectEntry(initialEntry);
+    }
+  }, [isOpen, initialEntry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Validation per step ── */
   const validate = useCallback((): boolean => {
@@ -171,16 +314,58 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
         const hookErr = wizard.validateStep();
         if (hookErr) { setError(hookErr); return false; }
       }
-      if (state.step === 2) {
-        if (!selectedProject) { setError('Select a project to continue.'); return false; }
-      }
     }
 
     return true;
-  }, [state.entry, state.step, state.skills, projectName, projectDesc, selectedProject, wizard]);
+  }, [state.entry, state.step, projectName, projectDesc, wizard]);
+
+  const openJoinExploreDashboard = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('makeBigActiveTab', 'explore');
+    }
+    onComplete(browseToProjectData(null, 'join', state.skills));
+  }, [onComplete, state.skills]);
+
+  const openMemberDashboard = useCallback((project: BrowseProject) => {
+    onComplete(browseToProjectData(project, 'member', state.skills));
+  }, [onComplete, state.skills]);
+
+  const handleInstantJoin = useCallback(async (project: BrowseProject) => {
+    if (!project.id) return;
+    setSendError('');
+    setJoiningProjectId(project.id);
+
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    const userName = stored ? (JSON.parse(stored)?.name || 'User') : 'User';
+    const role = joinRole.trim() || state.skills[0] || 'member';
+
+    try {
+      await apiJoinProject(project.id, userName, role);
+      openMemberDashboard(project);
+    } catch (e) {
+      setSendError(getErrorMessage(e, 'join'));
+    } finally {
+      setJoiningProjectId(null);
+    }
+  }, [joinRole, state.skills, openMemberDashboard]);
 
   const handleNext = () => {
     if (!validate()) return;
+
+    if (isJoin && state.step === JOIN_STEP_COUNT && selectedProject) {
+      void handleInstantJoin(selectedProject);
+      setError('');
+      return;
+    }
+
+    if (isJoin && state.step === JOIN_STEP_COUNT && !selectedProject) {
+      openJoinExploreDashboard();
+      setError('');
+      return;
+    }
+
+    if (isJoin && state.step >= JOIN_STEP_COUNT) return;
+
     wizard.next();
     setError('');
   };
@@ -220,25 +405,6 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
     setPublishing(false);
   };
 
-  /* ── JOIN: send intro ── */
-  const handleSendIntro = async () => {
-    if (!selectedProject?.id) return;
-    setSendError('');
-    setSending(true);
-
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    const userName = stored ? (JSON.parse(stored)?.name || 'User') : 'User';
-
-    try {
-      await apiJoinProject(selectedProject.id, userName, joinRole || 'member');
-      setJoinSuccess(true);
-    } catch (e) {
-      setSendError(getErrorMessage(e, 'join'));
-    } finally {
-      setSending(false);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -249,7 +415,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
         <span className="text-xl font-black text-[#0A66C2] tracking-tight">Make Big</span>
 
         {/* Step dots — only when mode is chosen */}
-        {state.entry !== '' && !joinSuccess && (
+        {state.entry !== '' && (
           <div className="hidden sm:flex items-center gap-1.5">
             {stepLabels.map((label, i) => (
               <div key={label} className="flex items-center gap-1.5">
@@ -265,7 +431,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
                   </div>
                   <span className={`text-[10px] font-medium whitespace-nowrap ${state.step === i + 1 ? 'text-[#0A66C2]' : 'text-[#999]'}`}>
                     {isJoin
-                      ? (['Skills', 'Project', 'Intro'] as const)[i]
+                      ? (['Skills', 'Join'] as const)[i]
                       : (['Build', 'Skills', 'Publish'] as const)[i]}
                   </span>
                 </div>
@@ -304,7 +470,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { key: 'create', icon: '🚀', title: 'Create a project', desc: 'Post your idea and recruit the team you need to build it.' },
-                  { key: 'join',   icon: '🤝', title: 'Join a project',   desc: 'Browse open projects and apply to one that fits your skills.' },
+                  { key: 'join',   icon: '🤝', title: 'Join a project',   desc: 'Explore open projects, pick a match, or browse your personalized dashboard.' },
                 ].map(opt => (
                   <button
                     key={opt.key}
@@ -320,37 +486,11 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
             </>
           )}
 
-          {/* ═══════════════════════════════════════════════
-              JOIN SUCCESS CONFIRMATION
-          ═══════════════════════════════════════════════ */}
-          {joinSuccess && (
-            <div className="flex flex-col items-center text-center space-y-5 py-10">
-              <div className="w-20 h-20 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center text-4xl">
-                ✓
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[#1d2226]">Application sent!</h2>
-                <p className="text-[#666] mt-1 max-w-sm">
-                  Your intro has been shared with the team behind <strong>{selectedProject?.name}</strong>. You&apos;ll hear back through the project chat.
-                </p>
-              </div>
-              <div className="bg-[#EEF3FB] border border-[#0A66C2]/20 rounded-xl p-4 max-w-sm w-full text-left space-y-1">
-                <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-wide">What happens next</p>
-                <p className="text-sm text-[#1d2226]">The project creator will see your intro and can accept your join request from their dashboard.</p>
-              </div>
-              <button
-                onClick={onClose}
-                className="px-6 py-2.5 border-2 border-[#0A66C2] text-[#0A66C2] font-semibold rounded-full hover:bg-[#EEF3FB] transition-all text-sm"
-              >
-                ← Back to explore
-              </button>
-            </div>
-          )}
 
           {/* ═══════════════════════════════════════════════
               CREATE — STEP 1: What are you building?
           ═══════════════════════════════════════════════ */}
-          {!isJoin && !joinSuccess && state.entry !== '' && state.step === 1 && (
+          {!isJoin && state.entry !== '' && state.step === 1 && (
             <div className="space-y-6">
               <div>
                 <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 1 of 3</p>
@@ -499,7 +639,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
           {/* ═══════════════════════════════════════════════
               CREATE — STEP 2: Skills & Timeline
           ═══════════════════════════════════════════════ */}
-          {!isJoin && !joinSuccess && state.entry !== '' && state.step === 2 && (
+          {!isJoin && state.entry !== '' && state.step === 2 && (
             <div className="space-y-6">
               <div>
                 <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 2 of 3</p>
@@ -595,7 +735,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
           {/* ═══════════════════════════════════════════════
               CREATE — STEP 3: Review & Publish
           ═══════════════════════════════════════════════ */}
-          {!isJoin && !joinSuccess && state.entry !== '' && state.step === 3 && (
+          {!isJoin && state.entry !== '' && state.step === 3 && (
             <div className="space-y-6">
               <div>
                 <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 3 of 3</p>
@@ -674,10 +814,10 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
           {/* ═══════════════════════════════════════════════
               JOIN — STEP 1: What can you bring?
           ═══════════════════════════════════════════════ */}
-          {isJoin && !joinSuccess && state.step === 1 && (
+          {isJoin && state.entry !== '' && state.step === 1 && (
             <div className="space-y-6">
               <div>
-                <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 1 of 3</p>
+                <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 1 of 2</p>
                 <h2 className="text-2xl font-bold text-[#1d2226]">{copy?.title}</h2>
                 <p className="text-[#666] text-sm mt-1">{copy?.subtitle}</p>
               </div>
@@ -711,7 +851,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
                 </Field>
 
                 <p className="text-xs text-[#666] bg-[#f8f9fa] rounded-xl px-4 py-3">
-                  Salary is only shared when you apply to paid employment/internship roles (step 2).
+                  Join is instant — tap Join now on any project. No waiting for approval.
                 </p>
               </div>
             </div>
@@ -720,14 +860,17 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
           {/* ═══════════════════════════════════════════════
               JOIN — STEP 2: Pick a project
           ═══════════════════════════════════════════════ */}
-          {isJoin && !joinSuccess && state.step === 2 && (
+          {isJoin && state.entry !== '' && state.step === 2 && (
             <div className="space-y-5">
               <div>
-                <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 2 of 3</p>
+                <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 2 of 2</p>
                 <h2 className="text-2xl font-bold text-[#1d2226]">{copy?.title}</h2>
-                <p className="text-[#666] text-sm mt-1">
-                  {browseLoading ? 'Loading projects…' : `${browseProjects.length} projects open for applications`}
-                </p>
+                <p className="text-[#666] text-sm mt-1">{copy?.subtitle}</p>
+                {!browseLoading && (
+                  <p className="text-xs text-[#999] mt-2">
+                    {similarProjects.length} project{similarProjects.length !== 1 ? 's' : ''} match your skills
+                  </p>
+                )}
               </div>
 
               {browseLoading ? (
@@ -740,168 +883,33 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
                     </div>
                   ))}
                 </div>
-              ) : browseProjects.length === 0 ? (
+              ) : similarProjects.length === 0 ? (
                 <div className="bg-white border border-dashed border-[#d9d9d9] rounded-xl p-10 text-center">
-                  <p className="text-3xl mb-2">·</p>
-                  <p className="font-semibold text-[#1d2226]">No open projects right now</p>
-                  <p className="text-sm text-[#666] mt-1">Check back soon, or create your own project.</p>
+                  <p className="font-semibold text-[#1d2226]">No matching projects for your skills yet</p>
+                  <p className="text-sm text-[#666] mt-1">Try different skills in step 1, create your own project, or browse Explore in the app.</p>
+                  <button
+                    type="button"
+                    onClick={openJoinExploreDashboard}
+                    className="mt-4 px-5 py-2.5 bg-[#0A66C2] text-white text-sm font-semibold rounded-full hover:bg-[#004182]"
+                  >
+                    Go to app home
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {browseProjects.map(project => {
-                    const matchCount = getSkillMatchCount(state.skills, project.roles || []);
-                    const isSelected = selectedProject?.id === project.id;
-
-                    return (
-                      <button
-                        key={project.id}
-                        type="button"
-                        onClick={() => { setSelectedProject(project); setError(''); }}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          isSelected
-                            ? 'border-[#0A66C2] bg-[#EEF3FB]'
-                            : 'border-[#d9d9d9] bg-white hover:border-[#0A66C2]/50 hover:bg-[#f8f9fa]'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className="text-[10px] font-bold uppercase tracking-wide text-[#0A66C2] bg-[#EEF3FB] px-2 py-0.5 rounded-full border border-[#0A66C2]/20">
-                                {CategoryTitle(project.categoryId || '')}
-                              </span>
-                              {matchCount > 0 && (
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                  matchCount >= 3
-                                    ? 'text-green-700 bg-green-50 border-green-200'
-                                    : matchCount >= 1
-                                    ? 'text-amber-700 bg-amber-50 border-amber-200'
-                                    : 'text-[#666] bg-[#f3f2ef] border-[#d9d9d9]'
-                                }`}>
-                                  {matchCount} skill{matchCount !== 1 ? 's' : ''} match
-                                </span>
-                              )}
-                            </div>
-                            <p className="font-semibold text-[#1d2226]">{project.name}</p>
-                            {project.desc && (
-                              <p className="text-xs text-[#666] mt-0.5 line-clamp-2">{project.desc}</p>
-                            )}
-                            {(project.roles || []).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {(project.roles || []).slice(0, 4).map(r => (
-                                  <span
-                                    key={r}
-                                    className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
-                                      state.skills.some(s => s.toLowerCase() === r.toLowerCase())
-                                        ? 'bg-green-50 text-green-700 border-green-200'
-                                        : 'bg-[#f3f2ef] text-[#666] border-[#e0e0e0]'
-                                    }`}
-                                  >
-                                    {r}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="text-right shrink-0 space-y-1">
-                            {showsSalaryForPurpose(
-                              (project as { projectPurpose?: ProjectPurpose }).projectPurpose
-                            ) &&
-                              project.salaryMax &&
-                              project.salaryMax > 0 && (
-                              <p className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                                {project.currency || 'INR'} {Number(project.salaryMax).toLocaleString('en-IN')}/mo
-                              </p>
-                            )}
-                            {(project.joinedCount ?? 0) > 0 && (
-                              <p className="text-[10px] text-[#999]">{project.joinedCount} joined</p>
-                            )}
-                            {isSelected && (
-                              <span className="text-[10px] font-bold text-[#0A66C2]">Selected ✓</span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {similarProjects.map(({ project }) => (
+                    <ProjectPickCard
+                      key={project.id}
+                      project={project}
+                      userSkills={state.skills}
+                      selected={selectedProject?.id === project.id}
+                      onSelect={() => { setSelectedProject(project); setError(''); setSendError(''); }}
+                      onJoinNow={() => void handleInstantJoin(project)}
+                      joining={joiningProjectId === project.id}
+                    />
+                  ))}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ═══════════════════════════════════════════════
-              JOIN — STEP 3: Send your intro
-          ═══════════════════════════════════════════════ */}
-          {isJoin && !joinSuccess && state.step === 3 && (
-            <div className="space-y-6">
-              <div>
-                <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 3 of 3</p>
-                <h2 className="text-2xl font-bold text-[#1d2226]">{copy?.title}</h2>
-                <p className="text-[#666] text-sm mt-1">
-                  Introducing yourself to <strong>{selectedProject?.name}</strong>
-                </p>
-              </div>
-
-              {/* Project mini-card */}
-              {selectedProject && (
-                <div className="bg-white border border-[#e0e0e0] rounded-xl p-4 flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#EEF3FB] flex items-center justify-center text-[#0A66C2] text-lg font-bold shrink-0">
-                    {selectedProject.name[0]}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#1d2226] text-sm">{selectedProject.name}</p>
-                    <p className="text-xs text-[#666]">{CategoryTitle(selectedProject.categoryId || '')}</p>
-                  </div>
-                </div>
-              )}
-
-              {selectedProject &&
-                (showsSalaryForPurpose(
-                  (selectedProject as { projectPurpose?: ProjectPurpose }).projectPurpose
-                ) ||
-                  (selectedProject.salaryMax || 0) > 0) && (
-                <div className="bg-white border border-[#d9d9d9] rounded-2xl p-5 space-y-3">
-                  <p className="text-sm font-semibold text-[#1d2226]">
-                    Expected monthly salary
-                    <span className="ml-2 text-xs font-normal text-[#999]">(paid role)</span>
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-xs text-[#666] mb-1 block">Currency</label>
-                      <select
-                        value={joinSalaryCurrency}
-                        onChange={e => setJoinSalaryCurrency(e.target.value)}
-                        className={iCls}
-                      >
-                        {['INR', 'USD', 'EUR', 'GBP'].map(c => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs text-[#666] mb-1 block">Amount / month</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={joinExpectedSalary}
-                        onChange={e => setJoinExpectedSalary(e.target.value)}
-                        placeholder="e.g. 10000"
-                        className={iCls}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <Field label="Your intro message">
-                <textarea
-                  rows={5}
-                  value={introMessage}
-                  onChange={e => { setIntroMessage(e.target.value); setSendError(''); }}
-                  className={iCls + ' resize-none'}
-                  placeholder="Write a short intro…"
-                />
-                <p className="text-[10px] text-[#999] mt-1">You can edit this message. The team will receive it when you click Send.</p>
-              </Field>
-
               {sendError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
                   {sendError}
@@ -920,63 +928,68 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete }: ProjectWizardP
       </div>
 
       {/* ── Footer ── */}
-      {!joinSuccess && (
-        <div className="bg-white border-t border-[#d9d9d9] px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0">
-          {/* Back */}
-          <div>
-            {state.entry !== '' && (
-              <button
-                onClick={() => wizard.prev()}
-                className="px-5 py-2 border border-[#0A66C2] text-[#0A66C2] font-semibold rounded-full hover:bg-[#EEF3FB] transition-all text-sm"
-              >
-                ← Back
-              </button>
-            )}
-          </div>
-
-          {/* Step counter + next/action */}
-          <div className="flex items-center gap-3">
-            {state.entry !== '' && (
-              <span className="text-xs text-[#999]">{state.step} / 3</span>
-            )}
-
-            {/* Mode picker: no Next button — tile click selects + auto-advances */}
-            {state.entry === '' && null}
-
-            {/* Steps 1 & 2: Next */}
-            {state.entry !== '' && state.step < 3 && (
-              <button
-                onClick={handleNext}
-                className="px-6 py-2 bg-[#0A66C2] text-white font-semibold rounded-full hover:bg-[#004182] transition-all text-sm"
-              >
-                Next →
-              </button>
-            )}
-
-            {/* Create step 3: Publish */}
-            {!isJoin && state.step === 3 && (
-              <button
-                onClick={handlePublish}
-                disabled={publishing}
-                className="px-6 py-2 bg-[#0A66C2] text-white font-semibold rounded-full hover:bg-[#004182] disabled:opacity-50 transition-all text-sm"
-              >
-                {publishing ? 'Publishing…' : 'Publish Project'}
-              </button>
-            )}
-
-            {/* Join step 3: Send */}
-            {isJoin && state.step === 3 && (
-              <button
-                onClick={handleSendIntro}
-                disabled={sending || !introMessage.trim()}
-                className="px-6 py-2 bg-[#0A66C2] text-white font-semibold rounded-full hover:bg-[#004182] disabled:opacity-50 transition-all text-sm"
-              >
-                {sending ? 'Sending…' : 'Send Intro →'}
-              </button>
-            )}
-          </div>
+      <div className="bg-white border-t border-[#d9d9d9] px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0">
+        {/* Back */}
+        <div>
+          {state.entry !== '' && (
+            <button
+              type="button"
+              onClick={() => wizard.prev()}
+              className="px-5 py-2 border border-[#0A66C2] text-[#0A66C2] font-semibold rounded-full hover:bg-[#EEF3FB] transition-all text-sm"
+            >
+              ← Back
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Step counter + next/action */}
+        <div className="flex items-center gap-3">
+          {state.entry !== '' && (
+            <span className="text-xs text-[#999]">{state.step} / {stepTotal}</span>
+          )}
+
+          {state.entry !== '' && state.step < stepTotal && (
+            <>
+              {isJoin && state.step === JOIN_STEP_COUNT && (
+                <button
+                  type="button"
+                  onClick={openJoinExploreDashboard}
+                  className="px-5 py-2 border border-[#d9d9d9] text-[#666] font-semibold rounded-full hover:bg-[#f3f2ef] transition-all text-sm"
+                >
+                  Skip for now
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={Boolean(isJoin && state.step === JOIN_STEP_COUNT && selectedProject && joiningProjectId)}
+                className="px-6 py-2 bg-[#0A66C2] text-white font-semibold rounded-full hover:bg-[#004182] disabled:opacity-50 transition-all text-sm"
+              >
+                {isJoin && state.step === 1
+                  ? 'Next →'
+                  : isJoin && state.step === JOIN_STEP_COUNT
+                    ? selectedProject
+                      ? joiningProjectId
+                        ? 'Joining…'
+                        : 'Join selected →'
+                      : 'Skip for now →'
+                    : 'Next →'}
+              </button>
+            </>
+          )}
+
+          {!isJoin && state.step === CREATE_STEP_COUNT && (
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={publishing}
+              className="px-6 py-2 bg-[#0A66C2] text-white font-semibold rounded-full hover:bg-[#004182] disabled:opacity-50 transition-all text-sm"
+            >
+              {publishing ? 'Publishing…' : 'Publish Project'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -31,7 +31,27 @@ try {
 }
 
 console.log(`\nPushing to https://github.com/${owner}/${repo} …\n`);
-execSync(`git push ${pushUrl} main`, { cwd: root, stdio: 'inherit' });
+try {
+  execSync(`git push ${pushUrl} main`, { cwd: root, stdio: 'pipe' });
+} catch (err) {
+  const msg = err.stderr?.toString() || err.message || '';
+  console.error(msg);
+  if (msg.includes('403') || msg.includes('denied')) {
+    console.error(`
+Push blocked — your token cannot write to the repo.
+
+Fix (pick one):
+  A) Classic token: github.com/settings/tokens/new → check "repo" → Generate
+  B) Fine-grained token: edit token → Repository access: makebig
+     → Permissions → Contents → "Read and write" → Save
+
+Then run (paste token ONLY after export=, in Terminal):
+  export GITHUB_TOKEN=your_token_here
+  npm run push:github
+`);
+  }
+  process.exit(1);
+}
 
 try {
   execSync('git branch --set-upstream-to=origin/main main', { cwd: root, stdio: 'pipe' });

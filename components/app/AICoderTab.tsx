@@ -68,11 +68,12 @@ export function AICoderTab({
           </header>
           {!isPro && (
             <div className="bg-[#EEF3FB] border border-[#0A66C2]/20 rounded-xl px-4 py-3 text-sm text-[#1d2226]">
-              <strong>Demo mode</strong> — works now with sample-quality answers.{' '}
+              <strong>Free plan</strong> — AI works when <code className="text-xs bg-white px-1 rounded">GROQ_API_KEY</code> is set in{' '}
+              <code className="text-xs bg-white px-1 rounded">backend/.env</code>.{' '}
               <Link href="/pricing" className="text-[#0A66C2] font-semibold hover:underline">
                 Pro
               </Link>{' '}
-              unlocks live AI when Groq is configured.
+              adds unlimited projects and priority matching.
             </div>
           )}
           <div className="min-h-[60vh] flex flex-col bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">

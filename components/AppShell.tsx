@@ -61,7 +61,8 @@ export function AppShell({
     return sessionStorage.getItem(PROFILE_OPEN_KEY) === '1';
   });
   const notifUserKey = user.id || user.contact;
-  const { unreadCount } = useNotifications(notifUserKey);
+  const notificationsState = useNotifications(notifUserKey);
+  const { unreadCount, markAllRead } = notificationsState;
 
   const handleTabChange = useCallback((tab: AppTab) => {
     setActiveTab(tab);
@@ -86,6 +87,12 @@ export function AppShell({
   useEffect(() => {
     apiCheckHealth().then(setApiOnline);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      markAllRead();
+    }
+  }, [activeTab, markAllRead]);
 
   useEffect(() => {
     if (!user.contact || !currentProject || !projectNeedsSync(currentProject)) return;
@@ -139,7 +146,7 @@ export function AppShell({
         {activeTab === 'home' && (
           <HomeTab userContact={user.contact} onJoinProject={onPublicJoinClick} />
         )}
-        {activeTab === 'explore' && <ExploreTab />}
+        {activeTab === 'explore' && <ExploreTab onJoinProject={onPublicJoinClick} />}
         {activeTab === 'posts' && (
           <PostsTab
             currentProject={currentProject}
@@ -156,7 +163,9 @@ export function AppShell({
             onProjectSynced={handleProjectSynced}
           />
         )}
-        {activeTab === 'notifications' && <NotificationsView userId={notifUserKey} />}
+        {activeTab === 'notifications' && (
+          <NotificationsView userId={notifUserKey} {...notificationsState} />
+        )}
         {activeTab === 'friends' && (
           <FriendsView
             currentProject={currentProject}

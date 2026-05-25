@@ -1,5 +1,11 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __rootDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
+// backend/.env overrides root placeholders (e.g. real GROQ_API_KEY)
+dotenv.config({ path: path.join(__rootDir, "backend/.env"), override: true });
 
 import express from "express";
 import { createServer } from "http";
@@ -58,6 +64,105 @@ function toClient(doc) {
     id: obj._id?.toString?.() || obj.id,
     _id: undefined,
   };
+}
+
+async function notificationUserIdForQuery(userIdParam, authContact, jwtUserId) {
+  if (jwtUserId) return jwtUserId;
+  if (normalizeContact(userIdParam) === authContact) {
+    const user = await User.findOne({ contact: authContact });
+    return user?._id?.toString() || null;
+  }
+  return userIdParam;
+}
+
+async function userIdForContact(contact) {
+  if (!contact) return null;
+  const user = await User.findOne({ contact: normalizeContact(contact) });
+  return user?._id?.toString() || null;
+}
+
+async function pushNotification({
+  contact,
+  userId,
+  projectId,
+  type,
+  title,
+  message,
+  actionUrl,
+  metadata,
+}) {
+  try {
+    const uid = userId || (contact ? await userIdForContact(contact) : null);
+    if (!uid) return null;
+    const notification = await Notification.create({
+      userId: uid,
+      projectId: projectId || undefined,
+      type,
+      title,
+      message,
+      actionUrl: actionUrl || "",
+      metadata: metadata || undefined,
+    });
+    const payload = toClient(notification);
+    payload.read = Boolean(notification.isRead);
+    io.emit("notification_received", payload);
+    return notification;
+  } catch (err) {
+    console.error("pushNotification:", err.message);
+    return null;
+  }
+}
+
+async function getTeammateContacts(projectId, excludeContact) {
+  const project = await Project.findById(projectId).lean();
+  if (!project) return [];
+  const contacts = new Set();
+  if (project.ownerContact) contacts.add(normalizeContact(project.ownerContact));
+  for (const m of project.teamMembers || []) {
+    if (m.status === "joined" && m.contact) {
+      contacts.add(normalizeContact(m.contact));
+    }
+  }
+  if (excludeContact) contacts.delete(normalizeContact(excludeContact));
+  return [...contacts];
+}
+
+async function getNetworkContacts(userContact) {
+  const c = normalizeContact(userContact);
+  if (!c) return [];
+  const projects = await Project.find({
+    $or: [
+      { ownerContact: c },
+      { teamMembers: { $elemMatch: { contact: c, status: "joined" } } },
+    ],
+  }).lean();
+  const contacts = new Set();
+  for (const p of projects) {
+    if (p.ownerContact) contacts.add(normalizeContact(p.ownerContact));
+    for (const m of p.teamMembers || []) {
+      if (m.status === "joined" && m.contact) {
+        contacts.add(normalizeContact(m.contact));
+      }
+    }
+  }
+  contacts.delete(c);
+  return [...contacts];
+}
+
+async function notifyManyContacts(contacts, payloadFactory) {
+  const seen = new Set();
+  for (const contact of contacts) {
+    const key = normalizeContact(contact);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const payload = typeof payloadFactory === "function" ? payloadFactory(key) : payloadFactory;
+    if (payload) await pushNotification({ contact: key, ...payload });
+  }
+}
+
+async function displayNameForContact(contact) {
+  const user = await User.findOne({ contact: normalizeContact(contact) }).lean();
+  return user?.name || contact;
 }
 
 const app = express();
@@ -315,7 +420,11 @@ app.get("/api/users/:userId/notifications", authMiddleware, async (req, res) => 
     if (normalizeContact(userId) !== authContact && userId !== req.user?.userId) {
       return res.status(403).json(formatResponse(false, null, "You can only read your own notifications"));
     }
-    const notifications = await Notification.find({ userId })
+    const queryUserId = await notificationUserIdForQuery(userId, authContact, req.user?.userId);
+    if (!queryUserId) {
+      return res.json(formatResponse(true, { notifications: [] }));
+    }
+    const notifications = await Notification.find({ userId: queryUserId })
       .sort({ createdAt: -1 })
       .limit(50);
     res.json(formatResponse(true, { notifications: notifications.map(toClient) }));
@@ -426,6 +535,16 @@ app.post("/api/profile/rate", authMiddleware, async (req, res) => {
     profile.workRatingAvg = Math.round(nextAvg * 10) / 10;
     profile.workRatingCount = nextCount;
     await profile.save();
+
+    const raterName = await displayNameForContact(rater);
+    await pushNotification({
+      contact: target,
+      type: "activity",
+      title: "New rating on your profile",
+      message: `${raterName} rated you ${n} star${n === 1 ? "" : "s"}`,
+      actionUrl: `/u/${encodeURIComponent(target)}`,
+      metadata: { rater, stars: n },
+    });
 
     res.json(
       formatResponse(true, {
@@ -879,24 +998,56 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
     });
     await project.save();
 
-    await Activity.create({
+    const joinActivity = await Activity.create({
       projectId: project._id,
       userId: memberContact,
       type: "member_joined",
       description: `${memberName} joined the project`,
     });
+    io.to(`project_${project._id}`).emit("activity_created", toClient(joinActivity));
 
     const owner = await User.findOne({ contact: normalizeContact(project.ownerContact) });
+    const memberDisplayName =
+      memberName !== memberContact ? memberName : await displayNameForContact(memberContact);
     if (owner) {
-      await Notification.create({
+      await pushNotification({
         userId: owner._id.toString(),
         projectId: project._id,
         type: "join",
         title: "New team member",
-        message: `${memberName} joined "${project.name}"`,
+        message: `${memberDisplayName} joined "${project.name}"`,
         actionUrl: `/projects/${project._id}`,
+        metadata: { memberContact, projectId: project._id.toString() },
       });
     }
+
+    const teammates = await getTeammateContacts(project._id, memberContact);
+    await notifyManyContacts(teammates, (mate) => {
+      if (mate === normalizeContact(project.ownerContact)) return null;
+      return {
+        projectId: project._id,
+        type: "join",
+        title: "Teammate joined",
+        message: `${memberDisplayName} joined "${project.name}"`,
+        actionUrl: `/projects/${project._id}`,
+        metadata: { memberContact, projectId: project._id.toString() },
+      };
+    });
+
+    const network = await getNetworkContacts(memberContact);
+    await notifyManyContacts(network, (friend) => {
+      if (teammates.includes(friend) || friend === normalizeContact(project.ownerContact)) {
+        return null;
+      }
+      return {
+        projectId: project._id,
+        type: "activity",
+        title: "Friend joined a project",
+        message: `${memberDisplayName} joined "${project.name}"`,
+        actionUrl: `/projects/${project._id}`,
+        metadata: { memberContact, projectId: project._id.toString() },
+      };
+    });
 
     io.to(`project_${project._id}`).emit("member_status_changed", {
       projectId: project._id.toString(),
@@ -1112,9 +1263,10 @@ app.post("/api/projects/:projectId/tasks", authMiddleware, async (req, res) => {
     const saved = project.tasks[project.tasks.length - 1];
     const taskObj = { ...saved.toObject(), id: saved._id.toString() };
 
-    await Activity.create({ projectId: project._id, userId: req.user?.contact || '', type: 'task_created', description: `Task "${title}" was created` });
+    const activity = await Activity.create({ projectId: project._id, userId: req.user?.contact || '', type: 'task_created', description: `Task "${title}" was created` });
 
     io.to(`project_${project._id}`).emit("task_created", { projectId: project._id.toString(), task: taskObj });
+    io.to(`project_${project._id}`).emit("activity_created", toClient(activity));
     res.json(formatResponse(true, { task: taskObj }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1141,7 +1293,8 @@ app.put("/api/projects/:projectId/tasks/:taskId", authMiddleware, async (req, re
     const taskObj = { ...task.toObject(), id: task._id.toString() };
 
     if (status && status !== oldStatus) {
-      await Activity.create({ projectId: project._id, userId: req.user?.contact || '', type: 'task_updated', description: `Task "${task.title}" moved to ${status}` });
+      const activity = await Activity.create({ projectId: project._id, userId: req.user?.contact || '', type: 'task_updated', description: `Task "${task.title}" moved to ${status}` });
+      io.to(`project_${project._id}`).emit("activity_created", toClient(activity));
     }
 
     io.to(`project_${project._id}`).emit("task_updated", { projectId: project._id.toString(), task: taskObj });
@@ -1164,7 +1317,8 @@ app.delete("/api/projects/:projectId/tasks/:taskId", authMiddleware, async (req,
     await project.save();
 
     io.to(`project_${project._id}`).emit("task_deleted", { projectId: project._id.toString(), taskId: req.params.taskId });
-    await Activity.create({ projectId: project._id, userId: req.user?.contact || '', type: 'task_deleted', description: `Task "${title}" was deleted` });
+    const activity = await Activity.create({ projectId: project._id, userId: req.user?.contact || '', type: 'task_deleted', description: `Task "${title}" was deleted` });
+    io.to(`project_${project._id}`).emit("activity_created", toClient(activity));
     res.json(formatResponse(true, { deleted: true }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1173,9 +1327,21 @@ app.delete("/api/projects/:projectId/tasks/:taskId", authMiddleware, async (req,
 
 // ==================== NOTIFICATIONS ====================
 
-app.patch("/api/users/:userId/notifications/read", async (req, res) => {
+app.patch("/api/users/:userId/notifications/read", authMiddleware, async (req, res) => {
   try {
-    await Notification.updateMany({ userId: req.params.userId, read: false }, { $set: { read: true } });
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+    const userId = req.params.userId;
+    if (normalizeContact(userId) !== authContact && userId !== req.user?.userId) {
+      return res.status(403).json(formatResponse(false, null, "You can only update your own notifications"));
+    }
+    const queryUserId = await notificationUserIdForQuery(userId, authContact, req.user?.userId);
+    if (queryUserId) {
+      await Notification.updateMany(
+        { userId: queryUserId, isRead: false },
+        { $set: { isRead: true } }
+      );
+    }
     res.json(formatResponse(true, { marked: true }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1637,8 +1803,54 @@ app.post("/api/posts", authMiddleware, async (req, res) => {
     });
     const likeCount = 0;
     const commentCount = 0;
-    io.to(`project_${projectId}`).emit("post_created", { ...toClient(post), likeCount, commentCount });
-    res.json(formatResponse(true, { post: { ...toClient(post), likeCount, commentCount } }));
+    const project = await Project.findById(projectId).lean();
+    const postPayload = {
+      ...toClient(post),
+      likeCount,
+      commentCount,
+      projectName: project?.name || "",
+      projectSlug: project?.slug || "",
+      projectCategory: project?.categoryId || "",
+      projectCity: project?.city || "",
+      projectState: project?.state || "",
+    };
+    io.to(`project_${projectId}`).emit("post_created", postPayload);
+    io.emit("feed_post_created", postPayload);
+
+    const authorContact = normalizeContact(req.user?.contact || "");
+    const authorName = await displayNameForContact(authorContact);
+    const teammates = await getTeammateContacts(projectId, authorContact);
+    await notifyManyContacts(teammates, (mate) => ({
+      projectId,
+      type: "post",
+      title: "New project post",
+      message: `${authorName} posted in "${project?.name || "your project"}"`,
+      actionUrl: `/posts`,
+      metadata: {
+        postId: post._id.toString(),
+        authorContact,
+        projectId: String(projectId),
+      },
+    }));
+
+    const network = await getNetworkContacts(authorContact);
+    await notifyManyContacts(network, (friend) => {
+      if (teammates.includes(friend)) return null;
+      return {
+        projectId,
+        type: "activity",
+        title: "Friend posted an update",
+        message: `${authorName} shared an update on "${project?.name || "a project"}"`,
+        actionUrl: `/posts`,
+        metadata: {
+          postId: post._id.toString(),
+          authorContact,
+          projectId: String(projectId),
+        },
+      };
+    });
+
+    res.json(formatResponse(true, { post: postPayload }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }
@@ -1658,6 +1870,38 @@ app.post("/api/posts/:id/like", authMiddleware, async (req, res) => {
     const likeCount = await Like.countDocuments({ postId });
     const liked = !existing;
     io.emit("post_liked", { postId, likeCount, liked, userId });
+
+    if (liked) {
+      const post = await Post.findById(postId).lean();
+      const postAuthor = normalizeContact(post?.authorId || "");
+      const likerName = await displayNameForContact(userId);
+      if (postAuthor && postAuthor !== normalizeContact(userId)) {
+        const postAuthorName = await displayNameForContact(postAuthor);
+        await pushNotification({
+          contact: postAuthor,
+          projectId: post?.projectId,
+          type: "like",
+          title: "Someone liked your post",
+          message: `${likerName} liked your update`,
+          actionUrl: `/posts`,
+          metadata: { postId, liker: userId, projectId: post?.projectId?.toString() },
+        });
+
+        const authorNetwork = await getNetworkContacts(postAuthor);
+        await notifyManyContacts(
+          authorNetwork.filter((f) => f !== normalizeContact(userId) && f !== postAuthor),
+          (friend) => ({
+            projectId: post?.projectId,
+            type: "activity",
+            title: "Friend activity",
+            message: `${likerName} liked ${postAuthorName}'s post`,
+            actionUrl: `/posts`,
+            metadata: { postId, liker: userId },
+          })
+        );
+      }
+    }
+
     res.json(formatResponse(true, { likeCount, liked }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1676,6 +1920,54 @@ app.post("/api/posts/:id/comments", authMiddleware, async (req, res) => {
       parentCommentId: parentCommentId || null,
     });
     io.emit("comment_added", { postId: req.params.id, comment: toClient(comment) });
+
+    const post = await Post.findById(req.params.id).lean();
+    const commenter = normalizeContact(req.user?.contact || "");
+    const commenterName = await displayNameForContact(commenter);
+    const postAuthor = normalizeContact(post?.authorId || "");
+    const notifyTargets = new Set();
+
+    if (postAuthor && postAuthor !== commenter) notifyTargets.add(postAuthor);
+
+    if (parentCommentId) {
+      const parent = await Comment.findById(parentCommentId).lean();
+      const parentAuthor = normalizeContact(parent?.authorId || "");
+      if (parentAuthor && parentAuthor !== commenter) notifyTargets.add(parentAuthor);
+    }
+
+    for (const target of notifyTargets) {
+      await pushNotification({
+        contact: target,
+        projectId: post?.projectId,
+        type: "comment",
+        title: parentCommentId ? "New reply on a post" : "New comment on your post",
+        message: `${commenterName} ${parentCommentId ? "replied" : "commented"}: "${body.trim().slice(0, 80)}${body.trim().length > 80 ? "…" : ""}"`,
+        actionUrl: `/posts`,
+        metadata: {
+          postId: req.params.id,
+          commentId: comment._id.toString(),
+          commenter,
+          projectId: post?.projectId?.toString(),
+        },
+      });
+    }
+
+    if (postAuthor) {
+      const postAuthorName = await displayNameForContact(postAuthor);
+      const network = await getNetworkContacts(postAuthor);
+      await notifyManyContacts(
+        network.filter((f) => f !== commenter && !notifyTargets.has(f)),
+        (friend) => ({
+          projectId: post?.projectId,
+          type: "activity",
+          title: "Friend commented on a post",
+          message: `${commenterName} commented on ${postAuthorName}'s update`,
+          actionUrl: `/posts`,
+          metadata: { postId: req.params.id, commenter },
+        })
+      );
+    }
+
     res.json(formatResponse(true, { comment: toClient(comment) }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1778,16 +2070,17 @@ app.post("/api/invites/send", authMiddleware, async (req, res) => {
     const receiver = await User.findOne({
       contact: normalizeContact(receiverContact),
     });
+    const senderName = await displayNameForContact(senderContact);
     if (receiver) {
-      const notification = await Notification.create({
+      await pushNotification({
         userId: receiver._id.toString(),
         projectId,
         type: "invite",
         title: "Project invite",
-        message: `You were invited to join a project as ${role || "member"}`,
+        message: `${senderName} invited you to join "${project.name}" as ${role || "member"}`,
         actionUrl: `/projects/${projectId}`,
+        metadata: { senderContact, projectId: String(projectId) },
       });
-      io.emit("notification_received", toClient(notification));
     }
 
     res.json(formatResponse(true, { invite: toClient(invite) }));
@@ -1839,6 +2132,17 @@ app.post("/api/invites/:inviteId/accept", authMiddleware, async (req, res) => {
         projectId: project._id.toString(),
         memberContact: invite.receiverContact,
         status: "joined",
+      });
+
+      const accepterName = await displayNameForContact(authContact);
+      await pushNotification({
+        contact: invite.senderContact,
+        projectId: project._id,
+        type: "join",
+        title: "Invite accepted",
+        message: `${accepterName} accepted your invite to "${project.name}"`,
+        actionUrl: `/projects/${project._id}`,
+        metadata: { memberContact: authContact, projectId: project._id.toString() },
       });
     }
 
@@ -2176,10 +2480,15 @@ app.get("/api/match/cofounder", authMiddleware, async (req, res) => {
 
 // ==================== AI CO-FOUNDER ====================
 
-const groq = process.env.GROQ_API_KEY &&
-  !process.env.GROQ_API_KEY.startsWith("your_")
-  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-  : null;
+function isGroqConfigured() {
+  const key = process.env.GROQ_API_KEY || "";
+  if (!key.trim()) return false;
+  const weak = ["your_", "your_groq", "REPLACE", "generate_random"];
+  return !weak.some((w) => key.includes(w));
+}
+
+const groq = isGroqConfigured() ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 
 const CATEGORY_CONTEXT = {
   tech:      "software / app development startup",
@@ -2213,7 +2522,7 @@ const DEV_RESPONSES = {
     content: `Here's a cold DM you can send:\n\n---\n\nHey [Name], I came across your profile and saw your experience with [their skill]. I'm building [project name] — [one sentence on what it does and why it matters].\n\nWe're a small team of [X] working on this seriously. I think your [specific skill] would be really valuable for [specific part of the project].\n\nWould you be open to a 20-min call this week to see if there's a fit?\n\n— [Your name]\n\n---\n\n_Tip: Personalise the first sentence. Generic DMs get ignored. Mention one specific thing about their work._`,
   },
   "generate-pitch": {
-    content: `Here's a project pitch you can use:\n\n---\n\n**The Problem:** [Describe a frustrating experience your target user has — be specific and vivid. Use a real example if possible.]\n\n**What we're building:** [Project name] is a [one-line description]. Unlike [existing solution], we [key differentiator]. We're focused on [specific user group] in India, starting with [city].\n\n**Where we are:** Early stage. Small, focused team. We've [most significant thing you've done — even if small]. We're looking for [skill 1] and [skill 2] who believe in [core value] and want to build something real.\n\n---\n\n_Add your Anthropic API key to generate a pitch tailored to your actual project._`,
+    content: `Here's a project pitch you can use:\n\n---\n\n**The Problem:** [Describe a frustrating experience your target user has — be specific and vivid. Use a real example if possible.]\n\n**What we're building:** [Project name] is a [one-line description]. Unlike [existing solution], we [key differentiator]. We're focused on [specific user group] in India, starting with [city].\n\n**Where we are:** Early stage. Small, focused team. We've [most significant thing you've done — even if small]. We're looking for [skill 1] and [skill 2] who believe in [core value] and want to build something real.\n\n---\n\n_Add GROQ_API_KEY in .env (get a free key at console.groq.com) to get a pitch tailored to your actual project._`,
   },
   "check-health": {
     content: null,
@@ -2282,8 +2591,8 @@ Start with a clear verdict: 🟢 Healthy / 🟡 Slowing / 🔴 Stalling — and 
       if (!userMessage) return res.status(400).json(formatResponse(false, null, "message required for custom action"));
     }
 
-    // ── No API key or Free plan — return dev-mode placeholder ──
-    if (!groq || ownerPlan !== "pro") {
+    // ── No Groq key — return dev-mode placeholder ──
+    if (!groq) {
       let devContent = DEV_RESPONSES[action]?.content;
 
       if (action === "check-health") {
@@ -2299,9 +2608,9 @@ Start with a clear verdict: 🟢 Healthy / 🟡 Slowing / 🔴 Stalling — and 
 • **Create your first 3 tasks** — Even tiny ones. Progress compounds. Open Dashboard → Overview → New Task.
 • **Post a project update in the Feed** — Visibility attracts collaborators. Even "We started!" counts.
 
-_To get AI-powered health analysis, add your Anthropic API key to .env and restart the server._`;
+_To get AI-powered health analysis, add GROQ_API_KEY to .env (or backend/.env) and restart the server._`;
       } else if (action === "custom") {
-        devContent = `I'm running in demo mode — add your Anthropic API key in \`.env\` to enable AI responses.\n\nYour question was: _"${userMessage}"_\n\nOnce the key is set, I can answer questions about your project, suggest strategies, draft content, and more.`;
+        devContent = `I'm running in demo mode — add your Groq API key to \`.env\` or \`backend/.env\` as \`GROQ_API_KEY=gsk_...\` and restart \`npm run dev\`.\n\nYour question was: _"${userMessage}"_\n\nGet a free key at console.groq.com — then I can answer questions about your project, suggest strategies, and draft content.`;
       }
 
       return res.json(formatResponse(true, {
@@ -2315,7 +2624,7 @@ _To get AI-powered health analysis, add your Anthropic API key to .env and resta
     // ── Real Groq call ──
     const systemPrompt = buildSystemPrompt(project);
     const completion = await groq.chat.completions.create({
-      model:      "llama3-8b-8192",
+      model:      GROQ_MODEL,
       max_tokens: 1024,
       messages: [
         { role: "system",  content: systemPrompt },

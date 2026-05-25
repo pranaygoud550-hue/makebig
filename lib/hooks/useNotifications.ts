@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createApiSocket } from '@/lib/realtime';
+import { getAuthHeadersAsync, getAuthToken } from '@/lib/api';
 
 export interface AppNotification {
   id: string;
@@ -10,32 +11,74 @@ export interface AppNotification {
   message: string;
   read: boolean;
   createdAt: string;
+  userId?: string;
+  actionUrl?: string;
+  metadata?: Record<string, unknown>;
 }
 
 const API =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
   'http://localhost:5001';
 
+function getJwtUserId(): string | null {
+  const token = getAuthToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.userId === 'string' ? payload.userId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeNotification(n: Record<string, unknown>): AppNotification {
+  return {
+    id: String(n.id || n._id || ''),
+    type: String(n.type || ''),
+    title: String(n.title || ''),
+    message: String(n.message || ''),
+    read: Boolean(n.read ?? n.isRead),
+    createdAt: String(n.createdAt || ''),
+    userId: n.userId ? String(n.userId) : undefined,
+    actionUrl: n.actionUrl ? String(n.actionUrl) : undefined,
+    metadata:
+      n.metadata && typeof n.metadata === 'object'
+        ? (n.metadata as Record<string, unknown>)
+        : undefined,
+  };
+}
+
+function isForUser(notif: AppNotification, effectiveUserId: string, fallbackUserId?: string) {
+  if (!notif.userId) return true;
+  if (notif.userId === effectiveUserId) return true;
+  if (fallbackUserId && notif.userId === fallbackUserId) return true;
+  return false;
+}
+
 export function useNotifications(userId?: string) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const effectiveUserId = useMemo(
+    () => getJwtUserId() || userId || '',
+    [userId]
+  );
+
   const fetchNotifications = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/users/${userId}/notifications`);
+      const headers = await getAuthHeadersAsync();
+      const res = await fetch(`${API}/api/users/${effectiveUserId}/notifications`, {
+        headers,
+      });
+      if (!res.ok) return;
       const data = await res.json();
       if (data.success) {
         setNotifications(
-          (data.data.notifications || []).map((n: Record<string, unknown>) => ({
-            id: String(n.id || n._id),
-            type: String(n.type || ''),
-            title: String(n.title || ''),
-            message: String(n.message || ''),
-            read: Boolean(n.read),
-            createdAt: String(n.createdAt || ''),
-          }))
+          (data.data.notifications || []).map((n: Record<string, unknown>) =>
+            normalizeNotification(n)
+          )
         );
       }
     } catch {
@@ -43,40 +86,50 @@ export function useNotifications(userId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
     let socket: Awaited<ReturnType<typeof createApiSocket>> = null;
     let cancelled = false;
 
     createApiSocket().then((s) => {
       if (cancelled || !s) return;
       socket = s;
-      s.on('new_notification', (notif: AppNotification) => {
-        setNotifications((prev) => [notif, ...prev]);
+      s.on('notification_received', (raw: Record<string, unknown>) => {
+        const notif = normalizeNotification(raw);
+        if (!isForUser(notif, effectiveUserId, userId)) return;
+        setNotifications((prev) => {
+          if (prev.some((n) => n.id === notif.id)) return prev;
+          return [notif, ...prev];
+        });
       });
     });
 
     return () => {
       cancelled = true;
+      socket?.off('notification_received');
       socket?.disconnect();
     };
-  }, [userId]);
+  }, [effectiveUserId, userId]);
 
   const markAllRead = useCallback(async () => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await fetch(`${API}/api/users/${userId}/notifications/read`, { method: 'PATCH' });
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      const headers = await getAuthHeadersAsync();
+      await fetch(`${API}/api/users/${effectiveUserId}/notifications/read`, {
+        method: 'PATCH',
+        headers,
+      });
     } catch {
       /* ignore */
     }
-  }, [userId]);
+  }, [effectiveUserId]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { User, Profile } from '@/lib/types';
-import { apiUpsertUser, apiGetProfile, apiUpsertProfile, clearAuthToken, setAuthToken } from '@/lib/api';
+import { apiUpsertUser, apiGetProfile, apiUpsertProfile, clearAuthToken, setAuthToken, getAuthToken } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { clearSessionActiveProject } from '@/lib/activeProjectStorage';
 import { isSupabaseConfigured, normalizeAuthContact, supabase } from '@/lib/supabase';
@@ -114,8 +114,13 @@ export function useAuth(): UseAuthReturn {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed.isLoggedIn) {
-            setUser(parsed);
-            loadProfile(parsed.contact);
+            if (!getAuthToken()) {
+              localStorage.removeItem('user');
+              setUser(null);
+            } else {
+              setUser(parsed);
+              loadProfile(parsed.contact);
+            }
           }
         }
       } catch (e) {
@@ -197,6 +202,10 @@ export function useAuth(): UseAuthReturn {
           college,
           graduationYear,
         });
+
+        if (!getAuthToken()) {
+          throw new Error('Sign in again — session could not be started');
+        }
 
         const newUser: User = result?.user
           ? {

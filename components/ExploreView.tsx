@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { INDIAN_CITIES } from '@/lib/indianCities';
 import { inferProjectPurpose, showsSalaryForPurpose } from '@/lib/projectPurpose';
+import { BrowseProject } from '@/lib/api';
 
 const EXPLORE_API = '/api/public/explore';
 
@@ -59,9 +60,10 @@ function timeAgo(dateStr?: string) {
 
 interface ExploreViewProps {
   embedded?: boolean;
+  onJoinProject?: (project: BrowseProject) => void;
 }
 
-export function ExploreView({ embedded = false }: ExploreViewProps) {
+export function ExploreView({ embedded = false, onJoinProject }: ExploreViewProps) {
   const [projects, setProjects] = useState<ExploreProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -219,28 +221,54 @@ export function ExploreView({ embedded = false }: ExploreViewProps) {
                       ? formatSalary(p.salaryMax, p.currency)
                       : null;
                     return (
-                      <Link
+                      <div
                         key={p.id}
-                        href={p.slug ? `/p/${p.slug}` : '/explore'}
-                        className="block bg-white rounded-2xl border border-[#e0e0e0] hover:border-[#0A66C2]/40 p-5 transition-all"
+                        className="bg-white rounded-2xl border border-[#e0e0e0] hover:border-[#0A66C2]/40 p-5 transition-all"
                       >
-                        <div className="flex justify-between gap-2 mb-2">
-                          <span className="text-lg">{CAT_ICONS[p.categoryId] || '🚀'}</span>
-                          {salaryLabel && (
-                            <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                              {salaryLabel}
-                            </span>
+                        <Link
+                          href={p.slug ? `/p/${p.slug}` : '/explore'}
+                          className="block"
+                        >
+                          <div className="flex justify-between gap-2 mb-2">
+                            <span className="text-lg">{CAT_ICONS[p.categoryId] || '🚀'}</span>
+                            {salaryLabel && (
+                              <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                                {salaryLabel}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="font-bold text-[#1d2226] line-clamp-2">{p.name}</h2>
+                          {p.desc && (
+                            <p className="text-sm text-[#666] mt-1 line-clamp-2">{p.desc}</p>
                           )}
-                        </div>
-                        <h2 className="font-bold text-[#1d2226] line-clamp-2">{p.name}</h2>
-                        {p.desc && (
-                          <p className="text-sm text-[#666] mt-1 line-clamp-2">{p.desc}</p>
+                          <p className="text-xs text-[#999] mt-2">
+                            {p.city && `📍 ${p.city} · `}
+                            {timeAgo(p.createdAt)}
+                          </p>
+                        </Link>
+                        {embedded && onJoinProject && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onJoinProject({
+                                id: p.id,
+                                name: p.name,
+                                desc: p.desc,
+                                categoryId: p.categoryId,
+                                roles: p.roles,
+                                slug: p.slug,
+                                ownerContact: p.ownerContact,
+                                salaryMin: p.salaryMin,
+                                salaryMax: p.salaryMax,
+                                currency: p.currency,
+                              } as BrowseProject)
+                            }
+                            className="mt-4 w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
+                          >
+                            Join now
+                          </button>
                         )}
-                        <p className="text-xs text-[#999] mt-2">
-                          {p.city && `📍 ${p.city} · `}
-                          {timeAgo(p.createdAt)}
-                        </p>
-                      </Link>
+                      </div>
                     );
                   })}
                 </div>

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import io, { Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { getInitials } from '@/lib/utils';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { connectProjectRoom } from '@/lib/realtime';
+import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 interface TeamMember {
   contact: string;
@@ -15,6 +17,9 @@ interface TeamMember {
 interface TeamMembersViewProps {
   projectId?: string;
   onInvite?: () => void;
+  userId?: string;
+  userName?: string;
+  userContact?: string;
 }
 
 const AVATAR_COLORS = [
@@ -26,10 +31,16 @@ const API =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
   'http://localhost:5001';
 
-export function TeamMembersView({ projectId, onInvite }: TeamMembersViewProps) {
+export function TeamMembersView({
+  projectId,
+  onInvite,
+  userId,
+  userName,
+  userContact,
+}: TeamMembersViewProps) {
   const [team, setTeam]       = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<TeamMember | null>(null);
+  const { openProfile } = useProfileView();
   const socketRef = useRef<Socket | null>(null);
 
   /* ── Load from MongoDB ── */
@@ -98,25 +109,43 @@ export function TeamMembersView({ projectId, onInvite }: TeamMembersViewProps) {
       return () => { supabase.removeChannel(channel); };
     }
 
-    const socket: Socket = io(API, { transports: ['websocket', 'polling'] });
-    socketRef.current = socket;
-    socket.emit('join_room', `project_${projectId}`);
+    let socket: Socket | null = null;
+    let cancelled = false;
 
-    socket.on('member_status_changed', payload => {
-      if (payload.projectId !== projectId || payload.status !== 'joined') return;
-      setTeam(prev => {
-        if (prev.some(m => m.contact === payload.memberContact)) return prev;
-        return [...prev, {
-          contact: payload.memberContact,
-          role: payload.role || 'member',
-          status: 'active',
-          joinedAt: new Date().toISOString(),
-        }];
+    connectProjectRoom(projectId, {
+      id: userId,
+      name: userName,
+      contact: userContact,
+    }).then((s) => {
+      if (cancelled || !s) return;
+      socket = s;
+      socketRef.current = s;
+
+      s.on('member_status_changed', (payload) => {
+        if (payload.projectId !== projectId || payload.status !== 'joined') return;
+        const contact = payload.memberContact || payload.memberId;
+        if (!contact) return;
+        setTeam((prev) => {
+          if (prev.some((m) => m.contact === contact)) return prev;
+          return [
+            ...prev,
+            {
+              contact,
+              role: payload.role || 'member',
+              status: 'active',
+              joinedAt: new Date().toISOString(),
+            },
+          ];
+        });
       });
     });
 
-    return () => { socket.disconnect(); };
-  }, [projectId]);
+    return () => {
+      cancelled = true;
+      socket?.disconnect();
+      socketRef.current = null;
+    };
+  }, [projectId, userId, userName, userContact]);
 
   if (!projectId) {
     return (
@@ -142,13 +171,15 @@ export function TeamMembersView({ projectId, onInvite }: TeamMembersViewProps) {
         {!loading && team.length > 0 && (
           <div className="flex -space-x-2">
             {team.slice(0, 5).map((m, i) => (
-              <div
+              <button
                 key={m.contact}
+                type="button"
                 title={m.contact}
-                className={`w-9 h-9 rounded-full border-2 border-white ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-xs font-bold`}
+                onClick={() => openProfile(m.contact, m.contact)}
+                className={`w-9 h-9 rounded-full border-2 border-white ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition-transform`}
               >
                 {getInitials(m.contact)}
-              </div>
+              </button>
             ))}
             {team.length > 5 && (
               <div className="w-9 h-9 rounded-full border-2 border-white bg-[#e0e0e0] flex items-center justify-center text-[#666] text-xs font-bold">
@@ -198,91 +229,33 @@ export function TeamMembersView({ projectId, onInvite }: TeamMembersViewProps) {
         </div>
       )}
 
-      {/* Two-column: list + detail */}
+      {/* Member list */}
       {!loading && team.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-          {/* Member list */}
-          <div className="lg:col-span-2 space-y-3">
-            {team.map((m, i) => (
-              <button
-                key={m.contact}
-                onClick={() => setSelected(prev => prev?.contact === m.contact ? null : m)}
-                className={`w-full text-left bg-white border rounded-xl p-4 transition-all hover:shadow-sm ${
-                  selected?.contact === m.contact
-                    ? 'border-[#0A66C2] ring-1 ring-[#0A66C2]/20'
-                    : 'border-[#e0e0e0] hover:border-[#0A66C2]/40'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
-                    {getInitials(m.contact)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#1d2226] truncate">{m.contact}</p>
-                    <p className="text-xs text-[#666] capitalize mt-0.5">{m.role}</p>
-                    {m.joinedAt && (
-                      <p className="text-xs text-[#999] mt-0.5">
-                        Joined {new Date(m.joinedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    )}
-                  </div>
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    Active
-                  </span>
+        <div className="space-y-3">
+          {team.map((m, i) => (
+            <button
+              key={m.contact}
+              type="button"
+              onClick={() => openProfile(m.contact, m.contact)}
+              className="w-full text-left bg-white border border-[#e0e0e0] rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0A66C2]/40"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                  {getInitials(m.contact)}
                 </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Detail panel */}
-          <div className="lg:col-span-1">
-            {selected ? (
-              <div className="bg-white border border-[#e0e0e0] rounded-xl p-6 sticky top-24 space-y-5">
-                <div className="text-center">
-                  <div className={`w-20 h-20 rounded-full ${AVATAR_COLORS[team.findIndex(m => m.contact === selected.contact) % AVATAR_COLORS.length]} flex items-center justify-center text-white text-3xl font-bold mx-auto`}>
-                    {getInitials(selected.contact)}
-                  </div>
-                  <p className="font-bold text-[#1d2226] mt-3">{selected.contact}</p>
-                  <p className="text-sm text-[#666] capitalize mt-0.5">{selected.role}</p>
-                  <span className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-3 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Active
-                  </span>
-                </div>
-
-                {selected.joinedAt && (
-                  <div className="border-t border-[#f0f0f0] pt-4">
-                    <p className="text-xs text-[#999] font-semibold uppercase tracking-wide mb-1">Joined on</p>
-                    <p className="text-sm text-[#1d2226]">
-                      {new Date(selected.joinedAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#1d2226] truncate">{m.contact}</p>
+                  <p className="text-xs text-[#666] capitalize mt-0.5">{m.role}</p>
+                  {m.joinedAt && (
+                    <p className="text-xs text-[#999] mt-0.5">
+                      Joined {new Date(m.joinedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
-                  </div>
-                )}
-
-                <div className="border-t border-[#f0f0f0] pt-4 space-y-2">
-                  <button
-                    onClick={() => {/* navigate to messages */}}
-                    className="w-full py-2 bg-[#0A66C2] text-white text-sm font-semibold rounded-full hover:bg-[#004182] transition-all"
-                  >
-                    💬 Send Message
-                  </button>
-                  <button
-                    onClick={() => setSelected(null)}
-                    className="w-full py-2 border border-[#d9d9d9] text-[#666] text-sm font-semibold rounded-full hover:bg-[#f3f2ef] transition-all"
-                  >
-                    Close
-                  </button>
+                  )}
                 </div>
+                <span className="text-xs font-semibold text-[#0A66C2] shrink-0">View profile →</span>
               </div>
-            ) : (
-              <div className="bg-white border border-dashed border-[#d9d9d9] rounded-xl p-8 text-center">
-                <p className="text-3xl mb-2">👆</p>
-                <p className="text-sm text-[#999]">Click a member to see their details</p>
-              </div>
-            )}
-          </div>
-
+            </button>
+          ))}
         </div>
       )}
     </div>

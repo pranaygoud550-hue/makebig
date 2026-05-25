@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import io, { Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import type { BrowseProject } from './api';
 import { isSupabaseConfigured, supabase } from './supabase';
+import { createApiSocket } from './realtime';
 
 export interface ProjectChangedPayload {
   projectId: string;
@@ -19,8 +20,6 @@ export interface ProjectListSocketHandlers {
 
 /**
  * Subscribes to global project list events (not scoped to a project room).
- * Each browser tab opens one connection that survives re-renders.
- * Use latest-ref pattern so callers don't need useCallback.
  */
 export function useProjectListSocket(handlers: ProjectListSocketHandlers) {
   const handlersRef = useRef<ProjectListSocketHandlers>(handlers);
@@ -68,33 +67,31 @@ export function useProjectListSocket(handlers: ProjectListSocketHandlers) {
       };
     }
 
-    const apiUrl =
-      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-      'http://localhost:5001';
+    let socket: Socket | null = null;
+    let cancelled = false;
 
-    const socket: Socket = io(apiUrl, {
-      transports: ['websocket', 'polling'],
+    createApiSocket().then((s) => {
+      if (cancelled || !s) return;
+      socket = s;
+
+      const handleCreated = (project: BrowseProject) => {
+        handlersRef.current.onCreated?.(project);
+      };
+      const handlePublished = (project: BrowseProject) => {
+        handlersRef.current.onPublished?.(project);
+      };
+      const handleChanged = (payload: ProjectChangedPayload) => {
+        handlersRef.current.onChanged?.(payload);
+      };
+
+      socket.on('project_created', handleCreated);
+      socket.on('project_published', handlePublished);
+      socket.on('project_changed', handleChanged);
     });
 
-    const handleCreated = (project: BrowseProject) => {
-      handlersRef.current.onCreated?.(project);
-    };
-    const handlePublished = (project: BrowseProject) => {
-      handlersRef.current.onPublished?.(project);
-    };
-    const handleChanged = (payload: ProjectChangedPayload) => {
-      handlersRef.current.onChanged?.(payload);
-    };
-
-    socket.on('project_created', handleCreated);
-    socket.on('project_published', handlePublished);
-    socket.on('project_changed', handleChanged);
-
     return () => {
-      socket.off('project_created', handleCreated);
-      socket.off('project_published', handlePublished);
-      socket.off('project_changed', handleChanged);
-      socket.disconnect();
+      cancelled = true;
+      socket?.disconnect();
     };
   }, []);
 }

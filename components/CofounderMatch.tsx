@@ -9,6 +9,7 @@ import {
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { ProjectData, User } from '@/lib/types';
+import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 interface CofounderMatchProps {
   project: ProjectData;
@@ -73,6 +74,7 @@ function MatchCard({
   const [inviting, setInviting]           = useState(false);
   const [invited, setInvited]             = useState(false);
   const [inviteError, setInviteError]     = useState('');
+  const { openProfile } = useProfileView();
 
   const clr = scoreColor(match.score);
 
@@ -203,6 +205,13 @@ function MatchCard({
 
         {/* Action row */}
         <div className="flex gap-2 mt-4 pt-3 border-t border-[#f0f0f0]">
+          <button
+            type="button"
+            onClick={() => openProfile(match.contact, match.name)}
+            className="px-3 py-2 border border-[#0A66C2] text-[#0A66C2] rounded-full text-xs font-semibold hover:bg-[#EEF3FB] transition-all shrink-0"
+          >
+            Profile
+          </button>
           {invited ? (
             <div className="flex-1 py-2 text-center text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full">
               ✓ Invite sent

@@ -225,7 +225,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
         role:    'assistant',
         content: getErrorMessage(e, 'ai'),
         action,
-        devMode: true,
+        devMode: false,
         ts:      Date.now(),
       };
       setMessages(prev => [...prev, assistantMsg]);
@@ -287,7 +287,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
         {/* API key notice */}
         {hasKey === false && (
           <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 leading-relaxed">
-            <strong>Demo mode:</strong> Add your free Groq key in <code className="bg-amber-100 px-1 rounded font-mono">.env</code> → <code className="bg-amber-100 px-1 rounded font-mono">GROQ_API_KEY=gsk_...</code> and restart the server. Get a free key at{' '}
+            <strong>Demo mode</strong> — add <code className="bg-amber-100 px-1 rounded font-mono">GROQ_API_KEY</code> in <code className="bg-amber-100 px-1 rounded font-mono">backend/.env</code> and restart the server. Free key at{' '}
             <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="underline font-semibold">console.groq.com</a>.
           </div>
         )}
@@ -374,7 +374,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
 
                   {msg.devMode && (
                     <p className="text-[10px] text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 mt-2">
-                      Demo response — add Anthropic API key for real AI
+                      Demo response — add GROQ_API_KEY in backend/.env and restart npm run dev
                     </p>
                   )}
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGetTalent, apiRateProfile } from '@/lib/api';
 import { ProjectData } from '@/lib/types';
 import { StarRating } from '@/components/StarRating';
+import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 interface TalentCard {
   id?: string;
@@ -40,6 +41,7 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
   const [debounced, setDebounced] = useState('');
   const [filter, setFilter] = useState<FriendsFilter>('all');
   const [ratingBusy, setRatingBusy] = useState<string | null>(null);
+  const { openProfile } = useProfileView();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 300);
@@ -186,7 +188,16 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
         filtered.map((t, idx) => (
           <article
             key={t.contact || String(idx)}
-            className="bg-white rounded-2xl border border-[#e0e0e0] p-4 space-y-2"
+            role="button"
+            tabIndex={0}
+            onClick={() => t.contact && openProfile(t.contact, t.name || t.contact)}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && t.contact) {
+                e.preventDefault();
+                openProfile(t.contact, t.name || t.contact);
+              }
+            }}
+            className="bg-white rounded-2xl border border-[#e0e0e0] p-4 space-y-2 cursor-pointer hover:border-[#0A66C2]/40 hover:shadow-sm transition-all"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -203,12 +214,16 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
               )}
             </div>
 
+            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             <StarRating
               value={t.workRatingAvg || 0}
               count={t.workRatingCount}
               interactive={Boolean(t.contact && t.contact !== userContact)}
               onRate={(stars) => t.contact && handleRate(t.contact, stars)}
             />
+            </div>
+
+            <p className="text-xs text-[#0A66C2] font-semibold">Tap to view full profile →</p>
 
             {t.skills && t.skills.length > 0 && (
               <div className="flex flex-wrap gap-1">

@@ -23,13 +23,18 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Local env files
+# Environment variables - NEVER COMMIT
 .env
 .env.local
+.env.development
+.env.production
+.env.*.local
+*.env
 backend/.env
-.env.development.local
-.env.test.local
-.env.production.local
+
+# Sensitive files
+SECURITY_NOTES.md
+credentials.txt
 
 # IDE
 .vscode

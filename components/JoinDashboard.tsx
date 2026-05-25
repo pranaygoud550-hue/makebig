@@ -5,12 +5,15 @@ import { User, ProjectData } from '@/lib/types';
 import { getInitials, skillAlignmentForInvite } from '@/lib/utils';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { apiBrowseProjects, apiJoinProject, apiGetReceivedInvites, apiAcceptInvite, apiDeclineInvite, BrowseProject } from '@/lib/api';
+import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { getErrorMessage } from '@/lib/userErrors';
 import { useProjectListSocket } from '@/lib/useProjectListSocket';
 
 interface JoinDashboardProps {
   user: User | null;
   preferredCategoryId?: string;
+  /** Skills from join wizard — used for match scoring before profile skills */
+  matchSkills?: string[];
   /** Pre-select project from a shared /p/[slug] link */
   highlightSlug?: string;
   onClose: () => void;
@@ -72,6 +75,7 @@ type JoinTab = 'browse' | 'recommended' | 'invitations';
 export function JoinDashboard({
   user,
   preferredCategoryId = 'all',
+  matchSkills,
   highlightSlug,
   onClose,
   onLogout,
@@ -93,17 +97,22 @@ export function JoinDashboard({
   const [inviteLoading, setInviteLoading]   = useState(false);
   const [inviteAction, setInviteAction]     = useState<string | null>(null);
 
-  const userSkillsKey = (user?.skills || []).join(',');
-  const userSkills = useMemo(() => user?.skills || [], [userSkillsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const userSkillsKey = (matchSkills?.length ? matchSkills : user?.skills || []).join(',');
+  const userSkills = useMemo(
+    () => (matchSkills?.length ? matchSkills : user?.skills || []),
+    [matchSkills, userSkillsKey]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProjects = useCallback(async () => {
     if (!user?.contact) return;
     setLoading(true);
     setError(null);
     try {
-      const list = await apiBrowseProjects(
-        filters.categoryId === 'all' ? undefined : filters.categoryId,
-        user.contact
+      const list = filterAllowedProjects(
+        await apiBrowseProjects(
+          filters.categoryId === 'all' ? undefined : filters.categoryId,
+          user.contact
+        )
       );
       const converted = list.map((p) => toProjectPost(p, userSkills));
       setProjects(converted);

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useProjectSocket } from '@/lib/useProjectSocket';
 import { apiGetProjectMessages, getAuthToken } from '@/lib/api';
 import { getInitials } from '@/lib/utils';
+import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 interface MessagesViewProps {
   projectId: string;
@@ -32,6 +33,7 @@ function colorForName(name: string) {
 
 export function MessagesView({ projectId, userId, userName, userContact }: MessagesViewProps) {
   const token = getAuthToken();
+  const { openProfile } = useProfileView();
   const { messages, activeUsers, typingUsers, sendMessage, emitTyping, isConnected } =
     useProjectSocket(projectId, userId, userName, userContact, token);
 
@@ -178,16 +180,32 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
 
         {chatMessages.map(msg => {
           const isOwn = msg.senderId === userId || msg.senderName === userName;
+          const profileContact =
+            msg.senderId?.includes('@') || /^\d{10}$/.test(String(msg.senderId || '').replace(/\D/g, '').slice(-10))
+              ? msg.senderId
+              : msg.senderName?.includes('@')
+                ? msg.senderName
+                : null;
           return (
             <div key={msg.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
               {!isOwn && (
-                <div className={`w-8 h-8 rounded-full ${colorForName(msg.senderName)} flex items-center justify-center text-white text-xs font-bold shrink-0 self-end`}>
+                <button
+                  type="button"
+                  onClick={() => profileContact && openProfile(profileContact, msg.senderName)}
+                  className={`w-8 h-8 rounded-full ${colorForName(msg.senderName)} flex items-center justify-center text-white text-xs font-bold shrink-0 self-end hover:ring-2 hover:ring-[#0A66C2]/30`}
+                >
                   {getInitials(msg.senderName)}
-                </div>
+                </button>
               )}
               <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
                 {!isOwn && (
-                  <p className="text-[10px] text-[#666] font-semibold mb-1 px-1">{msg.senderName}</p>
+                  <button
+                    type="button"
+                    onClick={() => profileContact && openProfile(profileContact, msg.senderName)}
+                    className="text-[10px] text-[#666] font-semibold mb-1 px-1 hover:text-[#0A66C2] hover:underline"
+                  >
+                    {msg.senderName}
+                  </button>
                 )}
                 <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                   isOwn

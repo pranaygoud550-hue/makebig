@@ -10,15 +10,16 @@ import { saveActiveProject, clearSessionActiveProject } from '@/lib/activeProjec
 import { restoreUserProject } from '@/lib/restoreUserProject';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
 import { projectNeedsSync } from '@/lib/projectWorkspace';
-import { JoinDashboard } from '@/components/JoinDashboard';
 import { AppShell } from '@/components/AppShell';
 import { UserProfilePanel } from '@/components/app/UserProfilePanel';
 import { MarketingHomepage, type DebugSnapshot } from '@/components/MarketingHomepage';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { ProjectData } from '@/lib/types';
-import { apiCreateProject, apiPublishProject, apiCheckHealth, apiGetUser, BrowseProject, PlanLimitError } from '@/lib/api';
+import { apiCreateProject, apiPublishProject, apiCheckHealth, apiGetUser, apiJoinProject, BrowseProject, PlanLimitError } from '@/lib/api';
+import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/userErrors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
 
 export default function Home() {
   const auth = useAuth();
@@ -35,6 +36,8 @@ export default function Home() {
   const [pendingJoinSlug, setPendingJoinSlug] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [projectCreateError, setProjectCreateError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [wizardInitialEntry, setWizardInitialEntry] = useState<'create' | 'join' | undefined>();
   const [restoringProject, setRestoringProject] = useState(false);
 
   useEffect(() => {
@@ -106,24 +109,19 @@ export default function Home() {
           setShowAuth(true);
           return;
         }
-        setCurrentProject({
-          mode: 'join',
-          categoryId: p.categoryId || 'all',
+        window.history.replaceState({}, '', '/');
+        void handlePublicJoinClick({
+          id: p.id,
+          slug: p.slug,
           name: p.name,
-          description: p.desc || '',
-          category: '',
-          skills: p.roles || [],
-          deadline: '',
-          vision: '',
-          teamSize: 0,
+          desc: p.desc || '',
+          categoryId: p.categoryId || 'other',
+          roles: p.roles || [],
           salaryMin: p.salaryMin || 0,
           salaryMax: p.salaryMax || 0,
-          salaryCurrency: p.currency || 'INR',
-          slug: p.slug,
-          id: p.id,
-        } as ProjectData);
-        setShowDashboard(true);
-        window.history.replaceState({}, '', '/');
+          currency: p.currency || 'INR',
+          ownerContact: p.ownerContact,
+        } as BrowseProject);
       } catch {
         /* ignore */
       }
@@ -140,44 +138,26 @@ export default function Home() {
       .then((data) => {
         const p = data.data?.project;
         if (!p) return;
-        setCurrentProject({
-          mode: 'join',
-          categoryId: p.categoryId || 'all',
+        void handlePublicJoinClick({
+          id: p.id,
+          slug: p.slug,
           name: p.name,
-          description: p.desc || '',
-          category: '',
-          skills: p.roles || [],
-          deadline: '',
-          vision: '',
-          teamSize: 0,
+          desc: p.desc || '',
+          categoryId: p.categoryId || 'other',
+          roles: p.roles || [],
           salaryMin: p.salaryMin || 0,
           salaryMax: p.salaryMax || 0,
-          salaryCurrency: p.currency || 'INR',
-          slug: p.slug,
-          id: p.id,
-        } as ProjectData);
-        setShowDashboard(true);
+          currency: p.currency || 'INR',
+          ownerContact: p.ownerContact,
+        } as BrowseProject);
       });
   }, [auth.user, pendingJoinSlug]);
 
   /* ── After sign-in, resume any pending join intent ── */
   useEffect(() => {
     if (auth.user && pendingJoinCategory) {
-      setCurrentProject({
-        mode: 'join',
-        categoryId: pendingJoinCategory,
-        name: '',
-        description: '',
-        category: '',
-        skills: [],
-        deadline: '',
-        vision: '',
-        teamSize: 0,
-        salaryMin: 0,
-        salaryMax: 0,
-        salaryCurrency: 'INR',
-      } as ProjectData);
-      setShowDashboard(true);
+      setWizardInitialEntry('join');
+      setShowWizard(true);
       setPendingJoinCategory(null);
     }
   }, [auth.user, pendingJoinCategory]);
@@ -187,6 +167,7 @@ export default function Home() {
       setShowAuth(true);
       return;
     }
+    setWizardInitialEntry('create');
     setShowWizard(true);
   };
 
@@ -195,21 +176,8 @@ export default function Home() {
       setShowAuth(true);
       return;
     }
-    setCurrentProject({
-      mode: 'join',
-      categoryId: 'all',
-      name: '',
-      description: '',
-      category: '',
-      skills: [],
-      deadline: '',
-      vision: '',
-      teamSize: 0,
-      salaryMin: 0,
-      salaryMax: 0,
-      salaryCurrency: 'INR',
-    } as ProjectData);
-    setShowDashboard(true);
+    setWizardInitialEntry('join');
+    setShowWizard(true);
   };
 
   const persistProject = useCallback(
@@ -290,6 +258,23 @@ export default function Home() {
   };
 
   const handleWizardComplete = async (data: ProjectData) => {
+    if (data.mode === 'join') {
+      setShowWizard(false);
+      setWizardInitialEntry(undefined);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('makeBigActiveTab', 'explore');
+      }
+      return;
+    }
+
+    if (data.mode === 'member') {
+      persistProject(data);
+      setShowWizard(false);
+      setWizardInitialEntry(undefined);
+      setShowDashboard(false);
+      return;
+    }
+
     let savedProject: ProjectData = { ...data };
     setProjectCreateError(null);
 
@@ -327,6 +312,7 @@ export default function Home() {
 
     persistProject(savedProject);
     setShowWizard(false);
+    setWizardInitialEntry(undefined);
 
     if (auth.user?.contact && projectNeedsSync(savedProject)) {
       const result = await ensureProjectOnline(savedProject, auth.user.contact);
@@ -364,30 +350,44 @@ export default function Home() {
       (currentProject.mode === 'create' || currentProject.mode === 'member')
     );
 
-  /* ── Public feed: clicking Join when logged out → open AuthModal ── */
-  const handlePublicJoinClick = (project: BrowseProject) => {
+  /* ── Public feed: clicking Join when logged in ── */
+  const handlePublicJoinClick = async (project: BrowseProject) => {
     if (!auth.checkAuth()) {
       setShowAuth(true);
       return;
     }
-    setCurrentProject({
-      mode: 'join',
-      categoryId: project.categoryId || 'all',
-      name: project.name || '',
-      description: project.desc || '',
-      category: '',
-      skills: project.roles || [],
-      deadline: '',
-      vision: '',
-      teamSize: 0,
-      salaryMin: project.salaryMin || 0,
-      salaryMax: project.salaryMax || 0,
-      salaryCurrency: project.currency || 'INR',
-      id: project.id,
-      slug: project.slug,
-    } as ProjectData);
-    setShowDashboard(true);
-    setPendingJoinCategory(null);
+    if (!auth.user) return;
+    setJoinError(null);
+    try {
+      const result = await apiJoinProject(
+        project.id,
+        auth.user.name,
+        auth.user.skills?.[0] || 'member'
+      );
+      if (!result?.project) {
+        setJoinError('Could not join project — try again');
+        return;
+      }
+      const categoryTitle =
+        WIZARD_CATEGORIES.find((c) => c.id === result.project.categoryId)?.title ||
+        result.project.categoryId;
+      handleJoinedProject({
+        id: result.project.id,
+        slug: result.project.slug,
+        name: result.project.name,
+        description: result.project.desc,
+        categoryId: result.project.categoryId,
+        category: categoryTitle,
+        skills: result.project.roles || [],
+        vision: '',
+        mode: 'member',
+        salaryMin: result.project.salaryMin,
+        salaryMax: result.project.salaryMax,
+        salaryCurrency: result.project.currency,
+      });
+    } catch (e) {
+      setJoinError(getErrorMessage(e, 'join'));
+    }
   };
 
   if (showSplash) {
@@ -395,31 +395,10 @@ export default function Home() {
   }
 
   /* ── Routing ── */
-  if (showDashboard && currentProject && currentProject.mode === 'join') {
-    return (
-      <JoinDashboard
-        user={auth.user}
-        preferredCategoryId={currentProject.categoryId}
-        highlightSlug={currentProject.slug}
-        onJoinedProject={handleJoinedProject}
-        onClose={() => {
-          setShowDashboard(false);
-          setDashboardInitialNav(undefined);
-        }}
-        onLogout={() => {
-          auth.logout();
-          setShowDashboard(false);
-          setDashboardInitialNav(undefined);
-          setCurrentProject(null);
-          clearSessionActiveProject();
-        }}
-      />
-    );
-  }
-
   if (showDashboard && currentProject && (currentProject.mode === 'create' || currentProject.mode === 'member')) {
     return (
-      <DashboardNew
+      <ProfileViewProvider>
+        <DashboardNew
         project={currentProject}
         user={auth.user}
         initialNav={dashboardInitialNav}
@@ -436,10 +415,11 @@ export default function Home() {
           clearSessionActiveProject();
         }}
       />
+      </ProfileViewProvider>
     );
   }
 
-  if (auth.user && restoringProject && !hasActiveWorkspace) {
+  if (auth.user && restoringProject) {
     return (
       <div className="min-h-screen bg-[#f3f2ef] flex items-center justify-center">
         <p className="text-sm text-[#666]">Loading your project…</p>
@@ -447,9 +427,10 @@ export default function Home() {
     );
   }
 
-  /* Signed in + has a project → app shell with bottom nav (not on public front page) */
-  if (auth.user && hasActiveWorkspace) {
+  /* Signed in → same app (Home, Posts, Explore, etc.) for create and join */
+  if (auth.user) {
     return (
+      <ProfileViewProvider>
       <>
         <AppShell
           user={auth.user}
@@ -476,9 +457,28 @@ export default function Home() {
         />
         <ProjectWizardNew
           isOpen={showWizard}
-          onClose={() => setShowWizard(false)}
+          initialEntry={wizardInitialEntry}
+          onClose={() => {
+            setShowWizard(false);
+            setWizardInitialEntry(undefined);
+          }}
           onComplete={handleWizardComplete}
         />
+        {joinError && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+            <div className="bg-white rounded-2xl border border-red-200 p-6 max-w-md w-full shadow-xl">
+              <h3 className="text-lg font-bold text-[#1d2226] mb-2">Could not join project</h3>
+              <p className="text-sm text-[#666] mb-5">{joinError}</p>
+              <button
+                type="button"
+                onClick={() => setJoinError(null)}
+                className="w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
         {planLimitMessage && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl border border-[#d9d9d9] p-6 max-w-md w-full shadow-xl">
@@ -518,6 +518,7 @@ export default function Home() {
           </div>
         )}
       </>
+      </ProfileViewProvider>
     );
   }
 
@@ -565,7 +566,11 @@ export default function Home() {
 
       <ProjectWizardNew
         isOpen={showWizard}
-        onClose={() => setShowWizard(false)}
+        initialEntry={wizardInitialEntry}
+        onClose={() => {
+          setShowWizard(false);
+          setWizardInitialEntry(undefined);
+        }}
         onComplete={handleWizardComplete}
       />
 
