@@ -146,3 +146,30 @@ export interface AppState {
   notifications: string[];
   recommendations: any[];
 }
+
+export interface CourseLesson {
+  id: string;
+  title: string;
+  content: string;
+  videoUrl?: string;
+  order: number;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  categoryId: string;
+  skills: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  hours: number;
+  coverImage?: string;
+  lessons: CourseLesson[];
+  projectSlug?: string;
+  lessonCount?: number;
+  enrolled?: boolean;
+  completedLessonIds?: string[];
+  progress?: number;
+  completed?: boolean;
+}

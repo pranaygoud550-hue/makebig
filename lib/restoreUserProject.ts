@@ -1,12 +1,13 @@
 import { apiCheckHealth } from '@/lib/api';
 import { apiProjectToProjectData } from '@/lib/projectMappers';
 import { loadActiveProject, saveActiveProject } from '@/lib/activeProjectStorage';
+import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 import { ProjectData } from '@/lib/types';
 import { normalizeContact } from '@/lib/utils';
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+import { getApiOrigin } from '@/lib/apiBase';
+
+const API = getApiOrigin();
 
 export interface WorkspaceRow {
   id: string;
@@ -74,7 +75,7 @@ export async function restoreUserProject(contact: string): Promise<ProjectData |
   if (!contact) return null;
 
   const local = loadActiveProject(contact);
-  if (local?.name && (local.mode === 'create' || local.mode === 'member')) {
+  if (local && hasActiveWorkspace(local)) {
     return local;
   }
 

@@ -14,6 +14,7 @@
     "lint": "next lint",
     "api:dev": "node server-new.js",
     "api:prod": "NODE_ENV=production node server-new.js",
+    "start:render": "SERVE_NEXT=true NODE_ENV=production node server-new.js",
     "dev:full": "node server-new.js & next dev",
     "verify:deploy": "node scripts/verify-deploy-ready.mjs",
     "push:github": "node scripts/push-github.mjs",

@@ -7,9 +7,9 @@ import {
   projectDataToApiPayload,
 } from '@/lib/projectMappers';
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+import { getApiOrigin } from '@/lib/apiBase';
+
+const API = getApiOrigin();
 
 export type EnsureProjectReason =
   | 'linked'

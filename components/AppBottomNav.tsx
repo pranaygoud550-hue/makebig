@@ -3,6 +3,7 @@
 export type AppTab =
   | 'home'
   | 'explore'
+  | 'courses'
   | 'posts'
   | 'ai'
   | 'notifications'
@@ -12,6 +13,7 @@ export type AppTab =
 const TABS: { id: AppTab; label: string; icon: string }[] = [
   { id: 'home', label: 'Home', icon: '🏠' },
   { id: 'explore', label: 'Explore', icon: '🔍' },
+  { id: 'courses', label: 'Courses', icon: '📚' },
   { id: 'posts', label: 'Posts', icon: '📝' },
   { id: 'ai', label: 'AI Coder', icon: '🤖' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },

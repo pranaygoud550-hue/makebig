@@ -1,28 +1,38 @@
-# Render Blueprint — deploy Express API (server-new.js)
-# Dashboard: New → Blueprint → connect repo, or Web Service with these settings manually.
+# Render Blueprint — full app at https://makebig.onrender.com
+# Express API + Next.js on one port (Socket.io works on same host).
 
 services:
   - type: web
-    name: make-big-api
+    name: makebig
     runtime: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm run api:prod
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:render
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
+      - key: SERVE_NEXT
+        value: "true"
+      - key: NEXT_PUBLIC_API_URL
+        value: https://makebig.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://makebig.onrender.com
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://makebig.onrender.com
+      - key: FRONTEND_URL
+        value: https://makebig.onrender.com
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: FRONTEND_URL
-        sync: false
+      - key: ALLOW_DEV_OTP
+        value: "true"
       - key: EMAIL_FROM
         sync: false
       - key: EMAIL_PASS
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: CORS_EXTRA_ORIGINS
+        value: https://makebig.vercel.app

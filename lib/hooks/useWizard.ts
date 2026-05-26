@@ -8,6 +8,7 @@ interface UseWizardReturn {
   state: WizardState;
   selectEntry: (mode: 'create' | 'join') => void;
   selectCategory: (id: string) => void;
+  setSkills: (skills: string[]) => void;
   toggleSkill: (skill: string) => void;
   next: () => boolean;
   prev: () => void;
@@ -61,6 +62,10 @@ export function useWizard(): UseWizardReturn {
     setState(prev => ({ ...prev, category: id, skills: [] }));
   }, []);
 
+  const setSkills = useCallback((skills: string[]) => {
+    setState(prev => ({ ...prev, skills }));
+  }, []);
+
   const toggleSkill = useCallback((skill: string) => {
     setState(prev => ({
       ...prev,
@@ -106,6 +111,7 @@ export function useWizard(): UseWizardReturn {
     state,
     selectEntry,
     selectCategory,
+    setSkills,
     toggleSkill,
     next,
     prev,

@@ -52,6 +52,8 @@ import Notification from "./backend/models/Notification.js";
 import Post from "./backend/models/Post.js";
 import Like from "./backend/models/Like.js";
 import Comment from "./backend/models/Comment.js";
+import Course from "./backend/models/Course.js";
+import CourseEnrollment from "./backend/models/CourseEnrollment.js";
 import { markContactVerified, consumeVerifiedContact } from "./lib/otpVerified.js";
 
 const PORT = process.env.PORT || 5001;
@@ -2649,6 +2651,187 @@ _To get AI-powered health analysis, add GROQ_API_KEY to .env (or backend/.env) a
   }
 });
 
+// ==================== COURSES ====================
+
+function formatCourse(doc, enrollment = null) {
+  const base = toClient(doc);
+  if (!base) return null;
+  const lessonCount = base.lessons?.length || 0;
+  const completedCount = enrollment?.completedLessonIds?.length || 0;
+  return {
+    ...base,
+    lessonCount,
+    enrolled: !!enrollment,
+    completedLessonIds: enrollment?.completedLessonIds || [],
+    progress: lessonCount ? Math.round((completedCount / lessonCount) * 100) : 0,
+    completed: lessonCount > 0 && completedCount >= lessonCount,
+  };
+}
+
+app.get("/api/courses", async (req, res) => {
+  try {
+    const { categoryId, skills, q, limit = "20", page = "1" } = req.query;
+    const filter = { published: true };
+    if (categoryId) filter.categoryId = String(categoryId);
+    if (skills) {
+      const terms = String(skills)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (terms.length) filter.skills = { $in: terms };
+    }
+    if (q) {
+      const rx = new RegExp(String(q).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [{ title: rx }, { description: rx }, { skills: rx }];
+    }
+
+    const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(String(limit), 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [courses, total] = await Promise.all([
+      Course.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+      Course.countDocuments(filter),
+    ]);
+
+    res.json(
+      formatResponse(true, {
+        courses: courses.map((c) => formatCourse(c)),
+        total,
+        page: pageNum,
+        hasMore: skip + courses.length < total,
+      })
+    );
+  } catch (err) {
+    console.error("GET /api/courses:", err);
+    res.status(500).json(formatResponse(false, null, "Failed to load courses"));
+  }
+});
+
+app.get("/api/courses/my", authMiddleware, async (req, res) => {
+  try {
+    const contact = normalizeContact(req.user?.contact);
+    const enrollments = await CourseEnrollment.find({ userContact: contact });
+    const courseIds = enrollments.map((e) => e.courseId);
+    const courses = await Course.find({ _id: { $in: courseIds }, published: true });
+    const byCourse = new Map(enrollments.map((e) => [e.courseId.toString(), e]));
+    res.json(
+      formatResponse(
+        true,
+        courses.map((c) => formatCourse(c, byCourse.get(c._id.toString())))
+      )
+    );
+  } catch (err) {
+    console.error("GET /api/courses/my:", err);
+    res.status(500).json(formatResponse(false, null, "Failed to load your courses"));
+  }
+});
+
+app.get("/api/courses/:slug", async (req, res) => {
+  try {
+    const course = await Course.findOne({ slug: req.params.slug, published: true });
+    if (!course) {
+      return res.status(404).json(formatResponse(false, null, "Course not found"));
+    }
+
+    let enrollment = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const jwt = await import("jsonwebtoken");
+        const token = authHeader.slice(7);
+        const decoded = jwt.default.verify(token, process.env.JWT_SECRET || "dev-secret");
+        const contact = normalizeContact(decoded.contact);
+        enrollment = await CourseEnrollment.findOne({
+          userContact: contact,
+          courseId: course._id,
+        });
+      } catch {
+        /* optional auth */
+      }
+    }
+
+    res.json(formatResponse(true, formatCourse(course, enrollment)));
+  } catch (err) {
+    console.error("GET /api/courses/:slug:", err);
+    res.status(500).json(formatResponse(false, null, "Failed to load course"));
+  }
+});
+
+app.post("/api/courses/:courseId/enroll", authMiddleware, async (req, res) => {
+  try {
+    const contact = normalizeContact(req.user?.contact);
+    const course = await Course.findOne({ _id: req.params.courseId, published: true });
+    if (!course) {
+      return res.status(404).json(formatResponse(false, null, "Course not found"));
+    }
+
+    let enrollment = await CourseEnrollment.findOne({
+      userContact: contact,
+      courseId: course._id,
+    });
+    if (!enrollment) {
+      enrollment = await CourseEnrollment.create({
+        userContact: contact,
+        courseId: course._id,
+        completedLessonIds: [],
+      });
+    }
+
+    res.json(formatResponse(true, formatCourse(course, enrollment)));
+  } catch (err) {
+    console.error("POST /api/courses/:courseId/enroll:", err);
+    res.status(500).json(formatResponse(false, null, "Failed to enroll"));
+  }
+});
+
+app.post(
+  "/api/courses/:courseId/lessons/:lessonId/complete",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const contact = normalizeContact(req.user?.contact);
+      const course = await Course.findOne({ _id: req.params.courseId, published: true });
+      if (!course) {
+        return res.status(404).json(formatResponse(false, null, "Course not found"));
+      }
+
+      const lessonId = String(req.params.lessonId);
+      const hasLesson = course.lessons.some((l) => l._id.toString() === lessonId);
+      if (!hasLesson) {
+        return res.status(404).json(formatResponse(false, null, "Lesson not found"));
+      }
+
+      let enrollment = await CourseEnrollment.findOne({
+        userContact: contact,
+        courseId: course._id,
+      });
+      if (!enrollment) {
+        enrollment = await CourseEnrollment.create({
+          userContact: contact,
+          courseId: course._id,
+          completedLessonIds: [lessonId],
+        });
+      } else if (!enrollment.completedLessonIds.includes(lessonId)) {
+        enrollment.completedLessonIds.push(lessonId);
+        await enrollment.save();
+      }
+
+      const lessonCount = course.lessons.length;
+      const done = enrollment.completedLessonIds.length;
+      if (lessonCount > 0 && done >= lessonCount && !enrollment.completedAt) {
+        enrollment.completedAt = new Date();
+        await enrollment.save();
+      }
+
+      res.json(formatResponse(true, formatCourse(course, enrollment)));
+    } catch (err) {
+      console.error("POST complete lesson:", err);
+      res.status(500).json(formatResponse(false, null, "Failed to update progress"));
+    }
+  }
+);
+
 // ==================== SOCKET.IO ====================
 
 io.use(socketAuthMiddleware);
@@ -2656,12 +2839,28 @@ setupSocketEvents(io);
 
 // ==================== START ====================
 
+async function attachNextApp() {
+  if (process.env.SERVE_NEXT !== "true") return;
+
+  process.env.INTERNAL_API_URL = `http://127.0.0.1:${PORT}`;
+
+  const next = (await import("next")).default;
+  const nextApp = next({ dev: false, dir: __rootDir });
+  await nextApp.prepare();
+  const handle = nextApp.getRequestHandler();
+
+  app.all("*", (req, res) => handle(req, res));
+  console.log("Next.js mounted on same port (SERVE_NEXT=true)");
+}
+
 async function start() {
   await connectDB();
+  await attachNextApp();
   httpServer.listen(PORT, () => {
+    const mode = process.env.SERVE_NEXT === "true" ? "API + Next.js" : "API only";
     console.log(`
 ╔════════════════════════════════════════════════════════╗
-║  Make Big API — MongoDB + Socket.io                    ║
+║  Make Big — ${mode.padEnd(38)}║
 ║  http://localhost:${PORT}                                  ║
 ║  Frontend: ${process.env.FRONTEND_URL || "http://localhost:3000"}              ║
 ╚════════════════════════════════════════════════════════╝

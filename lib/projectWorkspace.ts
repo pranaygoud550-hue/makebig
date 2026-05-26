@@ -3,7 +3,7 @@ import { isValidMongoId } from '@/lib/projectMappers';
 
 /** User has a saved workspace (local or server). */
 export function hasActiveWorkspace(project: ProjectData | null | undefined): boolean {
-  if (!project?.name) return false;
+  if (project == null || !project.name) return false;
   return project.mode === 'create' || project.mode === 'member';
 }
 

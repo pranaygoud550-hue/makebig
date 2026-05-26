@@ -9,7 +9,7 @@ import { DashboardNew, type DashboardNavTab } from '@/components/DashboardNew';
 import { saveActiveProject, clearSessionActiveProject } from '@/lib/activeProjectStorage';
 import { restoreUserProject } from '@/lib/restoreUserProject';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
-import { projectNeedsSync } from '@/lib/projectWorkspace';
+import { projectNeedsSync, hasActiveWorkspace } from '@/lib/projectWorkspace';
 import { AppShell } from '@/components/AppShell';
 import { UserProfilePanel } from '@/components/app/UserProfilePanel';
 import { MarketingHomepage, type DebugSnapshot } from '@/components/MarketingHomepage';
@@ -38,6 +38,8 @@ export default function Home() {
   const [projectCreateError, setProjectCreateError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [wizardInitialEntry, setWizardInitialEntry] = useState<'create' | 'join' | undefined>();
+  const [wizardInitialCategory, setWizardInitialCategory] = useState<string | undefined>();
+  const [wizardInitialSkills, setWizardInitialSkills] = useState<string[] | undefined>();
   const [restoringProject, setRestoringProject] = useState(false);
 
   useEffect(() => {
@@ -168,6 +170,19 @@ export default function Home() {
       return;
     }
     setWizardInitialEntry('create');
+    setWizardInitialCategory(undefined);
+    setWizardInitialSkills(undefined);
+    setShowWizard(true);
+  };
+
+  const handleStartProjectFromCourse = (categoryId: string, skills?: string[]) => {
+    if (!auth.checkAuth()) {
+      setShowAuth(true);
+      return;
+    }
+    setWizardInitialEntry('create');
+    setWizardInitialCategory(categoryId);
+    setWizardInitialSkills(skills?.length ? skills : undefined);
     setShowWizard(true);
   };
 
@@ -191,13 +206,10 @@ export default function Home() {
   );
 
   const handleOpenYourProject = async (section?: DashboardNavTab) => {
-    if (
-      !currentProject?.name ||
-      (currentProject.mode !== 'create' && currentProject.mode !== 'member')
-    ) {
+    if (!hasActiveWorkspace(currentProject)) {
       return;
     }
-    let p = currentProject;
+    let p = currentProject!;
     if (auth.user?.contact && projectNeedsSync(p)) {
       const result = await ensureProjectOnline(p, auth.user.contact);
       if (result.ok && result.project) {
@@ -344,13 +356,6 @@ export default function Home() {
     setShowDashboard(false);
   };
 
-  const hasActiveWorkspace =
-    Boolean(
-      currentProject?.name &&
-      (currentProject.mode === 'create' || currentProject.mode === 'member')
-    );
-
-  /* ── Public feed: clicking Join when logged in ── */
   const handlePublicJoinClick = async (project: BrowseProject) => {
     if (!auth.checkAuth()) {
       setShowAuth(true);
@@ -395,11 +400,11 @@ export default function Home() {
   }
 
   /* ── Routing ── */
-  if (showDashboard && currentProject && (currentProject.mode === 'create' || currentProject.mode === 'member')) {
+  if (showDashboard && hasActiveWorkspace(currentProject)) {
     return (
       <ProfileViewProvider>
         <DashboardNew
-        project={currentProject}
+        project={currentProject!}
         user={auth.user}
         initialNav={dashboardInitialNav}
         onProjectUpdate={persistProject}
@@ -448,6 +453,7 @@ export default function Home() {
             setShowDashboard(false);
           }}
           onPublicJoinClick={handlePublicJoinClick}
+          onStartProjectFromCourse={handleStartProjectFromCourse}
         />
         <AuthModal
           isOpen={showAuth}
@@ -458,9 +464,13 @@ export default function Home() {
         <ProjectWizardNew
           isOpen={showWizard}
           initialEntry={wizardInitialEntry}
+          initialCategory={wizardInitialCategory}
+          initialSkills={wizardInitialSkills}
           onClose={() => {
             setShowWizard(false);
             setWizardInitialEntry(undefined);
+            setWizardInitialCategory(undefined);
+            setWizardInitialSkills(undefined);
           }}
           onComplete={handleWizardComplete}
         />
@@ -537,7 +547,7 @@ export default function Home() {
           setShowDashboard(false);
         }}
         onProjectClick={() => {
-          if (hasActiveWorkspace) {
+          if (hasActiveWorkspace(currentProject)) {
             setShowDashboard(true);
           } else {
             handleStartProject();
@@ -567,9 +577,13 @@ export default function Home() {
       <ProjectWizardNew
         isOpen={showWizard}
         initialEntry={wizardInitialEntry}
+        initialCategory={wizardInitialCategory}
+        initialSkills={wizardInitialSkills}
         onClose={() => {
           setShowWizard(false);
           setWizardInitialEntry(undefined);
+          setWizardInitialCategory(undefined);
+          setWizardInitialSkills(undefined);
         }}
         onComplete={handleWizardComplete}
       />

@@ -7,8 +7,9 @@ import { getAuthHeadersAsync } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { connectProjectRoom, createApiSocket } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { getApiOrigin } from '@/lib/apiBase';
 
-const API = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || 'http://localhost:5001';
+const API = getApiOrigin();
 
 interface FeedPost {
   id: string;

@@ -40,7 +40,9 @@ const render = {
   PORT: '10000',
   MONGODB_URI: env.MONGODB_URI || '(copy from Atlas — same as local .env)',
   JWT_SECRET: jwt,
-  FRONTEND_URL: env.FRONTEND_URL?.includes('vercel') ? env.FRONTEND_URL : 'https://YOUR-APP.vercel.app',
+  FRONTEND_URL: env.FRONTEND_URL?.includes('onrender') || env.FRONTEND_URL?.includes('vercel')
+    ? env.FRONTEND_URL
+    : 'https://makebig.onrender.com',
   EMAIL_FROM: env.EMAIL_FROM || '',
   EMAIL_PASS: env.EMAIL_PASS || '',
   GROQ_API_KEY: env.GROQ_API_KEY || '',
@@ -49,11 +51,11 @@ const render = {
 const vercel = {
   NEXT_PUBLIC_API_URL: env.NEXT_PUBLIC_API_URL?.includes('onrender')
     ? env.NEXT_PUBLIC_API_URL
-    : 'https://make-big-api.onrender.com',
-  NEXT_PUBLIC_APP_URL: env.NEXT_PUBLIC_APP_URL?.includes('vercel')
+    : 'https://makebig.onrender.com',
+  NEXT_PUBLIC_APP_URL: env.NEXT_PUBLIC_APP_URL?.includes('onrender') || env.NEXT_PUBLIC_APP_URL?.includes('vercel')
     ? env.NEXT_PUBLIC_APP_URL
-    : 'https://YOUR-APP.vercel.app',
-  NEXT_PUBLIC_SITE_URL: env.NEXT_PUBLIC_SITE_URL || 'https://YOUR-APP.vercel.app',
+    : 'https://makebig.onrender.com',
+  NEXT_PUBLIC_SITE_URL: env.NEXT_PUBLIC_SITE_URL || 'https://makebig.onrender.com',
   JWT_SECRET: jwt,
   EMAIL_FROM: env.EMAIL_FROM || '',
   EMAIL_PASS: env.EMAIL_PASS || '',

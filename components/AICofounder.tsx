@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { apiAICofounder } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
+import { getApiBase } from '@/lib/apiBase';
 import { ProjectData, User } from '@/lib/types';
 
 interface AICofounderProps {
@@ -185,7 +186,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
   // Check if API key is configured on first mount
   useEffect(() => {
     if (!project.id) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/api/ai/cofounder`, {
+    fetch(`${getApiBase()}/ai/cofounder`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('auth_token') || '' : ''}` },
       body: JSON.stringify({ action: 'check-health', projectId: project.id }),

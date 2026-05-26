@@ -1,11 +1,10 @@
 'use client';
 
 import io, { Socket } from 'socket.io-client';
+import { getApiOrigin } from './apiBase';
 import { apiCheckHealth, getAuthTokenAsync } from './api';
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+const API = getApiOrigin();
 
 export interface ProjectRoomUser {
   id?: string;

@@ -1,6 +1,7 @@
 'use client';
 
 import { ProjectData } from '@/lib/types';
+import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
 interface YourProjectTabProps {
@@ -25,9 +26,7 @@ export function YourProjectTab({
   onJoinProject,
   onOpenDashboard,
 }: YourProjectTabProps) {
-  const hasWorkspace =
-    currentProject?.name &&
-    (currentProject.mode === 'create' || currentProject.mode === 'member');
+  const hasWorkspace = hasActiveWorkspace(currentProject);
 
   if (hasWorkspace) {
     const city = currentProject!.city;

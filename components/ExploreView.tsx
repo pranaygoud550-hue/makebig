@@ -68,7 +68,15 @@ export function ExploreView({ embedded = false, onJoinProject }: ExploreViewProp
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const preset = sessionStorage.getItem('makeBigExploreCategory');
+    if (preset) {
+      sessionStorage.removeItem('makeBigExploreCategory');
+      return preset;
+    }
+    return '';
+  });
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);

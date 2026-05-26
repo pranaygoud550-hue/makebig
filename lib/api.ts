@@ -1,4 +1,4 @@
-import { User, Profile, Project, PlanTier } from './types';
+import { User, Profile, Project, PlanTier, Course, CourseLesson } from './types';
 import { getSupabaseAccessToken, isSupabaseConfigured, supabase } from './supabase';
 import {
   assertCanCreateProject,
@@ -10,13 +10,11 @@ import {
 import { PLAN_LIMITS } from './plans';
 import { slugifyProjectName } from './site';
 import { getErrorMessage, mapApiError } from './userErrors';
+import { getApiBase } from './apiBase';
 
 export { PlanLimitError };
 
-const API_BASE =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL
-    : 'http://localhost:5001') + '/api';
+const API_BASE = getApiBase();
 
 function otpAuthEndpoints(path: 'send-otp' | 'verify-otp') {
   const remote = `${API_BASE}/auth/${path}`;
@@ -1135,4 +1133,111 @@ export async function apiAICofounder(
     console.error('AI cofounder error:', e);
     throw new Error(getErrorMessage(e, 'ai'));
   }
+}
+
+export interface CoursesListResult {
+  courses: Course[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+}
+
+function mapCourseLesson(row: any): CourseLesson {
+  return {
+    id: row._id?.toString?.() || row.id,
+    title: row.title,
+    content: row.content || '',
+    videoUrl: row.videoUrl || '',
+    order: row.order ?? 0,
+  };
+}
+
+function mapCourse(row: any): Course {
+  const lessons = (row.lessons || []).map(mapCourseLesson).sort((a: CourseLesson, b: CourseLesson) => a.order - b.order);
+  return {
+    id: row.id || row._id?.toString?.(),
+    title: row.title,
+    slug: row.slug,
+    description: row.description || '',
+    categoryId: row.categoryId,
+    skills: row.skills || [],
+    level: row.level || 'beginner',
+    hours: row.hours ?? 1,
+    coverImage: row.coverImage || '',
+    lessons,
+    projectSlug: row.projectSlug || '',
+    lessonCount: row.lessonCount ?? lessons.length,
+    enrolled: row.enrolled,
+    completedLessonIds: row.completedLessonIds || [],
+    progress: row.progress ?? 0,
+    completed: row.completed,
+  };
+}
+
+export async function apiListCourses(params?: {
+  categoryId?: string;
+  skills?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}): Promise<CoursesListResult> {
+  const qs = new URLSearchParams();
+  if (params?.categoryId) qs.set('categoryId', params.categoryId);
+  if (params?.skills) qs.set('skills', params.skills);
+  if (params?.q) qs.set('q', params.q);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+
+  const res = await fetch(`/api/public/courses?${qs}`);
+  const data = await res.json().catch(() => ({}));
+  if (!data.success) {
+    return { courses: [], total: 0, page: 1, hasMore: false };
+  }
+  return {
+    courses: (data.data?.courses || []).map(mapCourse),
+    total: data.data?.total ?? 0,
+    page: data.data?.page ?? 1,
+    hasMore: !!data.data?.hasMore,
+  };
+}
+
+export async function apiGetCourse(slug: string): Promise<Course | null> {
+  const res = await fetch(`${API_BASE}/courses/${encodeURIComponent(slug)}`, {
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success || !data.data) return null;
+  return mapCourse(data.data);
+}
+
+export async function apiGetMyCourses(): Promise<Course[]> {
+  const res = await fetch(`${API_BASE}/courses/my`, {
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success) return [];
+  return (data.data || []).map(mapCourse);
+}
+
+export async function apiEnrollCourse(courseId: string): Promise<Course | null> {
+  const res = await fetch(`${API_BASE}/courses/${courseId}/enroll`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success || !data.data) return null;
+  return mapCourse(data.data);
+}
+
+export async function apiCompleteLesson(
+  courseId: string,
+  lessonId: string
+): Promise<Course | null> {
+  const res = await fetch(`${API_BASE}/courses/${courseId}/lessons/${lessonId}/complete`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success || !data.data) return null;
+  return mapCourse(data.data);
 }

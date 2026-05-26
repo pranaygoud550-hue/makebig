@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createApiSocket } from '@/lib/realtime';
 import { getAuthHeadersAsync, getAuthToken } from '@/lib/api';
+import { getApiOrigin } from '@/lib/apiBase';
 
 export interface AppNotification {
   id: string;
@@ -16,9 +17,7 @@ export interface AppNotification {
   metadata?: Record<string, unknown>;
 }
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+const API = getApiOrigin();
 
 function getJwtUserId(): string | null {
   const token = getAuthToken();

@@ -1,5 +1,6 @@
 import { ProjectData } from '@/lib/types';
 import { normalizeContact } from '@/lib/utils';
+import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 
 const LEGACY_KEY = 'makeBigActiveProject';
 const BY_CONTACT_KEY = 'makeBigProjectsByContact';
@@ -31,7 +32,7 @@ export function loadActiveProject(contact: string): ProjectData | null {
   const norm = normalizeContact(contact);
   const map = loadMap();
   const fromMap = map[norm];
-  if (fromMap?.name && (fromMap.mode === 'create' || fromMap.mode === 'member')) {
+  if (fromMap && hasActiveWorkspace(fromMap)) {
     return fromMap;
   }
 

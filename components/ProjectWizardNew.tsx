@@ -19,6 +19,8 @@ interface ProjectWizardProps {
   onClose: () => void;
   onComplete: (data: ProjectData) => void;
   initialEntry?: 'create' | 'join';
+  initialCategory?: string;
+  initialSkills?: string[];
 }
 
 const iCls =
@@ -182,7 +184,7 @@ const JOIN_STEP_LABELS   = ['What can you bring?', 'Explore & join'];
 const JOIN_STEP_COUNT = 2;
 const CREATE_STEP_COUNT = 3;
 
-export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry }: ProjectWizardProps) {
+export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, initialCategory, initialSkills }: ProjectWizardProps) {
   const wizard = useWizard();
   const { state } = wizard;
 
@@ -291,7 +293,13 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry }: 
     if (initialEntry) {
       wizard.selectEntry(initialEntry);
     }
-  }, [isOpen, initialEntry]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (initialCategory) {
+      wizard.selectCategory(initialCategory);
+    }
+    if (initialSkills?.length) {
+      wizard.setSkills(initialSkills);
+    }
+  }, [isOpen, initialEntry, initialCategory, initialSkills]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Validation per step ── */
   const validate = useCallback((): boolean => {

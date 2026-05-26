@@ -42,7 +42,7 @@ export function AICoderTab({
           'Link your project online to use AI on your real project data (tasks, team, timeline).',
       }}
     >
-      {currentProject!.mode !== 'create' ? (
+      {currentProject && currentProject.mode !== 'create' ? (
         <div className="bg-white rounded-2xl border border-[#e0e0e0] p-8 text-center space-y-3">
           <p className="text-2xl">🤝</p>
           <p className="font-semibold text-[#1d2226]">You joined {workspaceLabel(currentProject)}</p>

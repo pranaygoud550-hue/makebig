@@ -5,8 +5,9 @@
 
 import { supabaseAdmin, isSupabaseServerConfigured } from './supabaseServer';
 import { slugifyProjectName } from './site';
+import { getApiOrigin } from './apiBase';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const API = getApiOrigin();
 
 const PUBLIC_STATUSES = ['published', 'in-progress'];
 

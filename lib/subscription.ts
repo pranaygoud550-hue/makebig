@@ -1,10 +1,9 @@
 import { PlanTier, PLAN_LIMITS, ACTIVE_PROJECT_STATUSES, isPro } from './plans';
 import { isSupabaseConfigured, supabase } from './supabase';
 
-const API_BASE =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL
-    : 'http://localhost:5001') + '/api';
+import { getApiBase } from '@/lib/apiBase';
+
+const API_BASE = getApiBase();
 
 export class PlanLimitError extends Error {
   code = 'PLAN_LIMIT' as const;
