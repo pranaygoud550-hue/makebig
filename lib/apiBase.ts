@@ -9,7 +9,12 @@ export function getApiOrigin(): string {
   if (publicUrl) return publicUrl;
 
   if (typeof window !== 'undefined') {
-    return window.location.origin;
+    const { hostname, port, origin } = window.location;
+    // Local dev: Next.js :3000 → Express API :5001
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000') {
+      return 'http://localhost:5001';
+    }
+    return origin;
   }
 
   return 'http://localhost:5001';

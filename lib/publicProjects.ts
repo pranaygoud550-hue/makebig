@@ -3,7 +3,8 @@
  * Works with Supabase (service role) or the Express API fallback.
  */
 
-import { supabaseAdmin, isSupabaseServerConfigured } from './supabaseServer';
+import { supabaseAdmin, isSupabaseServerConfigured } from './supabase-server';
+import { isMongoBackendModeServer } from './backendModeServer';
 import { slugifyProjectName } from './site';
 import { getApiOrigin } from './apiBase';
 
@@ -74,7 +75,7 @@ async function fetchFromApi<T>(path: string): Promise<T | null> {
 export async function getPublicProjectBySlug(
   slug: string
 ): Promise<{ project: PublicProject; posts: PublicPost[] } | null> {
-  if (isSupabaseServerConfigured && supabaseAdmin) {
+  if (!isMongoBackendModeServer() && isSupabaseServerConfigured && supabaseAdmin) {
     const { data: row, error } = await supabaseAdmin
       .from('projects')
       .select('*')
@@ -133,7 +134,7 @@ export async function getPublicProjectBySlug(
 }
 
 export async function getPublishedSlugs(): Promise<string[]> {
-  if (isSupabaseServerConfigured && supabaseAdmin) {
+  if (!isMongoBackendModeServer() && isSupabaseServerConfigured && supabaseAdmin) {
     const { data, error } = await supabaseAdmin
       .from('projects')
       .select('slug')
@@ -171,7 +172,7 @@ export async function explorePublicProjects(params: ExploreParams = {}): Promise
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  if (isSupabaseServerConfigured && supabaseAdmin) {
+  if (!isMongoBackendModeServer() && isSupabaseServerConfigured && supabaseAdmin) {
     let query = supabaseAdmin
       .from('projects')
       .select('*, project_members(count)', { count: 'exact' })

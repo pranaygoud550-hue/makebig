@@ -28,8 +28,12 @@ yarn-error.log*
 .env.local
 .env.development
 .env.production
+.env.test
 .env.*.local
+.env.render
+.env.vercel
 *.env
+!*.env.example
 backend/.env
 
 # Sensitive files

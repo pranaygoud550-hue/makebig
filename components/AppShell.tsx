@@ -9,7 +9,6 @@ import { PostsTab } from '@/components/app/PostsTab';
 import { AICoderTab } from '@/components/app/AICoderTab';
 import { NotificationsView } from '@/components/app/NotificationsView';
 import { FriendsView } from '@/components/app/FriendsView';
-import { CoursesTab } from '@/components/app/CoursesTab';
 import { YourProjectTab } from '@/components/app/YourProjectTab';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import { BrowseProject } from '@/lib/api';
@@ -26,7 +25,7 @@ const PROFILE_OPEN_KEY = 'makeBigProfileOpen';
 function readStoredTab(): AppTab {
   if (typeof window === 'undefined') return 'home';
   const saved = sessionStorage.getItem(TAB_STORAGE_KEY);
-  const allowed: AppTab[] = ['home', 'explore', 'courses', 'posts', 'ai', 'notifications', 'friends', 'project'];
+  const allowed: AppTab[] = ['home', 'explore', 'posts', 'ai', 'notifications', 'friends', 'project'];
   return saved && allowed.includes(saved as AppTab) ? (saved as AppTab) : 'home';
 }
 
@@ -41,7 +40,6 @@ interface AppShellProps {
   onPublicJoinClick: (project: BrowseProject) => void;
   onProjectUpdate: (project: ProjectData) => void;
   onProfileSaved?: () => void | Promise<void>;
-  onStartProjectFromCourse?: (categoryId: string, skills?: string[]) => void;
 }
 
 export function AppShell({
@@ -55,7 +53,6 @@ export function AppShell({
   onPublicJoinClick,
   onProjectUpdate,
   onProfileSaved,
-  onStartProjectFromCourse,
 }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<AppTab>(() => readStoredTab());
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
@@ -73,16 +70,6 @@ export function AppShell({
       sessionStorage.setItem(TAB_STORAGE_KEY, tab);
     }
   }, []);
-
-  const handleExploreCategory = useCallback(
-    (categoryId: string) => {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('makeBigExploreCategory', categoryId);
-      }
-      handleTabChange('explore');
-    },
-    [handleTabChange]
-  );
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -157,16 +144,12 @@ export function AppShell({
 
       <main className="flex-1 pb-20 max-w-4xl w-full mx-auto px-4 py-4">
         {activeTab === 'home' && (
-          <HomeTab userContact={user.contact} onJoinProject={onPublicJoinClick} />
-        )}
-        {activeTab === 'explore' && <ExploreTab onJoinProject={onPublicJoinClick} />}
-        {activeTab === 'courses' && (
-          <CoursesTab
+          <HomeTab
             userContact={user.contact}
-            onStartProject={onStartProjectFromCourse || ((cat) => onStartProject())}
-            onExploreCategory={handleExploreCategory}
+            onJoinProject={onPublicJoinClick}
           />
         )}
+        {activeTab === 'explore' && <ExploreTab onJoinProject={onPublicJoinClick} />}
         {activeTab === 'posts' && (
           <PostsTab
             currentProject={currentProject}

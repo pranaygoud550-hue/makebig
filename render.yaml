@@ -1,38 +1,39 @@
-# Render Blueprint — full app at https://makebig.onrender.com
-# Express API + Next.js on one port (Socket.io works on same host).
+# Render Blueprint — API only (split deploy with Vercel frontend)
+# Frontend: Vercel (Next.js)  →  NEXT_PUBLIC_API_URL = this service URL
+# Backend:  Render (Express)   →  server-new.js on process.env.PORT
 
 services:
   - type: web
-    name: makebig
+    name: make-big-api
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:render
+    buildCommand: npm install
+    startCommand: npm run api:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: SERVE_NEXT
-        value: "true"
-      - key: NEXT_PUBLIC_API_URL
-        value: https://makebig.onrender.com
-      - key: NEXT_PUBLIC_APP_URL
-        value: https://makebig.onrender.com
-      - key: NEXT_PUBLIC_SITE_URL
-        value: https://makebig.onrender.com
+      - key: NEXT_PUBLIC_DATA_BACKEND
+        value: mongo
       - key: FRONTEND_URL
-        value: https://makebig.onrender.com
+        value: https://makebig.vercel.app
+      - key: CORS_EXTRA_ORIGINS
+        value: https://makebig.vercel.app
+      - key: CORS_ALLOW_VERCEL_PREVIEWS
+        value: "true"
+      - key: ALLOW_DEV_OTP
+        value: "false"
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: ALLOW_DEV_OTP
-        value: "true"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
       - key: EMAIL_FROM
         sync: false
       - key: EMAIL_PASS
         sync: false
-      - key: GROQ_API_KEY
+      - key: FAST2SMS_API_KEY
         sync: false
-      - key: CORS_EXTRA_ORIGINS
-        value: https://makebig.vercel.app

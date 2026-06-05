@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ProjectFeed } from '@/components/ProjectFeed';
 import { ProjectDetailSheet, SearchProjectHit } from '@/components/app/ProjectDetailSheet';
 import { BrowseProject } from '@/lib/api';
@@ -79,6 +80,16 @@ export function HomeTab({ userContact, onJoinProject }: HomeTabProps) {
 
   return (
     <div className="space-y-4">
+      <div className="px-1">
+        <Link
+          href="/learn"
+          className="flex items-center justify-between gap-3 rounded-xl border border-[#0A66C2]/20 bg-[#0A66C2]/5 px-4 py-3 text-sm font-semibold text-[#0A66C2] hover:bg-[#0A66C2]/10 transition-colors"
+        >
+          <span>Learn a course → start a project</span>
+          <span aria-hidden>→</span>
+        </Link>
+      </div>
+
       <header className="px-1 space-y-3">
         <div>
           <h1 className="text-xl font-bold text-[#1d2226]">Home</h1>

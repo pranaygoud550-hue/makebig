@@ -1188,7 +1188,7 @@ export async function apiListCourses(params?: {
   if (params?.page) qs.set('page', String(params.page));
   if (params?.limit) qs.set('limit', String(params.limit));
 
-  const res = await fetch(`/api/public/courses?${qs}`);
+  const res = await fetch(`${API_BASE}/courses?${qs}`, { cache: 'no-store' });
   const data = await res.json().catch(() => ({}));
   if (!data.success) {
     return { courses: [], total: 0, page: 1, hasMore: false };

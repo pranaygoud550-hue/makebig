@@ -34,12 +34,14 @@ const DEMO_COURSES = [
         order: 1,
         content:
           'Students need fast, affordable food without leaving study spots. A campus food app connects canteens, tracks orders, and splits bills.\n\nKey features: menu browse, live order status, roommate bill split.',
+        videoUrl: 'https://www.youtube.com/watch?v=0-S5a0eXPoc',
       },
       {
         title: 'Design your first screens',
         order: 2,
         content:
           'Sketch 3 screens: Home (restaurants), Menu, Cart.\n\nUse Figma or pen and paper. Focus on clarity — big tap targets, simple navigation.',
+        videoUrl: 'https://www.youtube.com/watch?v=FTFaQHsqVa4',
       },
       {
         title: 'Pick your mobile stack',
@@ -77,16 +79,19 @@ const DEMO_COURSES = [
         title: 'How the web works',
         order: 1,
         content: 'Browser sends HTTP request → server responds with HTML/JSON → browser renders.\n\nLearn DevTools Network tab — your best friend for debugging.',
+        videoUrl: 'https://www.youtube.com/watch?v=7Tok22PX7N0',
       },
       {
         title: 'React components & state',
         order: 2,
         content: 'Break UI into components. Use useState for form inputs, lists, toggles.\n\nPractice: build a todo list in one file.',
+        videoUrl: 'https://www.youtube.com/watch?v=SqcY0Gl0Pg4',
       },
       {
         title: 'REST APIs with Express',
         order: 3,
         content: 'Routes: GET /items, POST /items, PATCH /items/:id.\n\nConnect React fetch() to your local API on port 5001.',
+        videoUrl: 'https://www.youtube.com/watch?v=L72fhGm1tfE',
       },
       {
         title: 'Auth & sessions',
@@ -115,11 +120,13 @@ const DEMO_COURSES = [
         title: 'AI vs ML vs LLMs',
         order: 1,
         content: 'AI = broad field. ML = learn from data. LLMs = large language models (ChatGPT, Groq, etc.).\n\nMost student projects use APIs, not training from scratch.',
+        videoUrl: 'https://www.youtube.com/watch?v=aircAruvnKk',
       },
       {
         title: 'Your first prompt pipeline',
         order: 2,
         content: 'Input → prompt template → API call → parse response.\n\nTry Make Big AI Co-founder — it uses Groq under the hood.',
+        videoUrl: 'https://www.youtube.com/watch?v=5sLYAQS9sEQ',
       },
       {
         title: 'Data you actually need',
@@ -199,6 +206,92 @@ const DEMO_COURSES = [
       },
     ],
   },
+];
+
+const ALL_SECTORS = [
+  { id: 'web', title: 'Web Development' },
+  { id: 'mobile', title: 'Mobile App Development' },
+  { id: 'game', title: 'Game Development' },
+  { id: 'ai', title: 'AI & Machine Learning' },
+  { id: 'security', title: 'Cybersecurity' },
+  { id: 'cloud', title: 'Cloud Computing' },
+  { id: 'devops', title: 'DevOps' },
+  { id: 'data', title: 'Data Science' },
+  { id: 'web3', title: 'Blockchain / Web3' },
+  { id: 'embedded', title: 'Embedded Systems' },
+  { id: 'arvr', title: 'AR / VR Development' },
+  { id: 'film', title: 'Filmmaking' },
+  { id: 'music', title: 'Music' },
+  { id: 'writing', title: 'Writing' },
+  { id: 'design', title: 'Design' },
+  { id: 'content', title: 'Content Creation' },
+  { id: 'photography', title: 'Photography' },
+  { id: 'animation', title: 'Animation' },
+  { id: 'marketing', title: 'Marketing' },
+  { id: 'education', title: 'Education' },
+  { id: 'health', title: 'Health & Wellness' },
+];
+
+const SECTOR_SKILLS = {
+  game: ['Game Designer', 'Unity / Unreal Developer', '3D Artist'],
+  security: ['Security Engineer', 'Penetration Tester', 'SOC Analyst'],
+  cloud: ['Cloud Architect', 'AWS / Azure / GCP Engineer', 'Site Reliability Engineer'],
+  devops: ['DevOps Engineer', 'CI/CD Specialist', 'Platform Engineer'],
+  data: ['Data Scientist', 'Data Analyst', 'BI Developer'],
+  web3: ['Smart Contract Developer', 'Web3 Frontend Developer', 'Blockchain Engineer'],
+  embedded: ['Embedded Software Engineer', 'Firmware Developer', 'IoT Developer'],
+  arvr: ['Unity Developer', '3D Artist', 'XR Interaction Designer'],
+  film: ['Director', 'Cinematographer', 'Video Editor'],
+  music: ['Music Producer', 'Sound Engineer', 'Composer'],
+  writing: ['Screenwriter', 'Copywriter', 'Technical Writer'],
+  content: ['Content Creator', 'Video Editor', 'Social Media Manager'],
+  photography: ['Photographer', 'Photo Editor', 'Visual Storyteller'],
+  animation: ['2D Animator', '3D Animator', 'Motion Designer'],
+  marketing: ['Growth Marketer', 'Brand Strategist', 'SEO Specialist'],
+  education: ['Instructional Designer', 'Course Creator', 'EdTech Developer'],
+};
+
+function makeSectorStarterCourse(sector) {
+  const skills = SECTOR_SKILLS[sector.id] || ['Team Lead', 'Contributor', 'Designer'];
+  return {
+    title: `${sector.title} Starter Path`,
+    slug: `${sector.id}-starter-path`,
+    description: `Learn ${sector.title.toLowerCase()} fundamentals — watch lessons, track progress, then start a real project on Make Big.`,
+    categoryId: sector.id,
+    skills,
+    level: 'beginner',
+    hours: 3,
+    coverImage: '',
+    projectSlug: '',
+    lessons: [
+      {
+        title: `Why ${sector.title}?`,
+        order: 1,
+        content: `${sector.title} is one of the sectors where Indian students can build portfolio projects instead of waiting for empty employment.\n\nPick one problem you care about and learn by doing.`,
+      },
+      {
+        title: 'Core concepts & tools',
+        order: 2,
+        content: `Research the standard tools in ${sector.title.toLowerCase()}. Watch tutorials, take notes, and list 3 skills you want on your resume.`,
+      },
+      {
+        title: 'Plan a mini project',
+        order: 3,
+        content: `Scope a 1–2 week project: one clear outcome, 2–4 teammates, weekly milestones.\n\nUse Make Big tasks and posts to stay accountable.`,
+      },
+      {
+        title: 'Launch on Make Big',
+        order: 4,
+        content: `Finish this path, then create a ${sector.title} project on Make Big. Invite teammates from Explore or Friends.\n\nShip something real — that's what employers notice.`,
+      },
+    ],
+  };
+}
+
+const COVERED_SECTORS = new Set(DEMO_COURSES.map((c) => c.categoryId));
+const ALL_COURSES = [
+  ...DEMO_COURSES,
+  ...ALL_SECTORS.filter((s) => !COVERED_SECTORS.has(s.id)).map(makeSectorStarterCourse),
 ];
 
 const DEMO_USERS = [
@@ -491,7 +584,7 @@ async function seed() {
 
   console.log('\nSeeding courses…');
   let courseCount = 0;
-  for (const spec of DEMO_COURSES) {
+  for (const spec of ALL_COURSES) {
     await Course.findOneAndUpdate(
       { slug: spec.slug },
       { $set: { ...spec, published: true } },
@@ -506,7 +599,7 @@ async function seed() {
   for (const u of DEMO_USERS.slice(0, 3)) {
     console.log(`  • ${u.contact}  (${u.name})`);
   }
-  console.log('\nBrowse: Home → Explore or Courses tab, or open Posts for the global feed.\n');
+  console.log('\nBrowse: Home → Explore, or open /learn for all course sectors.\n');
 
   await disconnectDB();
 }

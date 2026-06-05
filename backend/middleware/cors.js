@@ -1,5 +1,10 @@
 import cors from "cors";
 
+function normalizeOrigin(origin) {
+  if (!origin) return "";
+  return origin.replace(/\/$/, "");
+}
+
 const FRONTEND_URLS = [
   "http://localhost:3000",
   "http://localhost:3001",
@@ -10,7 +15,13 @@ const FRONTEND_URLS = [
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
-].filter(Boolean);
+]
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
+const allowVercelPreviews =
+  process.env.CORS_ALLOW_VERCEL_PREVIEWS === "true" ||
+  process.env.CORS_ALLOW_VERCEL_PREVIEWS === "1";
 
 /** Allow any localhost port in development (Next.js often picks 3002–3005+). */
 function isLocalDevOrigin(origin) {
@@ -18,9 +29,21 @@ function isLocalDevOrigin(origin) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
+function isVercelPreviewOrigin(origin) {
+  if (!allowVercelPreviews || !origin) return false;
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return protocol === "https:" && hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) return true;
-  if (FRONTEND_URLS.includes(origin)) return true;
+  const normalized = normalizeOrigin(origin);
+  if (FRONTEND_URLS.includes(normalized)) return true;
+  if (isVercelPreviewOrigin(normalized)) return true;
   if (process.env.NODE_ENV !== "production" && isLocalDevOrigin(origin)) return true;
   return false;
 }

@@ -1,9 +1,19 @@
 import jwt from 'jsonwebtoken';
-import { verifySupabaseToken } from './supabaseServer';
+import { verifySupabaseToken } from './supabase-server';
 
 export interface AuthContact {
   contact: string;
   userId?: string;
+}
+
+/** Match Express `backend/middleware/auth.js` so Next API routes accept dev JWTs. */
+function getJwtSecret(): string | null {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.includes('change-me') || secret.includes('your-secret')) {
+    if (process.env.NODE_ENV === 'production') return null;
+    return 'dev-only-insecure-secret';
+  }
+  return secret;
 }
 
 export async function verifyAuthFromRequest(request: Request): Promise<AuthContact | null> {
@@ -19,10 +29,8 @@ export async function verifyAuthFromRequest(request: Request): Promise<AuthConta
     };
   }
 
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.includes('change-me') || secret.includes('your-secret')) {
-    return null;
-  }
+  const secret = getJwtSecret();
+  if (!secret) return null;
 
   try {
     const decoded = jwt.verify(token, secret) as { contact?: string; userId?: string };

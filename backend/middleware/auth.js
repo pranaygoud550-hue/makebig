@@ -1,27 +1,48 @@
 import jwt from "jsonwebtoken";
 import { verifySupabaseToken } from "../../lib/supabaseServer.js";
 
-function getJwtSecret() {
+const WEAK_MARKERS = [
+  "change-me",
+  "your-secret",
+  "REPLACE_WITH",
+  "generate_random",
+  "your_",
+];
+
+function isWeakSecret(secret) {
+  if (!secret?.trim()) return true;
+  const s = secret.trim();
+  return WEAK_MARKERS.some((marker) => s.includes(marker));
+}
+
+function resolveJwtSecret() {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret.includes("change-me") || secret.includes("your-secret")) {
+  if (isWeakSecret(secret)) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("JWT_SECRET must be set to a strong random value in production");
+      throw new Error(
+        "JWT_SECRET must be set to a strong random value in production (openssl rand -base64 32)"
+      );
     }
     console.warn("[auth] JWT_SECRET not set — using insecure dev fallback");
     return "dev-only-insecure-secret";
   }
-  return secret;
+  return secret.trim();
 }
 
-const SECRET = getJwtSecret();
+/** Lazy — .env is loaded after ESM imports in server-new.js; read secret on first use. */
+let cachedSecret;
+function jwtSecret() {
+  if (!cachedSecret) cachedSecret = resolveJwtSecret();
+  return cachedSecret;
+}
 
 export function generateToken(userId, contact) {
-  return jwt.sign({ userId, contact }, SECRET, { expiresIn: "7d" });
+  return jwt.sign({ userId, contact }, jwtSecret(), { expiresIn: "7d" });
 }
 
 export function verifyToken(token) {
   try {
-    return jwt.verify(token, SECRET);
+    return jwt.verify(token, jwtSecret());
   } catch (error) {
     return null;
   }

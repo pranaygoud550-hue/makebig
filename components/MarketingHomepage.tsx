@@ -30,6 +30,11 @@ interface MarketingHomepageProps {
 
 const FEATURES = [
   {
+    icon: '📚',
+    title: 'Learn & Build',
+    desc: 'Free video courses → finish → start a real project. Portfolio over empty job applications.',
+  },
+  {
     icon: '👥',
     title: 'Find People',
     desc: 'Match by skills, college, and interests. Build the team your project actually needs.',
@@ -171,27 +176,33 @@ export function MarketingHomepage({
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-center lg:justify-start">
+              <Link
+                href="/learn"
+                className="px-8 py-3.5 bg-[#0A66C2] text-white font-bold rounded-full hover:bg-[#004182] hover:shadow-lg hover:shadow-[#0A66C2]/25 transition-all text-sm sm:text-base text-center"
+              >
+                Learn a course
+              </Link>
               <button
                 type="button"
                 onClick={onStartProject}
-                className="px-8 py-3.5 bg-[#0A66C2] text-white font-bold rounded-full hover:bg-[#004182] hover:shadow-lg hover:shadow-[#0A66C2]/25 transition-all text-sm sm:text-base"
+                className="px-8 py-3.5 bg-white border-2 border-[#0A66C2] text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] transition-all text-sm sm:text-base"
               >
-                Create Project
+                Start a project
               </button>
               {isSignedIn && onExploreClick ? (
                 <button
                   type="button"
                   onClick={onExploreClick}
-                  className="px-8 py-3.5 bg-white border-2 border-[#0A66C2] text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] transition-all text-sm sm:text-base"
+                  className="px-8 py-3.5 bg-white border border-[#d9d9d9] text-[#666] font-bold rounded-full hover:bg-[#f3f2ef] transition-all text-sm sm:text-base"
                 >
-                  Explore Projects
+                  Explore
                 </button>
               ) : (
                 <Link
                   href={exploreHref}
-                  className="px-8 py-3.5 bg-white border-2 border-[#0A66C2] text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] transition-all text-sm sm:text-base text-center"
+                  className="px-8 py-3.5 bg-white border border-[#d9d9d9] text-[#666] font-bold rounded-full hover:bg-[#f3f2ef] transition-all text-sm sm:text-base text-center"
                 >
-                  Explore Projects
+                  Explore
                 </Link>
               )}
             </div>
@@ -217,6 +228,30 @@ export function MarketingHomepage({
               <p className="text-sm text-white/75 mt-1 font-medium">{s.label}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Learn CTA (full dashboard at /learn) ── */}
+      <section className="bg-white py-12 px-4 border-b border-[#e0e0e0]">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="max-w-xl">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#0A66C2] mb-2">
+              Learn course → Do project
+            </p>
+            <h2 className="text-2xl md:text-3xl font-black text-[#1d2226]">
+              No empty employment — learn a skill, then ship a project.
+            </h2>
+            <p className="text-sm text-[#666] mt-2 leading-relaxed">
+              {WIZARD_CATEGORIES.length} sectors from filmmaking to cybersecurity. Video lessons,
+              progress tracking, then start your project on Make Big.
+            </p>
+          </div>
+          <Link
+            href="/learn"
+            className="shrink-0 px-8 py-3.5 bg-[#0A66C2] text-white font-bold rounded-full hover:bg-[#004182] transition-all text-center text-sm"
+          >
+            Open Learn Dashboard →
+          </Link>
         </div>
       </section>
 
@@ -291,13 +326,13 @@ export function MarketingHomepage({
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">How Make Big works</h2>
-            <p className="text-[#666] text-sm mt-1">Three steps from idea to shipped project.</p>
+            <p className="text-[#666] text-sm mt-1">Learn → build → prove it. Three steps to beat empty employment.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             {[
-              { n: '1', t: 'Post or browse', d: 'Post a project with the skills you need, or browse what other students are building right now.' },
-              { n: '2', t: 'Build your team', d: 'Invite teammates by skill or join one as a member. Verified emails and phone numbers keep it safe.' },
-              { n: '3', t: 'Ship it live', d: 'Use the built-in task board, live chat, and activity feed to ship together — and add it to your portfolio.' },
+              { n: '1', t: 'Learn a course', d: 'Pick a skill path with video lessons — web, mobile, AI, design, and more. Free for students.' },
+              { n: '2', t: 'Do your project', d: 'When you finish, start a real project on Make Big. That\'s your portfolio — not an empty résumé.' },
+              { n: '3', t: 'Build with a team', d: 'Find teammates, ship with tasks and posts, and show employers what you actually built.' },
             ].map((s) => (
               <div key={s.n} className="bg-white border border-[#e0e0e0] rounded-2xl p-6">
                 <div className="w-9 h-9 rounded-full bg-[#0A66C2] text-white font-bold flex items-center justify-center text-sm mb-3">

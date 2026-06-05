@@ -55,6 +55,15 @@ import Comment from "./backend/models/Comment.js";
 import Course from "./backend/models/Course.js";
 import CourseEnrollment from "./backend/models/CourseEnrollment.js";
 import { markContactVerified, consumeVerifiedContact } from "./lib/otpVerified.js";
+import {
+  streamCofounderReply,
+  computeContextUsage,
+  buildSystemPrompt as buildCofounderSystemPrompt,
+  normalizeHistory,
+  isAnthropicConfigured,
+  isGroqConfigured,
+  CONTEXT_WINDOW,
+} from "./backend/ai/cofounder.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -2482,12 +2491,115 @@ app.get("/api/match/cofounder", authMiddleware, async (req, res) => {
 
 // ==================== AI CO-FOUNDER ====================
 
-function isGroqConfigured() {
-  const key = process.env.GROQ_API_KEY || "";
-  if (!key.trim()) return false;
-  const weak = ["your_", "your_groq", "REPLACE", "generate_random"];
-  return !weak.some((w) => key.includes(w));
+const COFOUNDER_ACTIONS = [
+  "suggest-tasks",
+  "draft-dm",
+  "generate-pitch",
+  "check-health",
+  "validate-idea",
+  "target-user",
+  "build-first",
+  "biggest-risk",
+  "custom",
+];
+
+function projectToCofounderDoc(project) {
+  return {
+    name: project.name,
+    desc: project.desc || project.description || "",
+    categoryId: project.categoryId,
+    roles: project.roles || [],
+    salaryMax: project.salaryMax,
+    city: project.city,
+    state: project.state,
+    tasks: project.tasks || [],
+    teamMembers: project.teamMembers || [],
+    createdAt: project.createdAt,
+  };
 }
+
+app.get("/api/ai/cofounder/status", authMiddleware, (req, res) => {
+  const provider = isAnthropicConfigured()
+    ? "anthropic"
+    : isGroqConfigured()
+      ? "groq"
+      : "demo";
+  res.json(
+    formatResponse(true, {
+      provider,
+      anthropic: isAnthropicConfigured(),
+      groq: isGroqConfigured(),
+      contextWindow: CONTEXT_WINDOW,
+    })
+  );
+});
+
+app.post("/api/ai/cofounder/stream", authMiddleware, async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const send = (obj) => {
+    res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  };
+
+  try {
+    const { projectId, messages = [], action, context = {} } = req.body;
+    if (!projectId) {
+      send({ type: "error", message: "projectId required" });
+      return res.end();
+    }
+
+    const project = await Project.findById(projectId).lean();
+    if (!project) {
+      send({ type: "error", message: "Project not found" });
+      return res.end();
+    }
+
+    const projectDoc = projectToCofounderDoc(project);
+    const systemPrompt = buildCofounderSystemPrompt(projectDoc);
+    let fullText = "";
+
+    const result = await streamCofounderReply({
+      project: projectDoc,
+      history: messages,
+      action,
+      context,
+      onDelta: (text) => {
+        fullText += text;
+        send({ type: "delta", text });
+      },
+    });
+
+    const ctxUsage = computeContextUsage(
+      systemPrompt,
+      normalizeHistory(messages),
+      fullText
+    );
+
+    send({
+      type: "done",
+      devMode: result.devMode,
+      provider: result.provider,
+      projectName: project.name,
+      usage: {
+        inputTokens: result.usage?.inputTokens ?? ctxUsage.inputTokens,
+        outputTokens: result.usage?.outputTokens ?? ctxUsage.outputTokens,
+        totalUsed: ctxUsage.totalUsed,
+        percent: ctxUsage.percent,
+        contextWindow: CONTEXT_WINDOW,
+      },
+    });
+  } catch (error) {
+    send({
+      type: "error",
+      message: error?.message || "Stream failed",
+    });
+  } finally {
+    res.end();
+  }
+});
 
 const groq = isGroqConfigured() ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
@@ -2534,8 +2646,7 @@ const DEV_RESPONSES = {
 app.post("/api/ai/cofounder", authMiddleware, async (req, res) => {
   try {
     const { action, projectId, context = {} } = req.body;
-    const validActions = ["suggest-tasks", "draft-dm", "generate-pitch", "check-health", "custom"];
-    if (!projectId || !validActions.includes(action)) {
+    if (!projectId || !COFOUNDER_ACTIONS.includes(action)) {
       return res.status(400).json(formatResponse(false, null, "projectId and valid action required"));
     }
 
@@ -2849,14 +2960,24 @@ async function attachNextApp() {
   await nextApp.prepare();
   const handle = nextApp.getRequestHandler();
 
-  app.all("*", (req, res) => handle(req, res));
+  // Forward only non-API traffic to Next.js (keep Express /api/* + Socket.io on this server).
+  app.use((req, res) => {
+    const path = req.path || "";
+    if (path.startsWith("/api/") || path.startsWith("/socket.io")) {
+      if (!res.headersSent) {
+        res.status(404).json(formatResponse(false, null, "API route not found"));
+      }
+      return;
+    }
+    return handle(req, res);
+  });
   console.log("Next.js mounted on same port (SERVE_NEXT=true)");
 }
 
 async function start() {
   await connectDB();
   await attachNextApp();
-  httpServer.listen(PORT, () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     const mode = process.env.SERVE_NEXT === "true" ? "API + Next.js" : "API only";
     console.log(`
 ╔════════════════════════════════════════════════════════╗

@@ -8,18 +8,21 @@
     "dev": "node scripts/kill-dev-ports.mjs && node scripts/dev-all.mjs",
     "dev:next": "node scripts/kill-dev-ports.mjs && next dev -p 3000",
     "dev:all": "node scripts/kill-dev-ports.mjs && node scripts/dev-all.mjs",
+    "api:dev": "node server-new.js",
     "dev:clean": "node scripts/kill-dev-ports.mjs && rm -rf .next && next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "api:dev": "node server-new.js",
     "api:prod": "NODE_ENV=production node server-new.js",
+    "start:api": "npm run api:prod",
     "start:render": "SERVE_NEXT=true NODE_ENV=production node server-new.js",
-    "dev:full": "node server-new.js & next dev",
     "verify:deploy": "node scripts/verify-deploy-ready.mjs",
     "push:github": "node scripts/push-github.mjs",
     "deploy:env": "node scripts/generate-deploy-env.mjs",
-    "seed:demo": "node scripts/seed-demo.mjs"
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
@@ -47,13 +50,20 @@
     "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.11.19",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^4.1.8",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",
-    "typescript": "^5.4.5"
+    "jsdom": "^29.1.1",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.8"
   }
 }

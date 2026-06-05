@@ -175,17 +175,6 @@ export default function Home() {
     setShowWizard(true);
   };
 
-  const handleStartProjectFromCourse = (categoryId: string, skills?: string[]) => {
-    if (!auth.checkAuth()) {
-      setShowAuth(true);
-      return;
-    }
-    setWizardInitialEntry('create');
-    setWizardInitialCategory(categoryId);
-    setWizardInitialSkills(skills?.length ? skills : undefined);
-    setShowWizard(true);
-  };
-
   const handleJoinProject = () => {
     if (!auth.checkAuth()) {
       setShowAuth(true);
@@ -311,6 +300,8 @@ export default function Home() {
           ...data,
           id: published?.id || created.id,
           slug: (published as any)?.slug || (created as any)?.slug,
+          ownerContact: auth.user.contact,
+          mode: 'create',
         };
       } catch (e) {
         if (e instanceof PlanLimitError) {
@@ -386,6 +377,7 @@ export default function Home() {
         skills: result.project.roles || [],
         vision: '',
         mode: 'member',
+        ownerContact: result.project.ownerContact,
         salaryMin: result.project.salaryMin,
         salaryMax: result.project.salaryMax,
         salaryCurrency: result.project.currency,
@@ -453,7 +445,6 @@ export default function Home() {
             setShowDashboard(false);
           }}
           onPublicJoinClick={handlePublicJoinClick}
-          onStartProjectFromCourse={handleStartProjectFromCourse}
         />
         <AuthModal
           isOpen={showAuth}
@@ -629,7 +620,7 @@ export default function Home() {
       )}
 
       <MarketingHomepage
-        isSignedIn={!!auth.user}
+        isSignedIn={false}
         onStartProject={handleStartProject}
         onRequireAuth={() => setShowAuth(true)}
         onJoinProject={handlePublicJoinClick}

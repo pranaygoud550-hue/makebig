@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import mongoose from 'mongoose';
-import { supabaseAdmin, isSupabaseServerConfigured } from '@/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseServerConfigured } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -19,24 +18,6 @@ async function upgradeContactToPro(contact: string, stripeCustomerId?: string) {
       .eq('contact', normalized);
   }
 
-  const mongoUri = process.env.MONGODB_URI;
-  if (mongoUri) {
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoUri);
-    }
-    const db = mongoose.connection.db;
-    if (db) {
-      await db.collection('users').updateOne(
-        { contact: normalized },
-        {
-          $set: {
-            plan: 'pro',
-            ...(stripeCustomerId ? { stripeCustomerId } : {}),
-          },
-        }
-      );
-    }
-  }
 }
 
 export async function POST(request: Request) {

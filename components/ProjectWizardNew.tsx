@@ -79,6 +79,7 @@ function browseToProjectData(
     salaryMax: project?.salaryMax || 0,
     salaryCurrency: project?.currency || 'INR',
     mode,
+    ownerContact: project?.ownerContact,
   };
 }
 

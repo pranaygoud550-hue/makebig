@@ -35,6 +35,7 @@ export function Navbar({
           {/* Nav links */}
           <div className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Home</Link>
+            <Link href="/learn" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Learn</Link>
             <Link href="/explore" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Explore</Link>
             <Link href="/pricing" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Pricing</Link>
             <Link href="/#discover" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Projects</Link>

@@ -21,3 +21,20 @@ export function workspaceLabel(project: ProjectData | null | undefined): string 
   if (!project?.name) return 'Your project';
   return project.name;
 }
+
+/** AI Co-founder works for owners and teammates once the project exists on the server. */
+export function canUseAICofounder(project: ProjectData | null | undefined): boolean {
+  if (!hasActiveWorkspace(project) || !hasProjectId(project)) return false;
+  return project!.mode === 'create' || project!.mode === 'member';
+}
+
+export function isProjectOwner(
+  project: ProjectData | null | undefined,
+  userContact?: string
+): boolean {
+  if (!project || !userContact) return project?.mode === 'create';
+  const owner = project.ownerContact?.trim().toLowerCase();
+  const user = userContact.trim().toLowerCase();
+  if (owner) return owner === user;
+  return project.mode === 'create';
+}

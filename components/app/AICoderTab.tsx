@@ -4,7 +4,11 @@ import { AICofounder } from '@/components/AICofounder';
 import { ProjectWorkspaceGate } from '@/components/app/ProjectWorkspaceGate';
 import { useSubscription } from '@/lib/hooks/useSubscription';
 import { ProjectData, User } from '@/lib/types';
-import { workspaceLabel } from '@/lib/projectWorkspace';
+import {
+  canUseAICofounder,
+  isProjectOwner,
+  workspaceLabel,
+} from '@/lib/projectWorkspace';
 import Link from 'next/link';
 
 interface AICoderTabProps {
@@ -20,8 +24,10 @@ export function AICoderTab({
   onOpenDashboard,
   onProjectSynced,
 }: AICoderTabProps) {
+  const owner = isProjectOwner(currentProject, user.contact);
   const ownerContact =
-    currentProject?.mode === 'create' ? user.contact : undefined;
+    currentProject?.ownerContact ||
+    (owner ? user.contact : undefined);
   const { isPro } = useSubscription(ownerContact);
 
   return (
@@ -33,7 +39,7 @@ export function AICoderTab({
       noProject={{
         icon: '🤖',
         title: 'AI Co-founder',
-        description: 'Create a project first, then get task ideas, pitch drafts, and health checks.',
+        description: 'Create or join a project first, then get task ideas, pitch drafts, and health checks.',
       }}
       needsSync={{
         icon: '🤖',
@@ -42,20 +48,25 @@ export function AICoderTab({
           'Link your project online to use AI on your real project data (tasks, team, timeline).',
       }}
     >
-      {currentProject && currentProject.mode !== 'create' ? (
+      {currentProject && !canUseAICofounder(currentProject) ? (
         <div className="bg-white rounded-2xl border border-[#e0e0e0] p-8 text-center space-y-3">
           <p className="text-2xl">🤝</p>
-          <p className="font-semibold text-[#1d2226]">You joined {workspaceLabel(currentProject)}</p>
+          <p className="font-semibold text-[#1d2226]">
+            {currentProject.mode === 'join'
+              ? 'Pick a project to join'
+              : `Set up ${workspaceLabel(currentProject)}`}
+          </p>
           <p className="text-sm text-[#666] max-w-sm mx-auto">
-            AI Co-founder helps <strong>project owners</strong> plan and ship. Open the dashboard for
-            team chat, tasks, and your project feed.
+            {currentProject.mode === 'join'
+              ? 'Finish joining a project from Explore, or create your own to unlock AI.'
+              : 'Publish and link your project online, then AI can use your real tasks and team data.'}
           </p>
           <button
             type="button"
             onClick={onOpenDashboard}
             className="px-5 py-2.5 bg-[#0A66C2] text-white text-sm font-semibold rounded-full hover:bg-[#004182]"
           >
-            Open team dashboard
+            {currentProject.mode === 'join' ? 'Go to Explore' : 'Open team dashboard'}
           </button>
         </div>
       ) : (
@@ -63,13 +74,30 @@ export function AICoderTab({
           <header>
             <h1 className="text-xl font-bold text-[#1d2226]">AI Co-founder</h1>
             <p className="text-sm text-[#666] mt-0.5">
-              For <strong>{workspaceLabel(currentProject)}</strong> — tasks, pitch, health check.
+              {owner ? (
+                <>
+                  For <strong>{workspaceLabel(currentProject)}</strong> — tasks, pitch, health check.
+                </>
+              ) : (
+                <>
+                  Helping with <strong>{workspaceLabel(currentProject)}</strong> — ask about tasks,
+                  ideas, and what to build next.{' '}
+                  <button
+                    type="button"
+                    onClick={onOpenDashboard}
+                    className="text-[#0A66C2] font-semibold hover:underline"
+                  >
+                    Open team dashboard
+                  </button>
+                </>
+              )}
             </p>
           </header>
-          {!isPro && (
+          {!isPro && owner && (
             <div className="bg-[#EEF3FB] border border-[#0A66C2]/20 rounded-xl px-4 py-3 text-sm text-[#1d2226]">
-              <strong>Free plan</strong> — AI works when <code className="text-xs bg-white px-1 rounded">GROQ_API_KEY</code> is set in{' '}
-              <code className="text-xs bg-white px-1 rounded">backend/.env</code>.{' '}
+              <strong>Free plan</strong> — AI works when <code className="text-xs bg-white px-1 rounded">GROQ_API_KEY</code> or{' '}
+              <code className="text-xs bg-white px-1 rounded">ANTHROPIC_API_KEY</code> is set in{' '}
+              <code className="text-xs bg-white px-1 rounded">.env</code>.{' '}
               <Link href="/pricing" className="text-[#0A66C2] font-semibold hover:underline">
                 Pro
               </Link>{' '}
@@ -80,7 +108,7 @@ export function AICoderTab({
             <AICofounder
               project={currentProject!}
               user={user}
-              ownerContact={user.contact}
+              ownerContact={ownerContact}
             />
           </div>
         </div>

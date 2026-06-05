@@ -101,6 +101,7 @@ export interface ProjectData {
   state?: string;
   slug?: string;
   mode: 'create' | 'join' | 'member';
+  ownerContact?: string;
 }
 
 export interface InvitePerson {

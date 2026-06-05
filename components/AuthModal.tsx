@@ -56,6 +56,12 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
   const [siOtpSentMsg, setSiOtpSentMsg] = useState('');
   const [signUpOtpSentMsg, setSignUpOtpSentMsg] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [signInMethod, setSignInMethod] = useState<'password' | 'magic' | 'otp'>(
+    isSupabaseConfigured ? 'password' : 'otp'
+  );
+  const [siPassword, setSiPassword] = useState('');
+  const [signUpPassword, setSignUpPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   // Sign Up fields
   const [name, setName] = useState('');
@@ -103,6 +109,10 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     setSiOtpSentMsg('');
     setSignUpOtpSentMsg('');
     setResendCooldown(0);
+    setSignInMethod(isSupabaseConfigured ? 'password' : 'otp');
+    setSiPassword('');
+    setSignUpPassword('');
+    setAuthLoading(false);
     setName(''); setContact(''); setCollege(''); setGradYear('');
     setSkills([]); setSkillInput(''); setHobbies([]); setHobbyInput('');
   };
@@ -120,6 +130,124 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
         redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
       },
     });
+  };
+
+  const handleSignInPassword = async () => {
+    const contactErr = validateContact(siContact);
+    if (contactErr) {
+      setSiOtpError(contactErr);
+      return;
+    }
+    if (!siPassword || siPassword.length < 6) {
+      setSiOtpError('Password must be at least 6 characters');
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setSiOtpError('Supabase is not configured');
+      return;
+    }
+    setAuthLoading(true);
+    setSiOtpError('');
+    try {
+      const email = siContact.trim().toLowerCase();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: siPassword });
+      if (error) throw error;
+      if (data.session?.access_token) {
+        const { setAuthToken } = await import('@/lib/api');
+        setAuthToken(data.session.access_token);
+      }
+      await onSignIn(email);
+      reset();
+      onClose();
+    } catch (e) {
+      setSiOtpError(getErrorMessage(e, 'otp'));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignInMagicLink = async () => {
+    const contactErr = validateContact(siContact);
+    if (contactErr) {
+      setSiOtpError(contactErr);
+      return;
+    }
+    if (!siContact.includes('@')) {
+      setSiOtpError('Magic link requires an email address');
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setSiOtpError('Supabase is not configured');
+      return;
+    }
+    setAuthLoading(true);
+    setSiOtpError('');
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: siContact.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) throw error;
+      setSiOtpSentMsg('Check your email for the magic link to sign in.');
+    } catch (e) {
+      setSiOtpError(getErrorMessage(e, 'otp'));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignUpWithPassword = async () => {
+    const nameErr = validateName(name);
+    if (nameErr) {
+      setOtpError(nameErr);
+      return;
+    }
+    const contactErr = validateContact(contact);
+    if (contactErr) {
+      setOtpError(contactErr);
+      return;
+    }
+    if (!contact.includes('@')) {
+      setOtpError('Sign up with email and password (phone OTP available separately)');
+      return;
+    }
+    if (!signUpPassword || signUpPassword.length < 6) {
+      setOtpError('Password must be at least 6 characters');
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setOtpError('Supabase is not configured');
+      return;
+    }
+    setAuthLoading(true);
+    setOtpError('');
+    try {
+      const email = contact.trim().toLowerCase();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: signUpPassword,
+        options: {
+          data: { name: name.trim(), skills, hobbies, college, graduationYear: gradYear },
+          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) throw error;
+      if (data.session?.access_token) {
+        const { setAuthToken } = await import('@/lib/api');
+        setAuthToken(data.session.access_token);
+        await onSignUp(name.trim(), email, skills, hobbies, college.trim(), gradYear);
+        reset();
+        onClose();
+      } else {
+        setOtpError('Account created — confirm your email, then sign in with password.');
+      }
+    } catch (e) {
+      setOtpError(getErrorMessage(e, 'auth'));
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   // ——— College typeahead ———
@@ -368,7 +496,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
             </div>
             <div className="flex items-center gap-3">
               <span className="h-px flex-1 bg-[#e0e0e0]" />
-              <span className="text-xs text-[#999]">or continue with OTP</span>
+              <span className="text-xs text-[#999]">or email</span>
               <span className="h-px flex-1 bg-[#e0e0e0]" />
             </div>
               </>
@@ -382,7 +510,69 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                   <p className="text-[#666] text-sm mt-1">Sign in to your Make Big account</p>
                 </div>
 
-                {siStep === 'contact' ? (
+                <div className="flex gap-2">
+                  {(isSupabaseConfigured
+                    ? (['password', 'magic', 'otp'] as const)
+                    : (['otp'] as const)
+                  ).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => { setSignInMethod(m); setSiOtpError(''); setSiStep('contact'); }}
+                      className={`flex-1 py-2 text-xs font-semibold rounded-lg border ${
+                        signInMethod === m
+                          ? 'border-[#0A66C2] bg-[#EEF3FB] text-[#0A66C2]'
+                          : 'border-[#d9d9d9] text-[#666]'
+                      }`}
+                    >
+                      {m === 'password' ? 'Password' : m === 'magic' ? 'Magic link' : 'OTP'}
+                    </button>
+                  ))}
+                </div>
+
+                {signInMethod !== 'otp' && siStep === 'contact' ? (
+                  <>
+                    <Field label="Email">
+                      <input
+                        type="email"
+                        placeholder="you@college.edu"
+                        value={siContact}
+                        onChange={(e) => setSiContact(e.target.value)}
+                        autoComplete="username"
+                        className={inputCls}
+                      />
+                    </Field>
+                    {signInMethod === 'password' && (
+                      <Field label="Password">
+                        <input
+                          type="password"
+                          placeholder="Your password"
+                          value={siPassword}
+                          onChange={(e) => setSiPassword(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSignInPassword()}
+                          autoComplete="current-password"
+                          className={inputCls}
+                        />
+                      </Field>
+                    )}
+                    {siOtpSentMsg && signInMethod === 'magic' && (
+                      <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                        {siOtpSentMsg}
+                      </p>
+                    )}
+                    {siOtpError && <p className="text-red-500 text-sm">{siOtpError}</p>}
+                    <LiButton
+                      onClick={signInMethod === 'password' ? handleSignInPassword : handleSignInMagicLink}
+                      disabled={!siContact.trim() || authLoading || (signInMethod === 'password' && !siPassword)}
+                    >
+                      {authLoading
+                        ? 'Please wait…'
+                        : signInMethod === 'password'
+                          ? 'Sign in'
+                          : 'Send magic link'}
+                    </LiButton>
+                  </>
+                ) : signInMethod === 'otp' && siStep === 'contact' ? (
                   <>
                     <Field label="Email or Phone">
                       <input
@@ -399,7 +589,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                       {siOtpSending ? 'Sending…' : resendCooldown > 0 ? `Wait ${resendCooldown}s` : 'Send OTP'}
                     </LiButton>
                   </>
-                ) : (
+                ) : signInMethod === 'otp' ? (
                   <>
                     <p className="text-sm text-[#666]">
                       Enter the 6-digit code sent to <strong className="text-[#1d2226]">{siContact}</strong>
@@ -444,7 +634,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                       </button>
                     </div>
                   </>
-                )}
+                ) : null}
               </>
             )}
 
@@ -478,12 +668,26 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                         onChange={(e) => setName(e.target.value)}
                         autoComplete="name" className={inputCls} />
                     </Field>
-                    <Field label="Email or Phone *">
-                      <input type="text" placeholder="Enter email or phone" value={contact}
+                    <Field label="Email *">
+                      <input type="email" placeholder="you@college.edu" value={contact}
                         onChange={(e) => setContact(e.target.value)}
                         autoComplete="username" className={inputCls} />
                     </Field>
-                    <LiButton onClick={handleSignUpNext} disabled={!name.trim() || !contact.trim()}>
+                    {isSupabaseConfigured && (
+                      <Field label="Password *">
+                        <input type="password" placeholder="At least 6 characters" value={signUpPassword}
+                          onChange={(e) => setSignUpPassword(e.target.value)}
+                          autoComplete="new-password" className={inputCls} />
+                      </Field>
+                    )}
+                    <LiButton
+                      onClick={handleSignUpNext}
+                      disabled={
+                        !name.trim() ||
+                        !contact.trim() ||
+                        (isSupabaseConfigured && !signUpPassword)
+                      }
+                    >
                       Continue
                     </LiButton>
                   </>
@@ -598,9 +802,15 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
 
                     <div className="flex gap-3">
                       <BackButton onClick={() => setStep(2)} />
-                      <LiButton onClick={handleSignUpSendOtp} flex1 disabled={otpSending || resendCooldown > 0}>
-                        {otpSending ? 'Sending OTP…' : resendCooldown > 0 ? `Wait ${resendCooldown}s` : 'Send OTP & Verify'}
-                      </LiButton>
+                      {isSupabaseConfigured ? (
+                        <LiButton onClick={handleSignUpWithPassword} flex1 disabled={authLoading}>
+                          {authLoading ? 'Creating account…' : 'Create account'}
+                        </LiButton>
+                      ) : (
+                        <LiButton onClick={handleSignUpNext} flex1 disabled={otpSending}>
+                          {otpSending ? 'Sending OTP…' : 'Send OTP →'}
+                        </LiButton>
+                      )}
                     </div>
                   </>
                 )}

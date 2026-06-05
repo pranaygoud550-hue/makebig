@@ -52,6 +52,9 @@ create table if not exists public.profiles (
   rate_max integer,
   currency text default 'INR',
   available_for_invites boolean default true,
+  bio text default '',
+  portfolio text default '',
+  profile_image text default '',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -76,6 +79,7 @@ create table if not exists public.projects (
   slug text unique,
   status text default 'draft',
   visibility text default 'public',
+  project_purpose text default 'college',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
