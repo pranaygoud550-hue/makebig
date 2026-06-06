@@ -109,6 +109,57 @@ const projectSchema = new mongoose.Schema(
       overall: { type: Number, default: 0 },
       computedAt: Date,
     },
+    logoUrl: { type: String, default: '' },
+    gallery: [String],
+    journey: {
+      currentStage: {
+        type: String,
+        enum: ['idea', 'research', 'prototype', 'mvp', 'beta', 'launch', 'revenue', 'scaling'],
+        default: 'idea',
+      },
+      completionPercent: { type: Number, default: 0, min: 0, max: 100 },
+      nextMilestone: { type: String, default: 'Complete problem research' },
+      lastUpdated: { type: Date, default: Date.now },
+      stageNotes: [
+        {
+          stage: String,
+          note: String,
+          screenshotUrl: String,
+          createdAt: { type: Date, default: Date.now },
+          createdBy: String,
+        },
+      ],
+    },
+    health: {
+      score: { type: Number, default: 0 },
+      activity: { type: Number, default: 0 },
+      engagement: { type: Number, default: 0 },
+      progress: { type: Number, default: 0 },
+      taskCompletion: { type: Number, default: 0 },
+      metrics: {
+        activeMembers: { type: Number, default: 0 },
+        lastActivityAt: Date,
+        openTasks: { type: Number, default: 0 },
+        completedTasks: { type: Number, default: 0 },
+        updatesThisWeek: { type: Number, default: 0 },
+        joinRequests: { type: Number, default: 0 },
+        responseTimeHours: { type: Number, default: 0 },
+      },
+      heatmap: [{ date: String, count: Number }],
+      computedAt: Date,
+    },
+    featured: {
+      badge: String,
+      badgeIcon: String,
+      weekStart: String,
+      featuredAt: Date,
+      rankScore: Number,
+    },
+    analytics: {
+      followerCount: { type: Number, default: 0 },
+      viewCount: { type: Number, default: 0 },
+      profileViews: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { PublicProjectFeed } from '@/components/PublicProjectFeed';
 import { SalaryLeaderboard } from '@/components/SalaryLeaderboard';
 import { VerifiedSkillsLeaderboard } from '@/components/skillVerification/VerifiedSkillsLeaderboard';
+import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
+import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
 import { MarketingFooter } from '@/components/MarketingFooter';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { BrowseProject } from '@/lib/api';
@@ -281,7 +283,9 @@ export function MarketingHomepage({
       </div>
 
       <SalaryLeaderboard onRequireAuth={onRequireAuth} />
+      <FeaturedStartupsSection />
       <VerifiedSkillsLeaderboard />
+      <StartupJourneyFeed />
 
       <section className="bg-white border-t border-[#e0e0e0] py-14 px-4">
         <div className="max-w-6xl mx-auto">

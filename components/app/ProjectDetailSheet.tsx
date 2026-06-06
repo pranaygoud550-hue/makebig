@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatSalaryBand, getInitials } from '@/lib/utils';
-import { ProjectReadinessPanel } from '@/components/startupReadiness/ProjectReadinessPanel';
+import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { getErrorMessage } from '@/lib/userErrors';
 
 export interface SearchProjectHit {
@@ -172,7 +172,7 @@ export function ProjectDetailSheet({
                 </section>
               )}
 
-              <ProjectReadinessPanel projectId={p.id} />
+              <StartupEcosystemPanels projectId={p.id} isOwner={Boolean(isOwner)} />
 
               {(detail?.openRoles?.length || 0) > 0 && (
                 <section>

@@ -268,6 +268,15 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
             <ProjectReadinessPanel projectId={project.id} />
 
+            <p className="text-center">
+              <Link
+                href={`/startup/${project.slug}`}
+                className="text-sm font-semibold text-[#0A66C2] hover:underline"
+              >
+                View full startup profile →
+              </Link>
+            </p>
+
             {posts.length > 0 && (
               <div className="space-y-4">
                 <h2 className="text-lg font-bold text-[#1d2226]">Project Updates</h2>

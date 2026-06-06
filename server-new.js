@@ -60,6 +60,19 @@ import Comment from "./backend/models/Comment.js";
 import Course from "./backend/models/Course.js";
 import CourseEnrollment from "./backend/models/CourseEnrollment.js";
 import Invite from "./backend/models/Invite.js";
+import StartupFollow from "./backend/models/StartupFollow.js";
+import StartupBookmark from "./backend/models/StartupBookmark.js";
+import IdeaValidation from "./backend/models/IdeaValidation.js";
+import { validateIdeaWithAI, reportToMarkdown } from "./backend/ai/ideaValidator.js";
+import {
+  computeProjectHealth,
+  computeUserReputation,
+  getFeaturedStartups,
+  journeyTimeline,
+  recordJourneyActivity,
+  notifyFollowers,
+  INVITE_ROLE_TYPES,
+} from "./backend/utils/ecosystem.js";
 import { saveOtpRecord, verifyOtpRecord } from "./lib/otpStore.js";
 import { sendOtpEmail, isEmailOtpConfigured } from "./lib/emailOtp.js";
 import { upsertVerifiedUser, findUserByContact, loginExistingUserAfterOtp } from "./lib/userUpsert.js";
@@ -1301,6 +1314,401 @@ app.get("/api/projects/:projectId/readiness", async (req, res) => {
       return res.status(404).json(formatResponse(false, null, "Project not found"));
     }
     res.json(formatResponse(true, scores));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Project health meter (must be BEFORE /:projectId)
+app.get("/api/projects/:projectId/health", async (req, res) => {
+  try {
+    const health = await computeProjectHealth(Project, User, Post, Activity, req.params.projectId);
+    if (!health) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    res.json(formatResponse(true, health));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Journey timeline (must be BEFORE /:projectId)
+app.get("/api/projects/:projectId/journey", async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    const journey = project.journey || { currentStage: "idea", completionPercent: 0, stageNotes: [] };
+    res.json(formatResponse(true, {
+      journey,
+      timeline: journeyTimeline(journey.currentStage || "idea"),
+    }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.put("/api/projects/:projectId/journey", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const { currentStage, completionPercent, nextMilestone, note, screenshotUrl } = req.body || {};
+    const prevStage = project.journey?.currentStage || "idea";
+
+    if (!project.journey) project.journey = {};
+    if (currentStage) project.journey.currentStage = clampString(currentStage, 32);
+    if (typeof completionPercent === "number") {
+      project.journey.completionPercent = Math.max(0, Math.min(100, completionPercent));
+    }
+    if (nextMilestone) project.journey.nextMilestone = clampString(nextMilestone, 200);
+    project.journey.lastUpdated = new Date();
+
+    if (note) {
+      project.journey.stageNotes = project.journey.stageNotes || [];
+      project.journey.stageNotes.push({
+        stage: project.journey.currentStage,
+        note: clampString(note, 1000),
+        screenshotUrl: screenshotUrl ? clampString(screenshotUrl, 2000) : "",
+        createdAt: new Date(),
+        createdBy: req.user?.contact || "",
+      });
+      if (screenshotUrl) {
+        project.gallery = [...new Set([...(project.gallery || []), screenshotUrl])].slice(0, 20);
+      }
+    }
+
+    await project.save();
+
+    if (currentStage && currentStage !== prevStage) {
+      const authContact = requireAuthContact(req, res);
+      await recordJourneyActivity(Activity, project._id, authContact, currentStage, note);
+      await Activity.create({
+        projectId: project._id,
+        userId: authContact,
+        type: "startup_update",
+        description: `${project.name} reached ${currentStage} stage`,
+        metadata: { stage: currentStage, slug: project.slug },
+      });
+      await notifyFollowers(
+        pushNotification,
+        null,
+        StartupFollow,
+        User,
+        project,
+        "milestone",
+        `${project.name} milestone`,
+        `Reached ${currentStage} stage`,
+      );
+    }
+
+    await computeProjectHealth(Project, User, Post, Activity, project._id.toString());
+
+    res.json(formatResponse(true, {
+      journey: project.journey,
+      timeline: journeyTimeline(project.journey.currentStage),
+    }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Featured startups showcase
+app.get("/api/showcase/featured", async (req, res) => {
+  try {
+    const data = await getFeaturedStartups(Project, User, Post);
+    res.json(formatResponse(true, data));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// AI Idea Validator
+app.post("/api/ai/idea-validator", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const { ideaName, problemStatement, targetAudience, businessModel, industry, save } = req.body || {};
+    if (!ideaName?.trim()) {
+      return res.status(400).json(formatResponse(false, null, "Idea name required"));
+    }
+    const input = {
+      ideaName: clampString(ideaName, 120),
+      problemStatement: clampString(problemStatement || "", 2000),
+      targetAudience: clampString(targetAudience || "", 500),
+      businessModel: clampString(businessModel || "", 500),
+      industry: clampString(industry || "", 120),
+    };
+    const report = await validateIdeaWithAI(input);
+    const rawReport = reportToMarkdown(report, input);
+    let saved = null;
+    if (save !== false) {
+      saved = await IdeaValidation.create({
+        contact,
+        ...input,
+        report,
+        rawReport,
+      });
+    }
+    res.json(formatResponse(true, {
+      report,
+      rawReport,
+      id: saved?._id?.toString(),
+      demo: report.demo || false,
+    }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/ai/idea-validator/reports", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const reports = await IdeaValidation.find({ contact })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+    res.json(formatResponse(true, {
+      reports: reports.map((r) => ({
+        id: r._id.toString(),
+        ideaName: r.ideaName,
+        viabilityScore: r.report?.viabilityScore,
+        createdAt: r.createdAt,
+      })),
+    }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Founder reputation
+app.get("/api/users/:contact/reputation", async (req, res) => {
+  try {
+    const rep = await computeUserReputation(User, Project, Profile, req.params.contact);
+    if (!rep) return res.status(404).json(formatResponse(false, null, "User not found"));
+    res.json(formatResponse(true, rep));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Collaboration invites — sent by founder
+app.get("/api/invites/sent", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const invites = await Invite.find({ senderContact: contact })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    const enriched = await Promise.all(
+      invites.map(async (inv) => {
+        const project = await Project.findById(inv.projectId).lean();
+        return {
+          ...inv,
+          id: inv._id?.toString(),
+          projectName: project?.name,
+          projectSlug: project?.slug,
+        };
+      })
+    );
+    res.json(formatResponse(true, { invites: enriched, roleTypes: INVITE_ROLE_TYPES }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Startup journey feed (global)
+app.get("/api/startup-feed", async (req, res) => {
+  try {
+    const limit = Math.min(50, parseInt(req.query.limit, 10) || 20);
+    const activities = await Activity.find({
+      type: { $in: ["journey_stage_changed", "milestone_reached", "startup_update", "member_joined", "task_completed", "project_published"] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const enriched = await Promise.all(
+      activities.map(async (a) => {
+        const project = await Project.findById(a.projectId).lean();
+        if (!project || !["published", "in-progress"].includes(project.status)) return null;
+        return {
+          id: a._id.toString(),
+          type: a.type,
+          description: a.description,
+          metadata: a.metadata,
+          createdAt: a.createdAt,
+          project: {
+            id: project._id.toString(),
+            name: project.name,
+            slug: project.slug,
+            categoryId: project.categoryId,
+            logoUrl: project.logoUrl,
+          },
+        };
+      })
+    );
+    res.json(formatResponse(true, { items: enriched.filter(Boolean) }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Follow / bookmark startups
+app.post("/api/startups/:projectId/follow", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+
+    await StartupFollow.findOneAndUpdate(
+      { followerContact: contact, projectId: project._id },
+      { followerContact: contact, projectId: project._id },
+      { upsert: true }
+    );
+    project.analytics = project.analytics || {};
+    project.analytics.followerCount = await StartupFollow.countDocuments({ projectId: project._id });
+    await project.save();
+
+    res.json(formatResponse(true, { following: true, followerCount: project.analytics.followerCount }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.delete("/api/startups/:projectId/follow", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    await StartupFollow.deleteOne({ followerContact: contact, projectId: req.params.projectId });
+    const project = await Project.findById(req.params.projectId);
+    if (project) {
+      project.analytics = project.analytics || {};
+      project.analytics.followerCount = await StartupFollow.countDocuments({ projectId: project._id });
+      await project.save();
+    }
+    res.json(formatResponse(true, { following: false }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/startups/:projectId/bookmark", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    await StartupBookmark.findOneAndUpdate(
+      { userContact: contact, projectId: req.params.projectId },
+      { userContact: contact, projectId: req.params.projectId },
+      { upsert: true }
+    );
+    res.json(formatResponse(true, { bookmarked: true }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Public startup profile by slug
+app.get("/api/startup/:slug", async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      slug: req.params.slug,
+      status: { $in: ["published", "in-progress"] },
+    }).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Startup not found"));
+
+    project.analytics = project.analytics || {};
+    await Project.findByIdAndUpdate(project._id, { $inc: { "analytics.viewCount": 1 } });
+
+    const owner = await User.findOne({ contact: project.ownerContact }).lean();
+    const joined = (project.teamMembers || []).filter((m) => m.status === "joined");
+    const contacts = [project.ownerContact, ...joined.map((m) => m.contact)].filter(Boolean);
+    const users = await User.find({ contact: { $in: contacts } }).lean();
+    const userMap = Object.fromEntries(users.map((u) => [u.contact, u]));
+
+    const [posts, activities, followerCount] = await Promise.all([
+      Post.find({ projectId: project._id }).sort({ createdAt: -1 }).limit(15).lean(),
+      Activity.find({ projectId: project._id }).sort({ createdAt: -1 }).limit(20).lean(),
+      StartupFollow.countDocuments({ projectId: project._id }),
+    ]);
+
+    const tasksDone = (project.tasks || []).filter((t) => t.status === "done").length;
+    const projectAge = project.createdAt
+      ? Math.floor((Date.now() - new Date(project.createdAt)) / 86400000)
+      : 0;
+
+    res.json(formatResponse(true, {
+      startup: {
+        id: project._id.toString(),
+        name: project.name,
+        desc: project.desc,
+        slug: project.slug,
+        categoryId: project.categoryId,
+        logoUrl: project.logoUrl,
+        gallery: project.gallery || [],
+        roles: project.roles || [],
+        city: project.city,
+        state: project.state,
+        owner: { name: owner?.name, contact: owner?.contact },
+        journey: project.journey,
+        timeline: journeyTimeline(project.journey?.currentStage || "idea"),
+        startupReadiness: project.startupReadiness,
+        health: project.health,
+        featured: project.featured,
+        stats: {
+          members: joined.length + 1,
+          tasksCompleted: tasksDone,
+          projectAgeDays: projectAge,
+          updatesPosted: posts.length,
+          followerCount,
+        },
+      },
+      team: [
+        {
+          contact: project.ownerContact,
+          role: "owner",
+          name: userMap[project.ownerContact]?.name,
+          verifiedSkills: userMap[project.ownerContact]?.verifiedSkills || [],
+        },
+        ...joined.map((m) => ({
+          contact: m.contact,
+          role: m.role,
+          name: userMap[m.contact]?.name,
+          verifiedSkills: userMap[m.contact]?.verifiedSkills || [],
+        })),
+      ],
+      posts,
+      activities,
+      feed: activities.filter((a) =>
+        ["journey_stage_changed", "startup_update", "milestone_reached"].includes(a.type)
+      ),
+    }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Founder analytics
+app.get("/api/startups/:projectId/analytics", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const followerCount = await StartupFollow.countDocuments({ projectId: project._id });
+    const weekAgo = new Date(Date.now() - 7 * 86400000);
+    const newFollowers = await StartupFollow.countDocuments({ projectId: project._id, createdAt: { $gte: weekAgo } });
+    const postsThisWeek = await Post.countDocuments({ projectId: project._id, createdAt: { $gte: weekAgo } });
+
+    res.json(formatResponse(true, {
+      followerCount,
+      followerGrowthWeek: newFollowers,
+      viewCount: project.analytics?.viewCount || 0,
+      profileViews: project.analytics?.profileViews || 0,
+      engagementRate: Math.min(100, postsThisWeek * 10 + newFollowers * 5),
+      postsThisWeek,
+    }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

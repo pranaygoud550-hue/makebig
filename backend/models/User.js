@@ -78,6 +78,22 @@ const userSchema = new mongoose.Schema(
         verifiedAt: { type: Date, default: Date.now },
       },
     ],
+    reputation: {
+      score: { type: Number, default: 0 },
+      level: { type: String, default: 'explorer' },
+      points: {
+        projectsCreated: { type: Number, default: 0 },
+        tasksCompleted: { type: Number, default: 0 },
+        teamsHelped: { type: Number, default: 0 },
+        positiveReviews: { type: Number, default: 0 },
+        activityStreak: { type: Number, default: 0 },
+        milestonesCompleted: { type: Number, default: 0 },
+        verifiedSkills: { type: Number, default: 0 },
+        successfulLaunches: { type: Number, default: 0 },
+      },
+      achievements: [String],
+      computedAt: Date,
+    },
   },
   { timestamps: true }
 );
