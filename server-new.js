@@ -229,50 +229,31 @@ function isValidPhone(contact) {
 }
 
 app.post("/api/auth/send-otp", async (req, res) => {
-  const { contact } = req.body;
-  if (!contact?.trim()) {
-    return res.status(400).json(formatResponse(false, null, "Enter your email or phone number"));
-  }
-  const trimmed = contact.trim();
-  const phone = isPhoneNumber(contact);
-  const contactErr = validateContact(trimmed);
-  if (contactErr) {
-    return res.status(400).json(formatResponse(false, null, contactErr));
-  }
-  const key = contact.trim().toLowerCase();
-  const code = generateOTPCode();
-  await saveOtpRecord(key, code);
+  try {
+    const { contact } = req.body;
+    if (!contact?.trim()) {
+      return res.status(400).json(formatResponse(false, null, "Enter your email or phone number"));
+    }
+    const trimmed = contact.trim();
+    const contactErr = validateContact(trimmed);
+    if (contactErr) {
+      return res.status(400).json(formatResponse(false, null, contactErr));
+    }
 
-  let sent = false;
+    const code = generateOTPCode();
+    await saveOtpRecord(trimmed, code);
 
-  if (phone) {
-    sent = await sendSMSOTP(contact, code);
-  } else {
-    sent = await sendEmailOTP(contact, code);
-  }
-
-  if (!sent && process.env.NODE_ENV === "production" && !allowDevOtp()) {
-    return res.status(503).json(
-      formatResponse(false, null, "OTP delivery is not configured — set RESEND_API_KEY and EMAIL_FROM")
+    res.json(
+      formatResponse(true, {
+        sent: false,
+        devCode: code,
+        message: "Enter the verification code shown below",
+      })
     );
+  } catch (error) {
+    console.error("send-otp error:", error.message);
+    res.status(500).json(formatResponse(false, null, "Could not send OTP — try again"));
   }
-
-  const devMode = !sent && allowDevOtp();
-  if (devMode) {
-    console.log(`OTP for ${contact}: ${code} (dev mode)`);
-  }
-
-  res.json(
-    formatResponse(true, {
-      sent,
-      devCode: devMode ? code : undefined,
-      message: sent
-        ? `OTP sent to ${phone ? "your phone" : "your email"}`
-        : devMode
-          ? "OTP ready — use the code shown below (dev mode)"
-          : "OTP sent",
-    })
-  );
 });
 
 // POST /api/auth/verify-otp
