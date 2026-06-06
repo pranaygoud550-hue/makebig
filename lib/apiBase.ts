@@ -1,3 +1,6 @@
+/** Render Express API — split deploy with Vercel frontend (see vercel.json). */
+const PRODUCTION_RENDER_API = 'https://makebig.onrender.com';
+
 /**
  * Resolve Express API origin for browser, SSR, and unified Render deploy (SERVE_NEXT).
  */
@@ -13,6 +16,10 @@ export function getApiOrigin(): string {
     // Local dev: Next.js :3000 → Express API :5001
     if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000') {
       return 'http://localhost:5001';
+    }
+    // Vercel UI → Render API (friend requests, join, tasks, sockets, etc.)
+    if (hostname.endsWith('.vercel.app')) {
+      return PRODUCTION_RENDER_API;
     }
     return origin;
   }
