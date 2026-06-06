@@ -54,13 +54,17 @@ export async function exploreProjectsFromMongo(
     Project.countDocuments(filter),
   ]);
 
-  const filtered = dedupeProjectsForDisplay(
-    filterAllowedProjects(projects as MongoProjectDoc[])
-  );
+  const withStringIds = (projects as MongoProjectDoc[]).map((p) => ({
+    ...p,
+    id: p._id.toString(),
+    _id: p._id.toString(),
+  }));
+
+  const filtered = dedupeProjectsForDisplay(filterAllowedProjects(withStringIds));
   const pageSlice = filtered.slice(skip, skip + limit);
 
   const mapped: ExploreProject[] = pageSlice.map((p) => ({
-    id: p._id.toString(),
+    id: String(p.id || p._id),
     name: String(p.name || ''),
     desc: String(p.desc || ''),
     categoryId: String(p.categoryId || 'other'),
