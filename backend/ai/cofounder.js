@@ -36,7 +36,19 @@ export function isGroqConfigured() {
   const key = process.env.GROQ_API_KEY || "";
   if (!key.trim()) return false;
   const weak = ["your_", "your_groq", "REPLACE", "generate_random"];
+  if (!key.startsWith("gsk_")) return false;
   return !weak.some((w) => key.includes(w));
+}
+
+export function getGroqConfigError() {
+  const key = (process.env.GROQ_API_KEY || "").trim();
+  if (!key) {
+    return "GROQ_API_KEY is not configured — add it in Render/Vercel env (free key at console.groq.com)";
+  }
+  if (!key.startsWith("gsk_")) {
+    return "GROQ_API_KEY looks invalid — it should start with gsk_";
+  }
+  return "GROQ_API_KEY is set but could not reach Groq — check the key at console.groq.com";
 }
 
 /** Rough token estimate (~4 chars per token). */
@@ -205,23 +217,32 @@ export async function streamAnthropicReply({ systemPrompt, history, onDelta }) {
 }
 
 export async function streamGroqReply({ systemPrompt, history, onDelta }) {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  const stream = await groq.chat.completions.create({
-    model: GROQ_MODEL,
-    max_tokens: 1024,
-    stream: true,
-    messages: [{ role: "system", content: systemPrompt }, ...history],
-  });
-
-  let outputText = "";
-  for await (const chunk of stream) {
-    const text = chunk.choices[0]?.delta?.content || "";
-    if (text) {
-      outputText += text;
-      onDelta(text);
-    }
+  if (!isGroqConfigured()) {
+    throw new Error(getGroqConfigError());
   }
-  return { outputText, provider: "groq", usage: null };
+
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const stream = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      max_tokens: 1024,
+      stream: true,
+      messages: [{ role: "system", content: systemPrompt }, ...history],
+    });
+
+    let outputText = "";
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content || "";
+      if (text) {
+        outputText += text;
+        onDelta(text);
+      }
+    }
+    return { outputText, provider: "groq", usage: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${getGroqConfigError()} (${message})`);
+  }
 }
 
 export async function streamCofounderReply({
@@ -259,12 +280,23 @@ export async function streamCofounderReply({
   }
 
   if (isGroqConfigured()) {
-    const result = await streamGroqReply({ systemPrompt, history: messages, onDelta });
-    const usage = {
-      inputTokens: estimateTokens(systemPrompt) + messages.reduce((s, m) => s + estimateTokens(m.content), 0),
-      outputTokens: estimateTokens(result.outputText),
-    };
-    return { ...result, devMode: false, usage };
+    try {
+      const result = await streamGroqReply({ systemPrompt, history: messages, onDelta });
+      const usage = {
+        inputTokens: estimateTokens(systemPrompt) + messages.reduce((s, m) => s + estimateTokens(m.content), 0),
+        outputTokens: estimateTokens(result.outputText),
+      };
+      return { ...result, devMode: false, usage };
+    } catch (error) {
+      const hint = error instanceof Error ? error.message : getGroqConfigError();
+      const devText = `**AI unavailable** — ${hint}\n\n${getDevModeResponse(action || "custom", context, project)}`;
+      await streamDemoText(devText, onDelta);
+      const usage = {
+        inputTokens: estimateTokens(systemPrompt),
+        outputTokens: estimateTokens(devText),
+      };
+      return { outputText: devText, provider: "demo", devMode: true, usage };
+    }
   }
 
   const devText = getDevModeResponse(action || "custom", context, project);

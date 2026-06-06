@@ -11,12 +11,11 @@ import express from "express";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import mongoose from "mongoose";
-import nodemailer from "nodemailer";
 import Groq from "groq-sdk";
 
 import { connectDB } from "./backend/db/connection.js";
 import { corsMiddleware, socketCorsOptions } from "./backend/middleware/cors.js";
-import { authMiddleware, generateToken, socketAuthMiddleware } from "./backend/middleware/auth.js";
+import { authMiddleware, socketAuthMiddleware } from "./backend/middleware/auth.js";
 import {
   validateContact,
   validateName,
@@ -54,7 +53,9 @@ import Like from "./backend/models/Like.js";
 import Comment from "./backend/models/Comment.js";
 import Course from "./backend/models/Course.js";
 import CourseEnrollment from "./backend/models/CourseEnrollment.js";
-import { markContactVerified, consumeVerifiedContact } from "./lib/otpVerified.js";
+import { saveOtpRecord, verifyOtpRecord } from "./lib/otpStore.js";
+import { sendOtpEmail, isEmailOtpConfigured } from "./lib/emailOtp.js";
+import { upsertVerifiedUser } from "./lib/userUpsert.js";
 import {
   streamCofounderReply,
   computeContextUsage,
@@ -188,8 +189,6 @@ app.use(express.json({ limit: "2mb" }));
 
 // ==================== OTP STORE ====================
 
-const otpStore = new Map(); // contact.toLowerCase() -> { code, expiresAt }
-
 function generateOTPCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -199,32 +198,9 @@ function isPhoneNumber(contact) {
 }
 
 async function sendEmailOTP(to, code) {
-  const user = process.env.EMAIL_FROM;
-  const pass = process.env.EMAIL_PASS;
-  if (!user || !pass) return false;
-  try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: { user, pass },
-    });
-    await transporter.sendMail({
-      from: `"Make Big" <${user}>`,
-      to,
-      subject: "Your Make Big OTP",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:auto">
-          <h2 style="color:#0A66C2">Make Big</h2>
-          <p>Your one-time verification code is:</p>
-          <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#1d2226;margin:20px 0">${code}</div>
-          <p style="color:#666;font-size:13px">This code expires in 10 minutes. Do not share it with anyone.</p>
-        </div>
-      `,
-    });
-    return true;
-  } catch (err) {
-    console.error("Email OTP error:", err.message);
-    return false;
-  }
+  if (!isEmailOtpConfigured()) return false;
+  const result = await sendOtpEmail(to, code);
+  return result.ok;
 }
 
 async function sendSMSOTP(phone, code) {
@@ -265,7 +241,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
   }
   const key = contact.trim().toLowerCase();
   const code = generateOTPCode();
-  otpStore.set(key, { code, expiresAt: Date.now() + 10 * 60 * 1000 });
+  await saveOtpRecord(key, code);
 
   let sent = false;
 
@@ -277,7 +253,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
 
   if (!sent && process.env.NODE_ENV === "production" && !allowDevOtp()) {
     return res.status(503).json(
-      formatResponse(false, null, "OTP delivery is not configured — set EMAIL_FROM/EMAIL_PASS or FAST2SMS_API_KEY")
+      formatResponse(false, null, "OTP delivery is not configured — set RESEND_API_KEY and EMAIL_FROM")
     );
   }
 
@@ -300,31 +276,43 @@ app.post("/api/auth/send-otp", async (req, res) => {
 });
 
 // POST /api/auth/verify-otp
-app.post("/api/auth/verify-otp", (req, res) => {
-  const { contact, code } = req.body;
-  const contactErr = validateContact(contact);
-  if (contactErr) {
-    return res.status(400).json(formatResponse(false, null, contactErr));
+app.post("/api/auth/verify-otp", async (req, res) => {
+  try {
+    const { contact, code } = req.body;
+    const contactErr = validateContact(contact);
+    if (contactErr) {
+      return res.status(400).json(formatResponse(false, null, contactErr));
+    }
+    const codeErr = validateOtpCode(code);
+    if (codeErr) {
+      return res.status(400).json(formatResponse(false, null, codeErr));
+    }
+
+    const result = await verifyOtpRecord(contact, code);
+    if (!result.ok) {
+      return res.status(400).json(formatResponse(false, null, result.error || "Incorrect OTP code"));
+    }
+
+    const upsert = await upsertVerifiedUser(
+      { contact: contact.trim().toLowerCase() },
+      { requireVerified: true }
+    );
+
+    if (!upsert.ok) {
+      return res.status(upsert.status || 500).json(formatResponse(false, null, upsert.error));
+    }
+
+    res.json(
+      formatResponse(true, {
+        verified: true,
+        token: upsert.data.token,
+        user: upsert.data.user,
+      })
+    );
+  } catch (error) {
+    console.error("verify-otp error:", error.message);
+    res.status(500).json(formatResponse(false, null, "OTP verification failed — check the code and try again"));
   }
-  const codeErr = validateOtpCode(code);
-  if (codeErr) {
-    return res.status(400).json(formatResponse(false, null, codeErr));
-  }
-  const key = contact.trim().toLowerCase();
-  const stored = otpStore.get(key);
-  if (!stored) {
-    return res.status(400).json(formatResponse(false, null, "No OTP found — tap Send OTP again"));
-  }
-  if (Date.now() > stored.expiresAt) {
-    otpStore.delete(key);
-    return res.status(400).json(formatResponse(false, null, "OTP expired — tap Send OTP again"));
-  }
-  if (stored.code !== String(code).trim()) {
-    return res.status(400).json(formatResponse(false, null, "Incorrect OTP code"));
-  }
-  otpStore.delete(key);
-  markContactVerified(key);
-  res.json(formatResponse(true, { verified: true }));
 });
 
 // ==================== HEALTH ====================
@@ -345,54 +333,11 @@ app.get("/api/health", (req, res) => {
 
 app.post("/api/users/upsert", async (req, res) => {
   try {
-    const { name, contact, skills = [], hobbies = [], college, graduationYear, city, state } = req.body;
-    const nameErr = validateName(name);
-    if (nameErr) {
-      return res.status(400).json(formatResponse(false, null, nameErr));
+    const result = await upsertVerifiedUser(req.body, { requireVerified: true });
+    if (!result.ok) {
+      return res.status(result.status || 400).json(formatResponse(false, null, result.error));
     }
-    const contactErr = validateContact(contact);
-    if (contactErr) {
-      return res.status(400).json(formatResponse(false, null, contactErr));
-    }
-
-    const normalized = normalizeContact(contact);
-    if (!consumeVerifiedContact(normalized)) {
-      return res.status(401).json(formatResponse(false, null, "Verify OTP before continuing"));
-    }
-
-    // Infer city/state from college if not explicitly provided
-    let resolvedCity = city || "";
-    let resolvedState = state || "";
-    if (!resolvedCity && college) {
-      // Telangana colleges → Hyderabad/Telangana
-      resolvedCity  = resolvedCity  || "Hyderabad";
-      resolvedState = resolvedState || "Telangana";
-    }
-
-    const user = await User.findOneAndUpdate(
-      { contact: normalized },
-      {
-        name: clampString(name, 120),
-        contact: normalized,
-        isLoggedIn: true,
-        skills: clampStringArray(skills),
-        hobbies: clampStringArray(hobbies),
-        ...(college ? { college: clampString(college, 200) } : {}),
-        ...(graduationYear ? { graduationYear: clampString(graduationYear, 8) } : {}),
-        ...(resolvedCity   ? { city: resolvedCity }                     : {}),
-        ...(resolvedState  ? { state: resolvedState }                   : {}),
-        lastActive: new Date(),
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    const token = generateToken(user._id.toString(), normalized);
-    res.json(
-      formatResponse(true, {
-        user: { ...toClient(user), isLoggedIn: true },
-        token,
-      })
-    );
+    res.json(formatResponse(true, result.data));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }
@@ -2736,22 +2681,33 @@ _To get AI-powered health analysis, add GROQ_API_KEY to .env (or backend/.env) a
 
     // ── Real Groq call ──
     const systemPrompt = buildSystemPrompt(project);
-    const completion = await groq.chat.completions.create({
-      model:      GROQ_MODEL,
-      max_tokens: 1024,
-      messages: [
-        { role: "system",  content: systemPrompt },
-        { role: "user",    content: userMessage  },
-      ],
-    });
+    try {
+      const completion = await groq.chat.completions.create({
+        model:      GROQ_MODEL,
+        max_tokens: 1024,
+        messages: [
+          { role: "system",  content: systemPrompt },
+          { role: "user",    content: userMessage  },
+        ],
+      });
 
-    const responseText = completion.choices[0]?.message?.content || "";
-    res.json(formatResponse(true, {
-      response: responseText,
-      action,
-      projectName: project.name,
-      devMode: false,
-    }));
+      const responseText = completion.choices[0]?.message?.content || "";
+      return res.json(formatResponse(true, {
+        response: responseText,
+        action,
+        projectName: project.name,
+        devMode: false,
+      }));
+    } catch (groqError) {
+      console.error("Groq API error:", groqError.message);
+      const devContent = `**AI unavailable** — check GROQ_API_KEY on Render (free key at console.groq.com).\n\n${DEV_RESPONSES[action]?.content || `Your question: _"${userMessage}"_`}`;
+      return res.json(formatResponse(true, {
+        response: devContent,
+        action,
+        projectName: project.name,
+        devMode: true,
+      }));
+    }
 
   } catch (error) {
     if (error.code === "PLAN_LIMIT") {

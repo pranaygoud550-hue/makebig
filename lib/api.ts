@@ -188,7 +188,11 @@ export async function apiVerifyOTP(contact: string, code: string): Promise<boole
           body: JSON.stringify(payload),
         });
         const data = await res.json();
-        if (data.success === true) return true;
+        if (data.success === true) {
+          const token = data.data?.token;
+          if (token) setAuthToken(token);
+          return true;
+        }
         lastError = mapApiError(data.error, 'otp') || lastError;
       } catch (e) {
         if (e instanceof TypeError) {
@@ -265,16 +269,30 @@ export async function apiUpsertUser(user: Omit<User, 'id' | 'isLoggedIn'>): Prom
       };
     }
 
-    const res = await fetch(`${API_BASE}/users/upsert`, {
-      method: 'POST',
-      headers: await getAuthHeadersAsync(),
-      body: JSON.stringify(user),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.success && data.data) {
-      setAuthToken(data.data.token);
-      return data.data;
+    const upsertEndpoints = [`/api/users/upsert`, `${API_BASE}/users/upsert`];
+    let lastUpsertError: string | null = null;
+
+    for (const url of upsertEndpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: await getAuthHeadersAsync(),
+          body: JSON.stringify(user),
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          setAuthToken(data.data.token);
+          return data.data;
+        }
+        lastUpsertError = data.error || null;
+      } catch (e) {
+        if (e instanceof TypeError) continue;
+        throw e;
+      }
+    }
+
+    if (lastUpsertError) {
+      console.error('Error upserting user:', lastUpsertError);
     }
     return null;
   } catch (e) {

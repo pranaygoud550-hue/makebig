@@ -31,9 +31,9 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: EMAIL_FROM
+      - key: RESEND_API_KEY
         sync: false
-      - key: EMAIL_PASS
+      - key: EMAIL_FROM
         sync: false
       - key: FAST2SMS_API_KEY
         sync: false

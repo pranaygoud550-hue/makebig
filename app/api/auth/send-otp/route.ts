@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  deliverOtp,
-  generateOtpCode,
-  isPhoneContact,
-  saveOtp,
-} from '@/lib/otp';
+import { deliverOtp, generateOtpCode, isPhoneContact, saveOtp } from '@/lib/otp';
 import { validateContact } from '@/lib/userErrors';
 
 export const runtime = 'nodejs';
@@ -23,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     const code = generateOtpCode();
-    saveOtp(contact, code);
+    await saveOtp(contact, code);
 
     const sent = await deliverOtp(contact, code);
 
@@ -31,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'OTP delivery is not configured — set EMAIL_FROM/EMAIL_PASS on Vercel',
+          error: 'OTP delivery is not configured — set RESEND_API_KEY and EMAIL_FROM on Vercel',
         },
         { status: 503 }
       );

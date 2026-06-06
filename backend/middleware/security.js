@@ -132,7 +132,6 @@ export function otpDeliveryConfigured(isPhone) {
     const key = process.env.FAST2SMS_API_KEY;
     return Boolean(key && !key.startsWith("your_"));
   }
-  const user = process.env.EMAIL_FROM;
-  const pass = process.env.EMAIL_PASS;
-  return Boolean(user && pass && !user.startsWith("your_"));
+  const apiKey = process.env.RESEND_API_KEY;
+  return Boolean(apiKey && !apiKey.startsWith("your_"));
 }
