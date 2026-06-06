@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { User, Profile } from '@/lib/types';
-import { apiUpsertUser, apiGetProfile, apiUpsertProfile, clearAuthToken, setAuthToken, getAuthToken } from '@/lib/api';
+import { apiUpsertUser, apiGetProfile, apiGetUser, apiUpsertProfile, clearAuthToken, setAuthToken, getAuthToken } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { clearSessionActiveProject } from '@/lib/activeProjectStorage';
 import { isSupabaseConfigured, normalizeAuthContact, supabase } from '@/lib/supabase';
@@ -120,15 +120,44 @@ export function useAuth(): UseAuthReturn {
           if (parsed.isLoggedIn) {
             setUser(parsed);
             await loadProfile(parsed.contact);
-          } else {
-            localStorage.removeItem('user');
-            setUser(null);
+            return;
           }
-        } else {
-          localStorage.removeItem('user');
-          setUser(null);
-          setProfile(null);
         }
+
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const contact = typeof payload.contact === 'string' ? payload.contact : null;
+            if (contact) {
+              const fetched = await apiGetUser(contact);
+              if (fetched) {
+                const restored: User = { ...fetched, isLoggedIn: true };
+                setUser(restored);
+                localStorage.setItem('user', JSON.stringify(restored));
+                await loadProfile(contact);
+                return;
+              }
+              const fallback: User = {
+                id: payload.userId || contact,
+                name: contact.includes('@') ? contact.split('@')[0] : contact,
+                contact,
+                isLoggedIn: true,
+                skills: [],
+              };
+              setUser(fallback);
+              localStorage.setItem('user', JSON.stringify(fallback));
+              await loadProfile(contact);
+              return;
+            }
+          } catch {
+            /* invalid token */
+          }
+        }
+
+        localStorage.removeItem('user');
+        setUser(null);
+        setProfile(null);
+        clearAuthToken();
       } catch (e) {
         console.error('Error restoring auth session:', e);
         setUser(null);

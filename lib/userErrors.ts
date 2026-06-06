@@ -71,6 +71,8 @@ export function mapApiError(raw: string | undefined | null, context?: string): s
     'project not found': 'Project not found — it may have been removed',
     'task not found': 'Task not found',
     'user not found': 'Account not found — sign up first',
+    'account not found — sign up first': 'Account not found — sign up first',
+    'account already exists — sign in instead': 'Account already exists — sign in instead',
     'you cannot join your own project': 'You cannot join your own project',
     'you already joined this project': 'You already joined this project',
     'project is not open for joining': 'This project is not open for new members',

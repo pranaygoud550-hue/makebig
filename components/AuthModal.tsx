@@ -315,7 +315,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     setSiOtpSending(true);
     setSiOtpError('');
     try {
-      const res = await apiSendOTP(siContact.trim());
+      const res = await apiSendOTP(siContact.trim(), 'signin');
       setSiDevCode(res.devCode || null);
       setSiOtpSentMsg(res.message || 'OTP sent. Check your email or the code below.');
       setSiStep('otp');
@@ -335,8 +335,8 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     setSiOtpVerifying(true);
     setSiOtpError('');
     try {
-      const ok = await apiVerifyOTP(siContact.trim(), code);
-      if (!ok) {
+      const result = await apiVerifyOTP(siContact.trim(), code, 'signin');
+      if (!result.ok) {
         setSiOtpError('Incorrect OTP code');
         setSiOtpValues(['', '', '', '', '', '']);
         return;
@@ -367,7 +367,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     setOtpSending(true);
     setOtpError('');
     try {
-      const res = await apiSendOTP(contact.trim());
+      const res = await apiSendOTP(contact.trim(), 'signup');
       setSignUpDevCode(res.devCode || null);
       setSignUpOtpSentMsg(res.message || 'OTP sent.');
       setOtpValues(['', '', '', '', '', '']);
@@ -408,8 +408,8 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     setOtpVerifying(true);
     setOtpError('');
     try {
-      const ok = await apiVerifyOTP(contact.trim(), code);
-      if (!ok) {
+      const result = await apiVerifyOTP(contact.trim(), code, 'signup');
+      if (!result.ok) {
         setOtpError('Incorrect OTP code');
         setOtpValues(['', '', '', '', '', '']);
         return;

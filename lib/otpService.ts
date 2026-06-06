@@ -4,11 +4,21 @@
  */
 import { connectMongoServer, isMongoConfigured } from './mongoServer';
 import { saveOtpRecord, verifyOtpRecord } from './otpStore.js';
-import { upsertVerifiedUser } from './userUpsert.js';
+import {
+  findUserByContact,
+  loginExistingUserAfterOtp,
+  upsertVerifiedUser,
+} from './userUpsert.js';
 import { validateContact, validateOtpCode } from './userErrors';
+
+export type OtpPurpose = 'signin' | 'signup';
 
 function generateOtpCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function normalizePurpose(raw: unknown): OtpPurpose {
+  return raw === 'signup' ? 'signup' : 'signin';
 }
 
 async function ensureOtpDatabase(): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
@@ -33,8 +43,9 @@ async function ensureOtpDatabase(): Promise<{ ok: true } | { ok: false; error: s
   }
 }
 
-export async function handleSendOtp(rawContact: string) {
+export async function handleSendOtp(rawContact: string, rawPurpose?: unknown) {
   const contact = String(rawContact || '').trim();
+  const purpose = normalizePurpose(rawPurpose);
   const contactErr = validateContact(contact);
   if (contactErr) {
     return { ok: false as const, status: 400, error: contactErr };
@@ -43,6 +54,25 @@ export async function handleSendOtp(rawContact: string) {
   const db = await ensureOtpDatabase();
   if (!db.ok) {
     return { ok: false as const, status: db.status, error: db.error };
+  }
+
+  const normalized = contact.trim().toLowerCase();
+  const existing = await findUserByContact(normalized);
+
+  if (purpose === 'signin' && !existing) {
+    return {
+      ok: false as const,
+      status: 404,
+      error: 'Account not found — sign up first',
+    };
+  }
+
+  if (purpose === 'signup' && existing) {
+    return {
+      ok: false as const,
+      status: 409,
+      error: 'Account already exists — sign in instead',
+    };
   }
 
   const code = generateOtpCode();
@@ -58,9 +88,14 @@ export async function handleSendOtp(rawContact: string) {
   };
 }
 
-export async function handleVerifyOtp(rawContact: string, rawCode: string) {
+export async function handleVerifyOtp(
+  rawContact: string,
+  rawCode: string,
+  rawPurpose?: unknown
+) {
   const contact = String(rawContact || '').trim();
   const code = String(rawCode || '').trim();
+  const purpose = normalizePurpose(rawPurpose);
 
   const contactErr = validateContact(contact);
   if (contactErr) {
@@ -81,16 +116,33 @@ export async function handleVerifyOtp(rawContact: string, rawCode: string) {
     return { ok: false as const, status: 400, error: result.error || 'Incorrect OTP code' };
   }
 
-  const upsert = await upsertVerifiedUser(
-    { contact: contact.trim().toLowerCase() },
-    { requireVerified: true }
-  );
+  const normalized = contact.trim().toLowerCase();
 
-  if (!upsert.ok || !upsert.data) {
+  if (purpose === 'signin') {
+    const login = await loginExistingUserAfterOtp(normalized);
+    if (!login.ok || !login.data) {
+      return {
+        ok: false as const,
+        status: login.status || 404,
+        error: login.error || 'Account not found — sign up first',
+      };
+    }
+    return {
+      ok: true as const,
+      data: {
+        verified: true,
+        token: login.data.token,
+        user: login.data.user,
+      },
+    };
+  }
+
+  const existing = await findUserByContact(normalized);
+  if (existing) {
     return {
       ok: false as const,
-      status: upsert.status || 500,
-      error: upsert.error || 'Could not complete sign in',
+      status: 409,
+      error: 'Account already exists — sign in instead',
     };
   }
 
@@ -98,8 +150,9 @@ export async function handleVerifyOtp(rawContact: string, rawCode: string) {
     ok: true as const,
     data: {
       verified: true,
-      token: upsert.data.token,
-      user: upsert.data.user,
     },
   };
 }
+
+/** Sign-up profile save after OTP verified (AuthModal onSignUp → apiUpsertUser). */
+export { upsertVerifiedUser };

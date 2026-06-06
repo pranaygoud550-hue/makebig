@@ -7,6 +7,7 @@ import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { apiBrowseProjects, apiJoinProject, apiGetReceivedInvites, apiAcceptInvite, apiDeclineInvite, BrowseProject } from '@/lib/api';
 import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { getErrorMessage } from '@/lib/userErrors';
+import { isJoinApproved, joinRequestNotice } from '@/lib/joinFlow';
 import { useProjectListSocket } from '@/lib/useProjectListSocket';
 
 interface JoinDashboardProps {
@@ -167,27 +168,30 @@ export function JoinDashboard({
     setError(null);
     try {
       const result = await apiJoinProject(selectedProject.id, user.name, userSkills[0] || 'member');
-      if (result?.project) {
-        const categoryTitle =
-          WIZARD_CATEGORIES.find((c) => c.id === result.project.categoryId)?.title ||
-          result.project.categoryId;
+      if (!result?.project) return;
+      if (!isJoinApproved(result)) {
         setJoinSuccess(true);
-        setTimeout(() => {
-          onJoinedProject({
-            id: result.project.id,
-            name: result.project.name,
-            description: result.project.desc,
-            categoryId: result.project.categoryId,
-            category: categoryTitle,
-            skills: result.project.roles || [],
-            vision: '',
-            mode: 'member',
-            salaryMin: result.project.salaryMin,
-            salaryMax: result.project.salaryMax,
-            salaryCurrency: result.project.currency,
-          });
-        }, 1200);
+        return;
       }
+      const categoryTitle =
+        WIZARD_CATEGORIES.find((c) => c.id === result.project.categoryId)?.title ||
+        result.project.categoryId;
+      setJoinSuccess(true);
+      setTimeout(() => {
+        onJoinedProject({
+          id: result.project.id,
+          name: result.project.name,
+          description: result.project.desc,
+          categoryId: result.project.categoryId,
+          category: categoryTitle,
+          skills: result.project.roles || [],
+          vision: '',
+          mode: 'member',
+          salaryMin: result.project.salaryMin,
+          salaryMax: result.project.salaryMax,
+          salaryCurrency: result.project.currency,
+        });
+      }, 1200);
     } catch (e) {
       setError(getErrorMessage(e, 'join'));
     } finally {

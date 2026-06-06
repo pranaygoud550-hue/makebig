@@ -19,6 +19,7 @@ import { apiCreateProject, apiPublishProject, apiCheckHealth, apiGetUser, apiJoi
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/userErrors';
 import { profileReadyMessage } from '@/lib/profileComplete';
+import { joinRequestNotice, isJoinApproved } from '@/lib/joinFlow';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
 
@@ -373,8 +374,8 @@ export default function Home() {
         setJoinError('Could not send join request — try again');
         return;
       }
-      if (result.pending) {
-        setJoinNotice(result.message || 'Join request sent — waiting for creator approval');
+      if (!isJoinApproved(result)) {
+        setJoinNotice(joinRequestNotice(result));
         return;
       }
       const categoryTitle =

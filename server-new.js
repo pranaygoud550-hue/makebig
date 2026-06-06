@@ -55,7 +55,7 @@ import Course from "./backend/models/Course.js";
 import CourseEnrollment from "./backend/models/CourseEnrollment.js";
 import { saveOtpRecord, verifyOtpRecord } from "./lib/otpStore.js";
 import { sendOtpEmail, isEmailOtpConfigured } from "./lib/emailOtp.js";
-import { upsertVerifiedUser } from "./lib/userUpsert.js";
+import { upsertVerifiedUser, findUserByContact, loginExistingUserAfterOtp } from "./lib/userUpsert.js";
 import {
   streamCofounderReply,
   computeContextUsage,
@@ -230,7 +230,7 @@ function isValidPhone(contact) {
 
 app.post("/api/auth/send-otp", async (req, res) => {
   try {
-    const { contact } = req.body;
+    const { contact, purpose: rawPurpose } = req.body;
     if (!contact?.trim()) {
       return res.status(400).json(formatResponse(false, null, "Enter your email or phone number"));
     }
@@ -238,6 +238,21 @@ app.post("/api/auth/send-otp", async (req, res) => {
     const contactErr = validateContact(trimmed);
     if (contactErr) {
       return res.status(400).json(formatResponse(false, null, contactErr));
+    }
+
+    const purpose = rawPurpose === "signup" ? "signup" : "signin";
+    const normalized = normalizeContact(trimmed);
+    const existing = await findUserByContact(normalized);
+
+    if (purpose === "signin" && !existing) {
+      return res
+        .status(404)
+        .json(formatResponse(false, null, "Account not found — sign up first"));
+    }
+    if (purpose === "signup" && existing) {
+      return res
+        .status(409)
+        .json(formatResponse(false, null, "Account already exists — sign in instead"));
     }
 
     const code = generateOTPCode();
@@ -259,7 +274,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
 // POST /api/auth/verify-otp
 app.post("/api/auth/verify-otp", async (req, res) => {
   try {
-    const { contact, code } = req.body;
+    const { contact, code, purpose: rawPurpose } = req.body;
     const contactErr = validateContact(contact);
     if (contactErr) {
       return res.status(400).json(formatResponse(false, null, contactErr));
@@ -269,27 +284,39 @@ app.post("/api/auth/verify-otp", async (req, res) => {
       return res.status(400).json(formatResponse(false, null, codeErr));
     }
 
+    const purpose = rawPurpose === "signup" ? "signup" : "signin";
+
     const result = await verifyOtpRecord(contact, code);
     if (!result.ok) {
       return res.status(400).json(formatResponse(false, null, result.error || "Incorrect OTP code"));
     }
 
-    const upsert = await upsertVerifiedUser(
-      { contact: contact.trim().toLowerCase() },
-      { requireVerified: true }
-    );
+    const normalized = normalizeContact(contact);
 
-    if (!upsert.ok) {
-      return res.status(upsert.status || 500).json(formatResponse(false, null, upsert.error));
+    if (purpose === "signin") {
+      const login = await loginExistingUserAfterOtp(normalized);
+      if (!login.ok) {
+        return res
+          .status(login.status || 404)
+          .json(formatResponse(false, null, login.error || "Account not found — sign up first"));
+      }
+      return res.json(
+        formatResponse(true, {
+          verified: true,
+          token: login.data.token,
+          user: login.data.user,
+        })
+      );
     }
 
-    res.json(
-      formatResponse(true, {
-        verified: true,
-        token: upsert.data.token,
-        user: upsert.data.user,
-      })
-    );
+    const existing = await findUserByContact(normalized);
+    if (existing) {
+      return res
+        .status(409)
+        .json(formatResponse(false, null, "Account already exists — sign in instead"));
+    }
+
+    return res.json(formatResponse(true, { verified: true }));
   } catch (error) {
     console.error("verify-otp error:", error.message);
     res.status(500).json(formatResponse(false, null, "OTP verification failed — check the code and try again"));
@@ -926,6 +953,7 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
           project: toClient(project),
           message: "Join request already sent — waiting for creator approval",
           pending: true,
+          joined: false,
         })
       );
     }
@@ -967,6 +995,7 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
         project: toClient(project),
         message: "Join request sent — the project creator will review it",
         pending: true,
+        joined: false,
       })
     );
   } catch (error) {

@@ -106,9 +106,26 @@ function slugifyProject(name?: string, city?: string) {
     .slice(0, 80);
 }
 
+export type OtpPurpose = 'signin' | 'signup';
+
+export interface VerifyOtpResult {
+  ok: boolean;
+  user?: User;
+}
+
+function persistSessionUser(user: User, token: string) {
+  setAuthToken(token);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('user', JSON.stringify({ ...user, isLoggedIn: true }));
+  }
+}
+
 // ── OTP ──────────────────────────────────────────────────────────────────────
 
-export async function apiSendOTP(contact: string): Promise<{ sent: boolean; devCode?: string; message: string }> {
+export async function apiSendOTP(
+  contact: string,
+  purpose: OtpPurpose = 'signin'
+): Promise<{ sent: boolean; devCode?: string; message: string }> {
   try {
     if (isSupabaseConfigured) {
       const normalized = contact.trim();
@@ -116,17 +133,17 @@ export async function apiSendOTP(contact: string): Promise<{ sent: boolean; devC
       const { error } = isEmail
         ? await supabase.auth.signInWithOtp({
             email: normalized,
-            options: { shouldCreateUser: true },
+            options: { shouldCreateUser: purpose === 'signup' },
           })
         : await supabase.auth.signInWithOtp({
             phone: normalized,
-            options: { shouldCreateUser: true },
+            options: { shouldCreateUser: purpose === 'signup' },
           });
       if (error) throw error;
       return { sent: true, message: 'OTP sent through Supabase Auth' };
     }
 
-    const payload = { contact: contact.trim().toLowerCase() };
+    const payload = { contact: contact.trim().toLowerCase(), purpose };
     const endpoints = otpAuthEndpoints('send-otp');
 
     let lastError = 'Could not send OTP — check your email/phone and try again';
@@ -159,7 +176,11 @@ export async function apiSendOTP(contact: string): Promise<{ sent: boolean; devC
   }
 }
 
-export async function apiVerifyOTP(contact: string, code: string): Promise<boolean> {
+export async function apiVerifyOTP(
+  contact: string,
+  code: string,
+  purpose: OtpPurpose = 'signin'
+): Promise<VerifyOtpResult> {
   try {
     if (isSupabaseConfigured) {
       const normalized = contact.trim();
@@ -169,12 +190,12 @@ export async function apiVerifyOTP(contact: string, code: string): Promise<boole
           ? { email: normalized, token: code, type: 'email' }
           : { phone: normalized, token: code, type: 'sms' }
       );
-      if (error) return false;
+      if (error) return { ok: false };
       if (data.session?.access_token) setAuthToken(data.session.access_token);
-      return Boolean(data.user);
+      return { ok: Boolean(data.user) };
     }
 
-    const payload = { contact: contact.trim().toLowerCase(), code };
+    const payload = { contact: contact.trim().toLowerCase(), code, purpose };
     const endpoints = otpAuthEndpoints('verify-otp');
 
     let lastError = 'Incorrect OTP code';
@@ -188,8 +209,16 @@ export async function apiVerifyOTP(contact: string, code: string): Promise<boole
         const data = await res.json();
         if (data.success === true) {
           const token = data.data?.token;
+          const user = data.data?.user as User | undefined;
+          if (purpose === 'signin' && token && user) {
+            persistSessionUser(user, token);
+            return { ok: true, user };
+          }
+          if (purpose === 'signup' && data.data?.verified) {
+            return { ok: true };
+          }
           if (token) setAuthToken(token);
-          return true;
+          return { ok: true, user };
         }
         lastError = mapApiError(data.error, 'otp') || lastError;
       } catch (e) {
@@ -280,6 +309,12 @@ export async function apiUpsertUser(user: Omit<User, 'id' | 'isLoggedIn'>): Prom
         const data = await res.json();
         if (data.success && data.data) {
           setAuthToken(data.data.token);
+          if (typeof window !== 'undefined' && data.data.user) {
+            localStorage.setItem(
+              'user',
+              JSON.stringify({ ...data.data.user, isLoggedIn: true })
+            );
+          }
           return data.data;
         }
         lastUpsertError = data.error || null;
@@ -674,7 +709,7 @@ export async function apiJoinProject(
   projectId: string,
   memberName: string,
   role = 'member'
-): Promise<{ project: Project; message: string; pending?: boolean } | null> {
+): Promise<{ project: Project; message: string; pending?: boolean; joined?: boolean } | null> {
   try {
     if (isSupabaseConfigured) {
       const { data: sessionData } = await supabase.auth.getSession();

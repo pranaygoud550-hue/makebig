@@ -12,6 +12,7 @@ import {
 import { apiBrowseProjects, apiJoinProject, BrowseProject } from '@/lib/api';
 import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { getErrorMessage } from '@/lib/userErrors';
+import { isJoinApproved, joinRequestNotice } from '@/lib/joinFlow';
 import { INDIAN_CITIES } from '@/lib/indianCities';
 
 interface ProjectWizardProps {
@@ -352,8 +353,8 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
 
     try {
       const result = await apiJoinProject(project.id, userName, role);
-      if (result?.pending) {
-        setJoinSuccess(result.message || 'Join request sent — the creator will review it');
+      if (!isJoinApproved(result)) {
+        setJoinSuccess(joinRequestNotice(result));
         return;
       }
       openMemberDashboard(project);
