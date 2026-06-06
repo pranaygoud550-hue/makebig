@@ -1,5 +1,6 @@
 import { connectMongoServer } from './mongoServer';
 import { filterAllowedProjects } from './projectAllowlist';
+import { dedupeProjectsForDisplay } from './dedupeProjects';
 import type { ExploreParams, ExploreProject, ExploreResult } from './publicProjects';
 
 interface MongoProjectDoc {
@@ -52,7 +53,9 @@ export async function exploreProjectsFromMongo(
     Project.countDocuments(filter),
   ]);
 
-  const filtered = filterAllowedProjects(projects as MongoProjectDoc[]);
+  const filtered = dedupeProjectsForDisplay(
+    filterAllowedProjects(projects as MongoProjectDoc[])
+  );
   const pageSlice = filtered.slice(skip, skip + limit);
 
   const mapped: ExploreProject[] = pageSlice.map((p) => ({

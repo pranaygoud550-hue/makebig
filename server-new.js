@@ -34,6 +34,7 @@ import {
 import { setupSocketEvents } from "./backend/events/socketEvents.js";
 import { normalizeContact, formatResponse } from "./backend/utils/helpers.js";
 import { filterAllowedProjects, isAllowedPublicProject } from "./backend/utils/projectAllowlist.js";
+import { dedupeProjectsForDisplay } from "./backend/utils/dedupeProjects.js";
 import {
   assertCanCreateProject,
   assertCanAddTeamMember,
@@ -811,14 +812,31 @@ app.post("/api/projects/create", authMiddleware, async (req, res) => {
 
     await assertCanCreateProject(owner);
 
-    const slug = await generateUniqueSlug(name, city);
+    const trimmedName = String(name).trim();
+    const existingByName = await Project.findOne({
+      ownerContact: owner,
+      name: new RegExp(`^${escapeRegex(trimmedName)}$`, "i"),
+      status: { $in: ["draft", "published", "in-progress"] },
+    }).sort({ updatedAt: -1 });
+
+    if (existingByName) {
+      return res.json(
+        formatResponse(true, {
+          project: toClient(existingByName),
+          existing: true,
+          message: "Project already exists for this account",
+        })
+      );
+    }
+
+    const slug = await generateUniqueSlug(trimmedName, city);
     const purpose = ["employment", "college", "creative", "community"].includes(projectPurpose)
       ? projectPurpose
       : "college";
     const paidRole = purpose === "employment";
 
     const project = await Project.create({
-      name: String(name).trim(),
+      name: trimmedName,
       desc: (desc || description || "").trim(),
       categoryId,
       projectPurpose: purpose,
@@ -869,7 +887,7 @@ app.get("/api/projects", authMiddleware, async (req, res) => {
     if (categoryId) filter.categoryId = categoryId;
 
     const projects = await Project.find(filter).sort({ updatedAt: -1 }).limit(100);
-    res.json(formatResponse(true, { projects: filterAllowedProjects(projects.map(toClient)) }));
+    res.json(formatResponse(true, { projects: projects.map(toClient) }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }
@@ -894,7 +912,7 @@ app.get("/api/projects/browse", async (req, res) => {
 
     const projects = await Project.find(filter).sort({ updatedAt: -1 }).limit(50);
 
-    const enriched = filterAllowedProjects(projects.map((p) => {
+    const enriched = dedupeProjectsForDisplay(filterAllowedProjects(projects)).map((p) => {
       const obj = toClient(p);
       const joinedCount = (p.teamMembers || []).filter(
         (m) => m.status === "joined"
@@ -904,7 +922,7 @@ app.get("/api/projects/browse", async (req, res) => {
         joinedCount,
         teamMemberCount: (p.teamMembers || []).length,
       };
-    }));
+    });
 
     res.json(formatResponse(true, { projects: enriched }));
   } catch (error) {
@@ -1523,7 +1541,7 @@ app.get("/api/search", async (req, res) => {
       return res.json(
         formatResponse(true, {
           recommendations: true,
-          projects: filterAllowedProjects(projects).map((p) => ({
+          projects: dedupeProjectsForDisplay(filterAllowedProjects(projects)).map((p) => ({
             id: p._id.toString(),
             name: p.name,
             desc: p.desc,
@@ -1579,7 +1597,7 @@ app.get("/api/search", async (req, res) => {
     res.json(
       formatResponse(true, {
         recommendations: false,
-        projects: filterAllowedProjects(projects).map((p) => ({
+        projects: dedupeProjectsForDisplay(filterAllowedProjects(projects)).map((p) => ({
           id: p._id.toString(),
           name: p.name,
           desc: p.desc,
@@ -1707,7 +1725,6 @@ app.get("/api/users/:contact/workspaces", authMiddleware, async (req, res) => {
     const workspaces = [];
 
     for (const p of owned) {
-      if (!isAllowedPublicProject(p)) continue;
       const id = p._id.toString();
       if (seen.has(id)) continue;
       seen.add(id);
@@ -1727,7 +1744,6 @@ app.get("/api/users/:contact/workspaces", authMiddleware, async (req, res) => {
     }
 
     for (const p of joinedProjects) {
-      if (!isAllowedPublicProject(p)) continue;
       const id = p._id.toString();
       if (seen.has(id)) continue;
       seen.add(id);
@@ -1770,7 +1786,7 @@ app.get("/api/explore", async (req, res) => {
     }
 
     const allProjects = await Project.find(filter).sort({ createdAt: -1 }).lean();
-    const filtered = filterAllowedProjects(allProjects);
+    const filtered = dedupeProjectsForDisplay(filterAllowedProjects(allProjects));
     const total = filtered.length;
     const projects = filtered.slice(skip, skip + limit);
     res.json(formatResponse(true, {

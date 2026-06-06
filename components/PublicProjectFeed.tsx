@@ -4,14 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { apiBrowseProjects, BrowseProject } from '@/lib/api';
 import { filterAllowedProjects, isAllowedPublicProject } from '@/lib/projectAllowlist';
+import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
+import { isProjectOwner } from '@/lib/projectOwnership';
 import { createApiSocket } from '@/lib/realtime';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { inferProjectPurpose, showsSalaryForPurpose } from '@/lib/projectPurpose';
 
 interface PublicProjectFeedProps {
   isAuthed: boolean;
+  userContact?: string;
   onRequireAuth: () => void;
   onJoinProject?: (project: BrowseProject) => void;
+  onOpenDashboard?: () => void;
 }
 
 const CAT_COLORS = [
@@ -58,7 +62,13 @@ function formatBudget(min?: number, max?: number, currency = 'INR') {
   return `${currency} ${fmt(min || max || 0)}/mo`;
 }
 
-export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: PublicProjectFeedProps) {
+export function PublicProjectFeed({
+  isAuthed,
+  userContact,
+  onRequireAuth,
+  onJoinProject,
+  onOpenDashboard,
+}: PublicProjectFeedProps) {
   const [projects, setProjects]   = useState<BrowseProject[]>([]);
   const [loading, setLoading]     = useState(true);
   const [category, setCategory]   = useState<string>('all');
@@ -68,7 +78,7 @@ export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: Pu
   /* ─── Initial load + on category change ─── */
   const load = useCallback(async () => {
     setLoading(true);
-    const list = filterAllowedProjects(await apiBrowseProjects(category));
+    const list = dedupeProjectsForDisplay(filterAllowedProjects(await apiBrowseProjects(category)));
     setProjects(list);
     setLoading(false);
   }, [category]);
@@ -235,6 +245,7 @@ export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: Pu
             {filtered.map(project => {
               const id = (project.id || project._id) as string;
               const isHot = highlightId === id;
+              const owner = isProjectOwner(userContact, project.ownerContact);
               const skills = project.roles || [];
               const team = project.teamMemberCount || 0;
               const cap = project.maxTeamSize || team + 5;
@@ -309,7 +320,7 @@ export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: Pu
                         )
                       )
                         ? formatBudget(project.salaryMin, project.salaryMax, project.currency || 'INR')
-                        : 'Collaboration — no salary'}
+                        : 'Compensation Not Specified'}
                     </span>
 
                     <span className="flex items-center gap-1.5">
@@ -334,7 +345,7 @@ export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: Pu
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
                       {project.slug && (
                         <Link
                           href={`/p/${project.slug}`}
@@ -343,13 +354,30 @@ export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: Pu
                           View & share
                         </Link>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleJoinClick(project)}
-                        className="px-4 py-1.5 text-xs font-semibold rounded-full bg-[#0A66C2] text-white hover:bg-[#004182] transition-all whitespace-nowrap"
-                      >
-                        {isAuthed ? 'Request to join' : 'Sign in to join'}
-                      </button>
+                      {owner ? (
+                        <>
+                          <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#EEF3FB] text-[#0A66C2] border border-[#0A66C2]/20">
+                            Your project
+                          </span>
+                          {onOpenDashboard && (
+                            <button
+                              type="button"
+                              onClick={onOpenDashboard}
+                              className="px-4 py-1.5 text-xs font-semibold rounded-full border border-[#0A66C2] text-[#0A66C2] hover:bg-[#EEF3FB] whitespace-nowrap"
+                            >
+                              Manage
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleJoinClick(project)}
+                          className="px-4 py-1.5 text-xs font-semibold rounded-full bg-[#0A66C2] text-white hover:bg-[#004182] transition-all whitespace-nowrap"
+                        >
+                          {isAuthed ? 'Request to join' : 'Sign in to join'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>

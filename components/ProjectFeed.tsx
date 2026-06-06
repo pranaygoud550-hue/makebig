@@ -469,32 +469,46 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
   const [hasMore, setHasMore] = useState(false);
   const { openProfile } = useProfileView();
 
-  const loadPosts = useCallback(async (reset = false) => {
-    setLoading(true);
-    const p = reset ? 1 : page;
-    try {
-      const url = global
-        ? `${API}/api/feed?page=${p}&limit=15`
-        : `${API}/api/projects/${projectId}/posts?page=${p}&limit=10`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success) {
-        const loaded = Array.isArray(data.data?.posts) ? data.data.posts as FeedPost[] : [];
-        setPosts((prev) => (reset ? loaded : [...prev, ...loaded]));
-        setHasMore(Boolean(data.data?.hasMore));
-        if (reset) setPage(1);
-      }
-    } catch {
-      if (reset) setPosts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, page, global]);
+  useEffect(() => {
+    setPage(1);
+  }, [projectId, global]);
 
   useEffect(() => {
     if (!global && !projectId) return;
-    loadPosts(true);
-  }, [projectId, global]); // eslint-disable-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const url = global
+          ? `${API}/api/feed?page=${page}&limit=15`
+          : `${API}/api/projects/${projectId}/posts?page=${page}&limit=10`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (cancelled || !data.success) return;
+        const loaded = Array.isArray(data.data?.posts) ? data.data.posts as FeedPost[] : [];
+        setPosts((prev) => {
+          const merged = page === 1 ? loaded : [...prev, ...loaded];
+          const seen = new Set<string>();
+          return merged.filter((post) => {
+            if (!post.id || seen.has(post.id)) return false;
+            seen.add(post.id);
+            return true;
+          });
+        });
+        setHasMore(Boolean(data.data?.hasMore));
+      } catch {
+        if (page === 1) setPosts([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, page, global]);
 
   /* ── Live updates via socket ── */
   useEffect(() => {
@@ -635,7 +649,7 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
           ))}
           {hasMore && (
             <button
-              onClick={() => { setPage(p => p + 1); loadPosts(); }}
+              onClick={() => setPage((p) => p + 1)}
               disabled={loading}
               className="w-full py-2.5 border border-[#d9d9d9] text-[#666] font-semibold rounded-full hover:border-[#0A66C2] hover:text-[#0A66C2] text-sm transition-colors disabled:opacity-50"
             >

@@ -146,11 +146,19 @@ export function AppShell({
       <main className="flex-1 pb-20 max-w-4xl w-full mx-auto px-4 py-4">
         {activeTab === 'home' && (
           <HomeTab
+            userName={user.name}
             userContact={user.contact}
             onJoinProject={onPublicJoinClick}
+            onOpenDashboard={onOpenYourProject}
           />
         )}
-        {activeTab === 'explore' && <ExploreTab onJoinProject={onPublicJoinClick} />}
+        {activeTab === 'explore' && (
+          <ExploreTab
+            userContact={user.contact}
+            onJoinProject={onPublicJoinClick}
+            onOpenDashboard={onOpenYourProject}
+          />
+        )}
         {activeTab === 'posts' && (
           <PostsTab
             currentProject={currentProject}

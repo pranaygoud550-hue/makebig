@@ -30,47 +30,42 @@ interface MarketingHomepageProps {
 
 const FEATURES = [
   {
-    icon: '📚',
-    title: 'Learn & Build',
-    desc: 'Free video courses → finish → start a real project. Portfolio over empty job applications.',
+    icon: '🚀',
+    title: 'Create Projects',
+    desc: 'Turn your idea into a published project with roles, timeline, and a clear pitch for teammates.',
   },
   {
     icon: '👥',
-    title: 'Find People',
+    title: 'Find Team Members',
     desc: 'Match by skills, college, and interests. Build the team your project actually needs.',
   },
   {
-    icon: '💡',
-    title: 'Idea Board',
-    desc: 'Turn rough ideas into published projects with roles, timeline, and a clear pitch.',
+    icon: '🤝',
+    title: 'Collaborate',
+    desc: 'Tasks, posts, chat, and live updates in one workspace for your whole team.',
   },
   {
     icon: '💼',
-    title: 'Jobs',
-    desc: 'Browse paid roles and stipends on employment projects — not just unpaid group work.',
+    title: 'Build Startups',
+    desc: 'Ship real products with co-founders — not just classroom assignments.',
   },
   {
-    icon: '🛒',
-    title: 'Marketplace',
-    desc: 'Discover what students are building across web, film, design, AI, and more.',
+    icon: '💡',
+    title: 'Share Ideas',
+    desc: 'Post updates, get feedback, and grow visibility across the Make Big community.',
   },
   {
-    icon: '🤝',
-    title: 'Team Collaboration',
-    desc: 'Tasks, posts, chat, and live updates — one workspace for your whole crew.',
-  },
-  {
-    icon: '🔥',
-    title: 'Trending Projects',
-    desc: 'See what’s active on campus and jump into teams that are shipping now.',
+    icon: '🌍',
+    title: 'Discover Opportunities',
+    desc: 'Browse open roles, join teams, and find paid or portfolio-building projects.',
   },
 ];
 
 const STATS = [
-  { value: '100+', label: 'Creators' },
-  { value: '50+', label: 'Projects' },
+  { value: '50+', label: 'Total Projects' },
+  { value: '100+', label: 'Active Members' },
+  { value: '200+', label: 'Open Roles' },
   { value: `${WIZARD_CATEGORIES.length}+`, label: 'Categories' },
-  { value: '24/7', label: 'Live feed' },
 ];
 
 function HeroIllustration() {
@@ -176,35 +171,26 @@ export function MarketingHomepage({
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-center lg:justify-start">
-              <Link
-                href="/learn"
+              <button
+                type="button"
+                onClick={onRequireAuth}
                 className="px-8 py-3.5 bg-[#0A66C2] text-white font-bold rounded-full hover:bg-[#004182] hover:shadow-lg hover:shadow-[#0A66C2]/25 transition-all text-sm sm:text-base text-center"
               >
-                Learn a course
+                Get Started
+              </button>
+              <Link
+                href={exploreHref}
+                className="px-8 py-3.5 bg-white border-2 border-[#0A66C2] text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] transition-all text-sm sm:text-base text-center"
+              >
+                Explore Projects
               </Link>
               <button
                 type="button"
                 onClick={onStartProject}
-                className="px-8 py-3.5 bg-white border-2 border-[#0A66C2] text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] transition-all text-sm sm:text-base"
+                className="px-8 py-3.5 bg-white border border-[#d9d9d9] text-[#666] font-bold rounded-full hover:bg-[#f3f2ef] transition-all text-sm sm:text-base"
               >
                 Start a project
               </button>
-              {isSignedIn && onExploreClick ? (
-                <button
-                  type="button"
-                  onClick={onExploreClick}
-                  className="px-8 py-3.5 bg-white border border-[#d9d9d9] text-[#666] font-bold rounded-full hover:bg-[#f3f2ef] transition-all text-sm sm:text-base"
-                >
-                  Explore
-                </button>
-              ) : (
-                <Link
-                  href={exploreHref}
-                  className="px-8 py-3.5 bg-white border border-[#d9d9d9] text-[#666] font-bold rounded-full hover:bg-[#f3f2ef] transition-all text-sm sm:text-base text-center"
-                >
-                  Explore
-                </Link>
-              )}
             </div>
 
             <p className="text-xs text-[#999] mt-5">
@@ -325,14 +311,15 @@ export function MarketingHomepage({
       <section className="bg-[#f3f2ef] py-14 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">How Make Big works</h2>
-            <p className="text-[#666] text-sm mt-1">Learn → build → prove it. Three steps to beat empty employment.</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">How it works</h2>
+            <p className="text-[#666] text-sm mt-1">From idea to launch in four simple steps</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { n: '1', t: 'Learn a course', d: 'Pick a skill path with video lessons — web, mobile, AI, design, and more. Free for students.' },
-              { n: '2', t: 'Do your project', d: 'When you finish, start a real project on Make Big. That\'s your portfolio — not an empty résumé.' },
-              { n: '3', t: 'Build with a team', d: 'Find teammates, ship with tasks and posts, and show employers what you actually built.' },
+              { n: '1', t: 'Create Project', d: 'Define your idea, roles, and goals — publish it for the community to discover.' },
+              { n: '2', t: 'Find Talent', d: 'Search by skills and college, send join requests, and build your dream team.' },
+              { n: '3', t: 'Build Together', d: 'Use tasks, posts, chat, and AI tools to ship milestones as a team.' },
+              { n: '4', t: 'Launch', d: 'Showcase what you built — portfolio, startup, or campus impact project.' },
             ].map((s) => (
               <div key={s.n} className="bg-white border border-[#e0e0e0] rounded-2xl p-6">
                 <div className="w-9 h-9 rounded-full bg-[#0A66C2] text-white font-bold flex items-center justify-center text-sm mb-3">

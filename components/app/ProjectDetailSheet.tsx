@@ -54,6 +54,7 @@ interface ProjectDetailSheetProps {
   userContact?: string;
   onClose: () => void;
   onJoin?: (hit: SearchProjectHit) => void;
+  onOpenDashboard?: () => void;
 }
 
 export function ProjectDetailSheet({
@@ -61,6 +62,7 @@ export function ProjectDetailSheet({
   userContact,
   onClose,
   onJoin,
+  onOpenDashboard,
 }: ProjectDetailSheetProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -252,9 +254,29 @@ export function ProjectDetailSheet({
                 </button>
               )}
               {isOwner && (
-                <p className="text-center text-sm text-[#666]">
-                  This is your project — open the Project tab for your dashboard.
-                </p>
+                <div className="space-y-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#EEF3FB] text-[#0A66C2] text-xs font-bold border border-[#0A66C2]/20">
+                    Your Project
+                  </span>
+                  {onOpenDashboard && (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={onOpenDashboard}
+                        className="w-full py-3 rounded-full bg-[#0A66C2] text-white font-semibold hover:bg-[#004182]"
+                      >
+                        Manage team
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onOpenDashboard}
+                        className="w-full py-3 rounded-full border border-[#0A66C2] text-[#0A66C2] font-semibold hover:bg-[#EEF3FB]"
+                      >
+                        Edit project
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </>
           )}
