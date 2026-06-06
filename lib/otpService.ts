@@ -1,22 +1,14 @@
 /**
- * OTP send/verify — Vercel-only (app/api/auth/*). Uses MongoDB + Resend.
+ * OTP send/verify — Vercel-only (app/api/auth/*). Uses MongoDB.
+ * OTP is shown on screen (devCode) — no email or SMS delivery.
  */
 import { connectMongoServer, isMongoConfigured } from './mongoServer';
 import { saveOtpRecord, verifyOtpRecord } from './otpStore.js';
-import { sendOtpEmail, isEmailOtpConfigured } from './emailOtp.js';
 import { upsertVerifiedUser } from './userUpsert.js';
 import { validateContact, validateOtpCode } from './userErrors';
 
 function generateOtpCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-function isPhoneContact(contact: string): boolean {
-  return /^[\d\s+\-()]{7,15}$/.test(contact.replace(/\s/g, ''));
-}
-
-function allowDevOtp(): boolean {
-  return process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_OTP === 'true';
 }
 
 async function ensureOtpDatabase(): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
@@ -41,51 +33,11 @@ async function ensureOtpDatabase(): Promise<{ ok: true } | { ok: false; error: s
   }
 }
 
-function isSmsOtpConfigured(): boolean {
-  const apiKey = (process.env.FAST2SMS_API_KEY || '').trim();
-  return Boolean(apiKey && !apiKey.startsWith('your_'));
-}
-
-async function deliverPhoneOtp(phone: string, code: string): Promise<{ sent: boolean; error?: string }> {
-  if (!isSmsOtpConfigured()) {
-    return {
-      sent: false,
-      error:
-        'Phone OTP is not available yet — sign in with your email address instead, or add FAST2SMS_API_KEY on Vercel for SMS.',
-    };
-  }
-
-  const apiKey = process.env.FAST2SMS_API_KEY!.trim();
-
-  try {
-    const cleanPhone = phone.replace(/[^\d]/g, '').slice(-10);
-    const url = `https://www.fast2sms.com/dev/bulkV2?authorization=${apiKey}&route=otp&variables_values=${code}&flash=0&numbers=${cleanPhone}`;
-    const res = await fetch(url, { headers: { 'cache-control': 'no-cache' } });
-    const data = await res.json();
-    if (data.return === true) return { sent: true };
-    return { sent: false, error: 'SMS provider rejected the request' };
-  } catch (e) {
-    return {
-      sent: false,
-      error: e instanceof Error ? e.message : 'SMS delivery failed',
-    };
-  }
-}
-
 export async function handleSendOtp(rawContact: string) {
   const contact = String(rawContact || '').trim();
   const contactErr = validateContact(contact);
   if (contactErr) {
     return { ok: false as const, status: 400, error: contactErr };
-  }
-
-  if (isPhoneContact(contact) && !isSmsOtpConfigured()) {
-    return {
-      ok: false as const,
-      status: 400,
-      error:
-        'Phone OTP is not available yet — please sign in with your email address (e.g. you@gmail.com).',
-    };
   }
 
   const db = await ensureOtpDatabase();
@@ -96,59 +48,12 @@ export async function handleSendOtp(rawContact: string) {
   const code = generateOtpCode();
   await saveOtpRecord(contact, code);
 
-  const isPhone = isPhoneContact(contact);
-  let sent = false;
-  let deliveryError: string | undefined;
-
-  if (isPhone) {
-    const sms = await deliverPhoneOtp(contact, code);
-    sent = sms.sent;
-    deliveryError = sms.error;
-  } else {
-    if (!isEmailOtpConfigured()) {
-      deliveryError = 'RESEND_API_KEY is not configured on Vercel';
-    } else {
-      const email = await sendOtpEmail(contact, code);
-      sent = email.ok;
-      deliveryError = email.error;
-      if (email.ok) {
-        console.log(`[otp] Resend accepted OTP email for ${contact}`);
-      }
-    }
-  }
-
-  if (!sent && process.env.NODE_ENV === 'production' && !allowDevOtp()) {
-    const status =
-      deliveryError?.includes('OTP email is in beta') ||
-      deliveryError?.includes('Phone OTP is not available')
-        ? 400
-        : 503;
-    return {
-      ok: false as const,
-      status,
-      error:
-        deliveryError ||
-        (isPhone
-          ? 'SMS OTP is not configured — set FAST2SMS_API_KEY on Vercel'
-          : 'Email OTP failed — check RESEND_API_KEY and EMAIL_FROM on Vercel'),
-    };
-  }
-
-  const devMode = !sent && allowDevOtp();
-  if (devMode) {
-    console.log(`[OTP dev] ${contact}: ${code}`);
-  }
-
   return {
     ok: true as const,
     data: {
-      sent,
-      devCode: devMode ? code : undefined,
-      message: sent
-        ? `OTP sent to your ${isPhone ? 'phone' : 'email'}`
-        : devMode
-          ? 'OTP ready — use the code shown below (dev mode)'
-          : 'OTP sent',
+      sent: false,
+      devCode: code,
+      message: 'Enter the verification code shown below',
     },
   };
 }

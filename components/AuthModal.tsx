@@ -605,7 +605,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                         <p className="font-semibold">Your verification code</p>
                         <p className="mt-1 font-mono text-2xl tracking-widest">{siDevCode}</p>
                         <p className="mt-1 text-xs text-amber-800">
-                          Enter this code below (email/SMS not configured yet).
+                          Enter this code in the boxes below.
                         </p>
                       </div>
                     )}
@@ -835,7 +835,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                         <p className="font-semibold">Your verification code</p>
                         <p className="mt-1 font-mono text-2xl tracking-widest">{signUpDevCode}</p>
                         <p className="mt-1 text-xs text-amber-800">
-                          Enter this code below (email/SMS not configured yet).
+                          Enter this code in the boxes below.
                         </p>
                       </div>
                     )}
