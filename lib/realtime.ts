@@ -18,8 +18,9 @@ export async function createApiSocket(): Promise<Socket | null> {
     const ok = await apiCheckHealth();
     if (!ok) return null;
     const token = await getAuthTokenAsync();
+    if (!token) return null;
     return io(API, {
-      auth: token ? { token } : {},
+      auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 8,

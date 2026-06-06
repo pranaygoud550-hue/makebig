@@ -70,13 +70,12 @@ export async function authMiddleware(req, res, next) {
   next();
 }
 
-// Socket.io auth middleware — token optional for read-only global events
+// Socket.io auth middleware — valid JWT required on connect
 export function socketAuthMiddleware(socket, next) {
   const token = socket.handshake.auth?.token;
 
   if (!token) {
-    socket.user = null;
-    return next();
+    return next(new Error("Authentication required"));
   }
 
   verifySupabaseToken(token)
