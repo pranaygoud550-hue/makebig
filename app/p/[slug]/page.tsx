@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getPublicProjectBySlug, getPublishedSlugs } from '@/lib/publicProjects';
 import { SITE_URL, projectPublicUrl } from '@/lib/site';
 import { ShareProject } from '@/components/ShareProject';
+import { ProjectReadinessPanel } from '@/components/startupReadiness/ProjectReadinessPanel';
 
 interface ProjectPageData {
   id: string;
@@ -264,6 +265,8 @@ export default async function ProjectPage({ params }: { params: { slug: string }
                 </div>
               </div>
             </div>
+
+            <ProjectReadinessPanel projectId={project.id} />
 
             {posts.length > 0 && (
               <div className="space-y-4">

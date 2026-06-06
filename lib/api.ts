@@ -1,4 +1,4 @@
-import { User, Profile, Project, PlanTier, Course, CourseLesson } from './types';
+import { User, Profile, Project, PlanTier, Course, CourseLesson, VerifiedSkill } from './types';
 import { getSupabaseAccessToken, isSupabaseConfigured, supabase } from './supabase';
 import {
   assertCanCreateProject,
@@ -252,7 +252,9 @@ export async function apiCheckHealth(): Promise<boolean> {
   }
 }
 
-export async function apiUpsertUser(user: Omit<User, 'id' | 'isLoggedIn'>): Promise<{ user: User; token: string } | null> {
+export async function apiUpsertUser(
+  user: Omit<User, 'id' | 'isLoggedIn'> & { verifiedSkills?: VerifiedSkill[] }
+): Promise<{ user: User; token: string } | null> {
   try {
     if (isSupabaseConfigured) {
       const { data: sessionData } = await supabase.auth.getSession();

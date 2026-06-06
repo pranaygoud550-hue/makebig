@@ -95,6 +95,20 @@ const projectSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    validation: {
+      usersInterviewed: { type: Number, default: 0 },
+      surveyResults: { type: Number, default: 0 },
+      mvpExists: { type: Boolean, default: false },
+      customerFeedback: { type: Number, default: 0 },
+    },
+    startupReadiness: {
+      team: { type: Number, default: 0 },
+      market: { type: Number, default: 0 },
+      validation: { type: Number, default: 0 },
+      progress: { type: Number, default: 0 },
+      overall: { type: Number, default: 0 },
+      computedAt: Date,
+    },
   },
   { timestamps: true }
 );

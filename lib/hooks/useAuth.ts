@@ -18,7 +18,8 @@ interface UseAuthReturn {
     skills?: string[],
     hobbies?: string[],
     college?: string,
-    graduationYear?: string
+    graduationYear?: string,
+    verifiedSkills?: import('@/lib/types').VerifiedSkill[]
   ) => Promise<void>;
   logout: () => void;
   updateProfile: (profile: Profile) => Promise<boolean>;
@@ -199,7 +200,8 @@ export function useAuth(): UseAuthReturn {
       skills: string[] = [],
       hobbies: string[] = [],
       college?: string,
-      graduationYear?: string
+      graduationYear?: string,
+      verifiedSkills?: import('@/lib/types').VerifiedSkill[]
     ) => {
       const normalizedContact = contact.trim().toLowerCase();
       setError(null);
@@ -222,6 +224,7 @@ export function useAuth(): UseAuthReturn {
           hobbies,
           college,
           graduationYear,
+          verifiedSkills,
         });
 
         if (!getAuthToken()) {
@@ -236,7 +239,8 @@ export function useAuth(): UseAuthReturn {
           ...result.user,
           id: result.user.id || normalizedContact,
           isLoggedIn: true,
-          skills,
+          skills: result.user.skills || skills,
+          verifiedSkills: result.user.verifiedSkills || verifiedSkills,
           hobbies,
           college,
           graduationYear,

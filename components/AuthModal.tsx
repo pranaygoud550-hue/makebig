@@ -6,6 +6,12 @@ import { validateContact, validateName, getErrorMessage } from '@/lib/userErrors
 import { BrandLogo } from '@/components/BrandLogo';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { searchColleges } from '@/lib/telanganaColleges';
+import { SkillVerificationFlow } from '@/components/skillVerification/SkillVerificationFlow';
+import { useSkillCatalog } from '@/lib/skillVerification/useSkillCatalog';
+import { SkillBadgeChip } from '@/components/skillVerification/SkillBadgeChip';
+import type { SkillGradeResult } from '@/lib/skillVerification/types';
+import { toVerifiedSkillRecord } from '@/lib/skillVerification/exam';
+import type { VerifiedSkill } from '@/lib/types';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -18,25 +24,19 @@ interface AuthModalProps {
     skills: string[],
     hobbies: string[],
     college: string,
-    graduationYear: string
+    graduationYear: string,
+    verifiedSkills?: VerifiedSkill[]
   ) => void | Promise<void>;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
 const GRAD_YEARS = Array.from({ length: 12 }, (_, i) => String(CURRENT_YEAR + 4 - i));
 
-const SKILL_SUGGESTIONS = [
-  'Frontend Development', 'Backend Development', 'Full Stack Development',
-  'UI/UX Design', 'Graphic Design', 'Mobile Development', 'DevOps',
-  'Data Science', 'Machine Learning', 'AI Engineering', 'Cybersecurity',
-  'Blockchain', 'Cloud Computing', 'Product Management', 'Business Analysis',
-  'Content Writing', 'Digital Marketing', 'SEO', 'Video Editing', 'Photography',
-];
-
 export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, onSignUp }: AuthModalProps) {
+  const { skills: catalogSkills, loading: catalogLoading } = useSkillCatalog();
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
 
-  // Multi-step signup: 1=personal, 2=education, 3=skills, 4=otp
+  // Multi-step signup: 1=personal, 2=education, 3=skills, 4=verify tests, 5=otp
   const [step, setStep] = useState(1);
   const [otpError, setOtpError] = useState('');
   const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
@@ -72,7 +72,9 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
   const [showCollegeDrop, setShowCollegeDrop] = useState(false);
   const [gradYear, setGradYear] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState('');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [verificationResults, setVerificationResults] = useState<SkillGradeResult[]>([]);
+  const [verificationDone, setVerificationDone] = useState(false);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [hobbyInput, setHobbyInput] = useState('');
 
@@ -124,7 +126,8 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     setSignUpPassword('');
     setAuthLoading(false);
     setName(''); setContact(''); setCollege(''); setGradYear('');
-    setSkills([]); setSkillInput(''); setHobbies([]); setHobbyInput('');
+    setSkills([]); setSelectedSkillIds([]); setVerificationResults([]); setVerificationDone(false);
+    setHobbies([]); setHobbyInput('');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -268,12 +271,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     setShowCollegeDrop(suggestions.length > 0);
   };
 
-  // ——— Skills / Hobbies chip management ———
-  const addSkill = (s: string) => {
-    const trimmed = s.trim();
-    if (trimmed && !skills.includes(trimmed)) setSkills([...skills, trimmed]);
-    setSkillInput('');
-  };
+  // ——— Hobbies chip management ———
   const addHobby = (h: string) => {
     const trimmed = h.trim();
     if (trimmed && !hobbies.includes(trimmed)) setHobbies([...hobbies, trimmed]);
@@ -387,7 +385,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       setSignUpDevCode(res.devCode || null);
       setSignUpOtpSentMsg(res.message || 'OTP sent.');
       setOtpValues(['', '', '', '', '', '']);
-      if (step === 3) setStep(4);
+      if (step === 4) setStep(5);
       startResendCooldown();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (e) {
@@ -420,11 +418,44 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       setOtpError('');
     }
     if (step === 3) {
+      if (selectedSkillIds.length === 0) {
+        setOtpError('Select at least one skill to verify');
+        return;
+      }
+      setOtpError('');
+      setVerificationDone(false);
+      setVerificationResults([]);
+      setStep(4);
+      return;
+    }
+    if (step === 4) {
+      if (!verificationDone) {
+        setOtpError('Complete skill verification tests first');
+        return;
+      }
       await handleSignUpSendOtp();
-    } else if (step < 3) {
+      return;
+    }
+    if (step < 3) {
       setStep(step + 1);
     }
   };
+
+  const toggleSkillId = (id: string) => {
+    setSelectedSkillIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleVerificationComplete = (results: SkillGradeResult[]) => {
+    setVerificationResults(results);
+    setVerificationDone(true);
+    const verifiedNames = results.filter((r) => r.score >= 50).map((r) => r.skillName);
+    setSkills(verifiedNames);
+  };
+
+  const buildVerifiedSkillsPayload = (): VerifiedSkill[] =>
+    verificationResults.map((r) => toVerifiedSkillRecord(r));
 
   const verifyOtp = async (code: string) => {
     setOtpVerifying(true);
@@ -436,7 +467,15 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
         setOtpValues(['', '', '', '', '', '']);
         return;
       }
-      await onSignUp(name.trim(), contact.trim().toLowerCase(), skills, hobbies, college.trim(), gradYear);
+      await onSignUp(
+        name.trim(),
+        contact.trim().toLowerCase(),
+        skills,
+        hobbies,
+        college.trim(),
+        gradYear,
+        buildVerifiedSkillsPayload()
+      );
       reset();
       onClose();
     } catch (e) {
@@ -449,7 +488,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
 
   if (!isOpen) return null;
 
-  const totalSteps = 4;
+  const totalSteps = 5;
   const progress = mode === 'signup' ? Math.round((step / totalSteps) * 100) : 0;
 
   return (
@@ -463,7 +502,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
         ✕
       </button>
 
-      <div className="w-full max-w-lg mx-auto px-6">
+      <div className={`w-full mx-auto px-6 ${step >= 4 && mode === 'signup' ? 'max-w-2xl' : 'max-w-lg'}`}>
         {/* Logo */}
         <div className="text-center mb-8 flex flex-col items-center">
           <BrandLogo size="lg" href={null} className="mx-auto" />
@@ -666,7 +705,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
               <>
                 {/* Step labels */}
                 <div className="flex items-center gap-2 mb-1">
-                  {['Personal', 'Education', 'Skills', 'Verify'].map((label, i) => (
+                  {['Personal', 'Education', 'Skills', 'Verify', 'Account'].map((label, i) => (
                     <div key={label} className="flex items-center gap-1">
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                         step > i + 1 ? 'bg-[#0A66C2] text-white' :
@@ -674,7 +713,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                         'bg-[#e0e0e0] text-[#666]'
                       }`}>{step > i + 1 ? '✓' : i + 1}</span>
                       <span className={`text-xs hidden sm:block ${step === i + 1 ? 'text-[#0A66C2] font-semibold' : 'text-[#999]'}`}>{label}</span>
-                      {i < 3 && <span className="text-[#ccc] text-xs">›</span>}
+                      {i < 4 && <span className="text-[#ccc] text-xs">›</span>}
                     </div>
                   ))}
                 </div>
@@ -769,42 +808,53 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                   </>
                 )}
 
-                {/* Step 3: Skills & Hobbies */}
+                {/* Step 3: Choose skills to verify */}
                 {step === 3 && (
                   <>
                     <div>
-                      <h2 className="text-xl font-bold text-[#1d2226]">Skills & Interests</h2>
-                      <p className="text-[#666] text-sm mt-1">Help us match you with the right projects</p>
+                      <h2 className="text-xl font-bold text-[#1d2226]">Choose your skills</h2>
+                      <p className="text-[#666] text-sm mt-1">
+                        Select roles to verify with a short test — badges appear on your profile
+                      </p>
                     </div>
 
-                    <Field label="Your Skills">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap gap-2 min-h-[36px]">
-                          {skills.map((s) => (
-                            <Chip key={s} label={s} onRemove={() => setSkills(skills.filter((x) => x !== s))} />
-                          ))}
+                    <Field label="Skills to verify *">
+                      {catalogLoading ? (
+                        <p className="text-sm text-[#999]">Loading skill catalog…</p>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          {catalogSkills.map((s) => {
+                            const checked = selectedSkillIds.includes(s.id);
+                            return (
+                              <label
+                                key={s.id}
+                                className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                                  checked
+                                    ? 'border-[#0A66C2] bg-[#EEF3FB]'
+                                    : 'border-[#e0e0e0] hover:bg-[#fafafa]'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleSkillId(s.id)}
+                                  className="mt-1"
+                                />
+                                <span>
+                                  <span className="text-sm font-semibold text-[#1d2226] block">{s.name}</span>
+                                  <span className="text-xs text-[#666]">{s.description}</span>
+                                </span>
+                              </label>
+                            );
+                          })}
                         </div>
-                        <input
-                          type="text"
-                          placeholder="e.g. React, UI Design, Python…  (press Enter)"
-                          value={skillInput}
-                          onChange={(e) => setSkillInput(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' && skillInput) { e.preventDefault(); addSkill(skillInput); } }}
-                          autoComplete="off"
-                          className={inputCls}
-                        />
-                        <div className="flex flex-wrap gap-1.5">
-                          {SKILL_SUGGESTIONS.filter((s) => !skills.includes(s)).slice(0, 8).map((s) => (
-                            <button key={s} type="button" onClick={() => addSkill(s)}
-                              className="px-2.5 py-1 text-xs border border-[#0A66C2] text-[#0A66C2] rounded-full hover:bg-[#EEF3FB] transition-colors">
-                              + {s}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      )}
+                      <p className="text-xs text-[#999] mt-2">
+                        Next: 10 MCQ + 3 practical scenarios per skill (MCQ 40% · Practical 60%)
+                      </p>
                     </Field>
 
-                    <Field label="Hobbies & Interests">
+                    <Field label="Hobbies & Interests (optional)">
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2 min-h-[36px]">
                           {hobbies.map((h) => (
@@ -823,27 +873,72 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                       </div>
                     </Field>
 
-                    {otpError && step === 3 && (
-                      <p className="text-red-500 text-sm">{otpError}</p>
-                    )}
+                    {otpError && <p className="text-red-500 text-sm">{otpError}</p>}
 
                     <div className="flex gap-3">
                       <BackButton onClick={() => setStep(2)} />
-                      {isSupabaseConfigured ? (
-                        <LiButton onClick={handleSignUpWithPassword} flex1 disabled={authLoading}>
-                          {authLoading ? 'Creating account…' : 'Create account'}
-                        </LiButton>
-                      ) : (
-                        <LiButton onClick={handleSignUpNext} flex1 disabled={otpSending}>
-                          {otpSending ? 'Sending OTP…' : 'Send OTP →'}
-                        </LiButton>
-                      )}
+                      <LiButton
+                        onClick={handleSignUpNext}
+                        flex1
+                        disabled={catalogLoading || selectedSkillIds.length === 0}
+                      >
+                        Start verification →
+                      </LiButton>
                     </div>
                   </>
                 )}
 
-                {/* Step 4: OTP */}
+                {/* Step 4: Skill verification tests */}
                 {step === 4 && (
+                  <>
+                    {!verificationDone ? (
+                      <SkillVerificationFlow
+                        skillIds={selectedSkillIds}
+                        contact={contact}
+                        onComplete={handleVerificationComplete}
+                        onBack={() => setStep(3)}
+                      />
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <h2 className="text-xl font-bold text-[#1d2226]">Verification complete</h2>
+                          <p className="text-sm text-[#666] mt-1">Review your scores, then verify your account</p>
+                        </div>
+                        <ul className="space-y-2 max-h-40 overflow-y-auto">
+                          {verificationResults.map((r) => (
+                            <li
+                              key={r.skillId}
+                              className="flex items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] px-3 py-2"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-[#1d2226]">{r.skillName}</p>
+                                <p className="text-xs text-[#666]">
+                                  Final {r.score} · Test {r.testScore}% · Integrity {r.integrityScore}%
+                                </p>
+                              </div>
+                              <SkillBadgeChip
+                                badge={r.badge}
+                                label={r.badgeLabel}
+                                icon={r.badgeIcon}
+                                score={r.score}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                        {otpError && <p className="text-red-500 text-sm">{otpError}</p>}
+                        <div className="flex gap-3">
+                          <BackButton onClick={() => { setVerificationDone(false); setVerificationResults([]); }} />
+                          <LiButton onClick={handleSignUpNext} flex1 disabled={otpSending}>
+                            {otpSending ? 'Sending OTP…' : 'Continue to verify account →'}
+                          </LiButton>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Step 5: OTP */}
+                {step === 5 && (
                   <>
                     <div>
                       <h2 className="text-xl font-bold text-[#1d2226]">Verify your contact</h2>
@@ -876,7 +971,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                     {otpError && <p className="text-red-500 text-sm">{otpError}</p>}
                     <div className="flex items-center justify-between">
                       <button
-                        onClick={() => { setStep(3); setOtpValues(['','','','','','']); setOtpError(''); }}
+                        onClick={() => { setStep(4); setOtpValues(['','','','','','']); setOtpError(''); }}
                         className="text-sm text-[#0A66C2] hover:underline"
                       >
                         ← Back

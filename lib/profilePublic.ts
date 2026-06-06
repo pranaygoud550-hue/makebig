@@ -1,3 +1,5 @@
+import type { VerifiedSkill } from '@/lib/types';
+
 export interface ProfileBadge {
   id: string;
   label: string;
@@ -27,6 +29,7 @@ export interface PublicProfilePayload {
     city?: string;
     state?: string;
     skills?: string[];
+    verifiedSkills?: VerifiedSkill[];
     hobbies?: string[];
     plan?: string;
   };

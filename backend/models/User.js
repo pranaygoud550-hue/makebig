@@ -61,6 +61,23 @@ const userSchema = new mongoose.Schema(
     },
     stripeCustomerId: String,
     socketId: String,
+    verifiedSkills: [
+      {
+        skillId: { type: String, required: true },
+        skillName: { type: String, required: true },
+        score: { type: Number, default: 0 },
+        testScore: { type: Number, default: 0 },
+        integrityScore: { type: Number, default: 100 },
+        mcqScore: { type: Number, default: 0 },
+        practicalScore: { type: Number, default: 0 },
+        badge: { type: String, default: 'not_verified' },
+        badgeLabel: { type: String, default: 'Not Verified' },
+        badgeIcon: { type: String, default: '—' },
+        proctorFlags: [String],
+        suspicious: { type: Boolean, default: false },
+        verifiedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -18,6 +18,7 @@ import { formatSalaryBand } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/userErrors';
 import { StarRating } from '@/components/StarRating';
 import { FriendRequestButton } from '@/components/app/FriendRequestButton';
+import { VerifiedSkillsSection } from '@/components/skillVerification/VerifiedSkillsSection';
 
 const MAX_IMAGE_BYTES = 900_000;
 const draftKey = (contact: string) => `makeBigProfileDraft:${contact}`;
@@ -454,6 +455,8 @@ export function ProfessionalProfile({
                     </p>
                   )}
                 </section>
+
+                <VerifiedSkillsSection verifiedSkills={publicData?.user?.verifiedSkills} />
 
                 <section className="bg-white rounded-2xl border border-[#e0e0e0] p-5">
                   <h2 className="text-xs font-bold text-[#666] uppercase tracking-wide mb-2">Skills</h2>

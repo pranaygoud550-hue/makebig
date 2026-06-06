@@ -34,6 +34,10 @@ import {
 } from "./backend/middleware/security.js";
 import { setupSocketEvents } from "./backend/events/socketEvents.js";
 import { normalizeContact, formatResponse } from "./backend/utils/helpers.js";
+import {
+  topVerifiedByCategory,
+  computeProjectReadiness,
+} from "./backend/utils/startupReadiness.js";
 import { filterAllowedProjects, isAllowedPublicProject } from "./backend/utils/projectAllowlist.js";
 import { dedupeProjectsForDisplay } from "./backend/utils/dedupeProjects.js";
 import {
@@ -601,6 +605,17 @@ function computeProfileBadges({ user, profile, owned, joined, tasksDone }) {
     push("campus", "Campus Creator", "🏫", `Connected to ${user.college}`);
   }
 
+  for (const vs of user?.verifiedSkills || []) {
+    if (vs.score >= 50) {
+      push(
+        `skill-${vs.skillId}`,
+        `${vs.skillName} · ${vs.badgeLabel}`,
+        vs.badgeIcon || "🏅",
+        `Verified score ${vs.score}/100 on Make Big`
+      );
+    }
+  }
+
   return badges;
 }
 
@@ -710,6 +725,21 @@ app.get("/api/users/:contact/public-profile", async (req, res) => {
           city: user.city || "",
           state: user.state || "",
           skills: user.skills || [],
+          verifiedSkills: (user.verifiedSkills || []).map((s) => ({
+            skillId: s.skillId,
+            skillName: s.skillName,
+            score: s.score,
+            testScore: s.testScore ?? s.score,
+            integrityScore: s.integrityScore ?? 100,
+            mcqScore: s.mcqScore,
+            practicalScore: s.practicalScore,
+            badge: s.badge,
+            badgeLabel: s.badgeLabel,
+            badgeIcon: s.badgeIcon,
+            proctorFlags: s.proctorFlags || [],
+            suspicious: Boolean(s.suspicious),
+            verifiedAt: s.verifiedAt,
+          })),
           hobbies: user.hobbies || [],
           plan: user.plan || "free",
         },
@@ -1247,6 +1277,35 @@ app.get("/api/projects/top-salaries", async (req, res) => {
   }
 });
 
+// Verified skills leaderboard (must be BEFORE /:projectId)
+app.get("/api/leaderboards/verified-skills", async (req, res) => {
+  try {
+    const data = await topVerifiedByCategory(User);
+    res.json(formatResponse(true, data));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Startup readiness score (must be BEFORE /:projectId)
+app.get("/api/projects/:projectId/readiness", async (req, res) => {
+  try {
+    const scores = await computeProjectReadiness(
+      Project,
+      User,
+      Post,
+      Activity,
+      req.params.projectId
+    );
+    if (!scores) {
+      return res.status(404).json(formatResponse(false, null, "Project not found"));
+    }
+    res.json(formatResponse(true, scores));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
 app.get("/api/projects/:projectId", authMiddleware, async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -1722,6 +1781,7 @@ app.get("/api/projects/:projectId/detail", async (req, res) => {
         status: "active",
         name: userByContact[normalizeContact(project.ownerContact)]?.name || project.ownerContact?.split("@")[0],
         skills: userByContact[normalizeContact(project.ownerContact)]?.skills || [],
+        verifiedSkills: userByContact[normalizeContact(project.ownerContact)]?.verifiedSkills || [],
         hobbies: userByContact[normalizeContact(project.ownerContact)]?.hobbies || [],
         college: userByContact[normalizeContact(project.ownerContact)]?.college || "",
         graduationYear: userByContact[normalizeContact(project.ownerContact)]?.graduationYear || "",
@@ -1736,6 +1796,7 @@ app.get("/api/projects/:projectId/detail", async (req, res) => {
           joinedAt: m.joinedAt,
           name: u?.name || m.contact?.split("@")[0] || "Member",
           skills: u?.skills || [],
+          verifiedSkills: u?.verifiedSkills || [],
           hobbies: u?.hobbies || [],
           college: u?.college || "",
           graduationYear: u?.graduationYear || "",
@@ -1761,6 +1822,7 @@ app.get("/api/projects/:projectId/detail", async (req, res) => {
           currency: project.currency || "INR",
           ownerContact: project.ownerContact,
           teamSize: joined.length,
+          startupReadiness: project.startupReadiness || null,
         },
         team,
         openRoles: project.roles || [],

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatSalaryBand, getInitials } from '@/lib/utils';
+import { ProjectReadinessPanel } from '@/components/startupReadiness/ProjectReadinessPanel';
 import { getErrorMessage } from '@/lib/userErrors';
 
 export interface SearchProjectHit {
@@ -170,6 +171,8 @@ export function ProjectDetailSheet({
                   <p className="text-sm text-[#1d2226] leading-relaxed">{p.desc}</p>
                 </section>
               )}
+
+              <ProjectReadinessPanel projectId={p.id} />
 
               {(detail?.openRoles?.length || 0) > 0 && (
                 <section>

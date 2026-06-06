@@ -1,4 +1,22 @@
+import type { SkillBadgeLevel } from '@/lib/skillVerification/types';
+
 export type PlanTier = 'free' | 'pro';
+
+export interface VerifiedSkill {
+  skillId: string;
+  skillName: string;
+  score: number;
+  testScore?: number;
+  integrityScore?: number;
+  mcqScore: number;
+  practicalScore: number;
+  badge: SkillBadgeLevel;
+  badgeLabel: string;
+  badgeIcon: string;
+  proctorFlags?: string[];
+  suspicious?: boolean;
+  verifiedAt?: string;
+}
 
 export interface User {
   id?: string;
@@ -7,6 +25,7 @@ export interface User {
   isLoggedIn: boolean;
   plan?: PlanTier;
   skills?: string[];
+  verifiedSkills?: VerifiedSkill[];
   hobbies?: string[];
   college?: string;
   graduationYear?: string;
