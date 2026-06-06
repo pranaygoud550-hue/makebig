@@ -99,9 +99,10 @@ export async function handleSendOtp(rawContact: string) {
   }
 
   if (!sent && process.env.NODE_ENV === 'production' && !allowDevOtp()) {
+    const status = deliveryError?.includes('OTP email is in beta') ? 400 : 503;
     return {
       ok: false as const,
-      status: 503,
+      status,
       error:
         deliveryError ||
         (isPhone

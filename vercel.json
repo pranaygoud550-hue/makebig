@@ -4,6 +4,8 @@
   "installCommand": "npm install",
   "regions": ["bom1"],
   "env": {
-    "NEXT_PUBLIC_DATA_BACKEND": "mongo"
+    "NEXT_PUBLIC_DATA_BACKEND": "mongo",
+    "EMAIL_FROM": "Make Big <onboarding@resend.dev>",
+    "RESEND_ACCOUNT_EMAIL": "pranaygoud550@gmail.com"
   }
 }
