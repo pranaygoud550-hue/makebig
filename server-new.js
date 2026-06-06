@@ -917,92 +917,196 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
         .json(formatResponse(false, null, "You already joined this project"));
     }
 
-    await assertCanAddTeamMember(project);
-
-    const maxSize = project.maxTeamSize || 10;
-    const currentJoined = (project.teamMembers || []).filter(
-      (m) => m.status === "joined"
-    ).length;
-    if (currentJoined >= maxSize) {
-      return res.status(400).json(formatResponse(false, null, "Project team is full"));
+    const alreadyPending = (project.teamMembers || []).some(
+      (m) => normalizeContact(m.contact) === memberContact && m.status === "pending"
+    );
+    if (alreadyPending) {
+      return res.json(
+        formatResponse(true, {
+          project: toClient(project),
+          message: "Join request already sent — waiting for creator approval",
+          pending: true,
+        })
+      );
     }
 
-    project.teamMembers.push({
-      contact: memberContact,
-      role,
-      status: "joined",
-      joinedAt: new Date(),
-    });
+    const existingRow = (project.teamMembers || []).find(
+      (m) => normalizeContact(m.contact) === memberContact
+    );
+    if (existingRow) {
+      existingRow.status = "pending";
+      existingRow.role = role;
+      existingRow.joinedAt = undefined;
+    } else {
+      project.teamMembers.push({
+        contact: memberContact,
+        role,
+        status: "pending",
+      });
+    }
     await project.save();
 
-    const joinActivity = await Activity.create({
-      projectId: project._id,
-      userId: memberContact,
-      type: "member_joined",
-      description: `${memberName} joined the project`,
-    });
-    io.to(`project_${project._id}`).emit("activity_created", toClient(joinActivity));
-
-    const owner = await User.findOne({ contact: normalizeContact(project.ownerContact) });
     const memberDisplayName =
       memberName !== memberContact ? memberName : await displayNameForContact(memberContact);
+
+    const owner = await User.findOne({ contact: normalizeContact(project.ownerContact) });
     if (owner) {
       await pushNotification({
         userId: owner._id.toString(),
         projectId: project._id,
-        type: "join",
-        title: "New team member",
-        message: `${memberDisplayName} joined "${project.name}"`,
+        type: "join_request",
+        title: "Join request",
+        message: `${memberDisplayName} asked to join "${project.name}"`,
         actionUrl: `/projects/${project._id}`,
-        metadata: { memberContact, projectId: project._id.toString() },
+        metadata: { memberContact, projectId: project._id.toString(), status: "pending" },
       });
     }
-
-    const teammates = await getTeammateContacts(project._id, memberContact);
-    await notifyManyContacts(teammates, (mate) => {
-      if (mate === normalizeContact(project.ownerContact)) return null;
-      return {
-        projectId: project._id,
-        type: "join",
-        title: "Teammate joined",
-        message: `${memberDisplayName} joined "${project.name}"`,
-        actionUrl: `/projects/${project._id}`,
-        metadata: { memberContact, projectId: project._id.toString() },
-      };
-    });
-
-    const network = await getNetworkContacts(memberContact);
-    await notifyManyContacts(network, (friend) => {
-      if (teammates.includes(friend) || friend === normalizeContact(project.ownerContact)) {
-        return null;
-      }
-      return {
-        projectId: project._id,
-        type: "activity",
-        title: "Friend joined a project",
-        message: `${memberDisplayName} joined "${project.name}"`,
-        actionUrl: `/projects/${project._id}`,
-        metadata: { memberContact, projectId: project._id.toString() },
-      };
-    });
-
-    io.to(`project_${project._id}`).emit("member_status_changed", {
-      projectId: project._id.toString(),
-      memberContact,
-      memberName,
-      status: "joined",
-    });
 
     res.json(
       formatResponse(true, {
         project: toClient(project),
-        message: "Successfully joined project",
+        message: "Join request sent — the project creator will review it",
+        pending: true,
       })
     );
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Owner lists inbound join requests (status pending on teamMembers)
+app.get("/api/projects/:projectId/join-requests", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const pending = (project.teamMembers || [])
+      .filter((m) => m.status === "pending")
+      .map((m) => ({
+        contact: m.contact,
+        role: m.role || "member",
+        requestedAt: m.joinedAt || project.updatedAt,
+      }));
+
+    res.json(formatResponse(true, { requests: pending }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+async function finalizeJoinMember(project, memberContact, memberName, role) {
+  const row = (project.teamMembers || []).find(
+    (m) => normalizeContact(m.contact) === memberContact
+  );
+  if (!row) {
+    project.teamMembers.push({
+      contact: memberContact,
+      role: role || "member",
+      status: "joined",
+      joinedAt: new Date(),
+    });
+  } else {
+    row.status = "joined";
+    row.role = role || row.role || "member";
+    row.joinedAt = new Date();
+  }
+  await project.save();
+
+  const joinActivity = await Activity.create({
+    projectId: project._id,
+    userId: memberContact,
+    type: "member_joined",
+    description: `${memberName} joined the project`,
+  });
+  io.to(`project_${project._id}`).emit("activity_created", toClient(joinActivity));
+
+  io.to(`project_${project._id}`).emit("member_status_changed", {
+    projectId: project._id.toString(),
+    memberContact,
+    memberName,
+    status: "joined",
+  });
+}
+
+app.post("/api/projects/:projectId/join-requests/:contact/approve", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const memberContact = normalizeContact(req.params.contact);
+    const pending = (project.teamMembers || []).find(
+      (m) => normalizeContact(m.contact) === memberContact && m.status === "pending"
+    );
+    if (!pending) {
+      return res.status(404).json(formatResponse(false, null, "No pending join request for this person"));
+    }
+
+    await assertCanAddTeamMember(project);
+    const maxSize = project.maxTeamSize || 10;
+    const currentJoined = (project.teamMembers || []).filter((m) => m.status === "joined").length;
+    if (currentJoined >= maxSize) {
+      return res.status(400).json(formatResponse(false, null, "Project team is full"));
+    }
+
+    const memberName = await displayNameForContact(memberContact);
+    await finalizeJoinMember(project, memberContact, memberName, pending.role);
+
+    const memberUser = await User.findOne({ contact: memberContact });
+    if (memberUser) {
+      await pushNotification({
+        userId: memberUser._id.toString(),
+        projectId: project._id,
+        type: "join",
+        title: "Join request approved",
+        message: `You were approved to join "${project.name}"`,
+        actionUrl: `/projects/${project._id}`,
+        metadata: { projectId: project._id.toString() },
+      });
+    }
+
+    res.json(formatResponse(true, { project: toClient(project), message: "Member approved" }));
   } catch (error) {
     if (error.code === "PLAN_LIMIT") {
       return res.status(403).json({ success: false, error: error.message, code: "PLAN_LIMIT" });
     }
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/projects/:projectId/join-requests/:contact/decline", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const memberContact = normalizeContact(req.params.contact);
+    const idx = (project.teamMembers || []).findIndex(
+      (m) => normalizeContact(m.contact) === memberContact && m.status === "pending"
+    );
+    if (idx === -1) {
+      return res.status(404).json(formatResponse(false, null, "No pending join request for this person"));
+    }
+
+    project.teamMembers.splice(idx, 1);
+    await project.save();
+
+    const memberUser = await User.findOne({ contact: memberContact });
+    if (memberUser) {
+      await pushNotification({
+        userId: memberUser._id.toString(),
+        projectId: project._id,
+        type: "join",
+        title: "Join request declined",
+        message: `Your request to join "${project.name}" was declined`,
+        actionUrl: `/explore`,
+        metadata: { projectId: project._id.toString() },
+      });
+    }
+
+    res.json(formatResponse(true, { message: "Join request declined" }));
+  } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }
 });

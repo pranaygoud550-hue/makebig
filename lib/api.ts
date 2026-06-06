@@ -674,7 +674,7 @@ export async function apiJoinProject(
   projectId: string,
   memberName: string,
   role = 'member'
-): Promise<{ project: Project; message: string } | null> {
+): Promise<{ project: Project; message: string; pending?: boolean } | null> {
   try {
     if (isSupabaseConfigured) {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -726,6 +726,49 @@ export async function apiJoinProject(
   } catch (e) {
     console.error('Error joining project:', e);
     throw e;
+  }
+}
+
+export async function apiGetJoinRequests(
+  projectId: string
+): Promise<{ contact: string; role: string; requestedAt?: string }[]> {
+  try {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/join-requests`, {
+      headers: await getAuthHeadersAsync(),
+    });
+    const data = await res.json();
+    return data.success ? data.data.requests || [] : [];
+  } catch (e) {
+    console.error('Error fetching join requests:', e);
+    return [];
+  }
+}
+
+export async function apiApproveJoinRequest(projectId: string, contact: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/projects/${projectId}/join-requests/${encodeURIComponent(contact)}/approve`,
+      { method: 'POST', headers: await getAuthHeadersAsync() }
+    );
+    const data = await res.json();
+    return data.success === true;
+  } catch (e) {
+    console.error('Error approving join request:', e);
+    return false;
+  }
+}
+
+export async function apiDeclineJoinRequest(projectId: string, contact: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/projects/${projectId}/join-requests/${encodeURIComponent(contact)}/decline`,
+      { method: 'POST', headers: await getAuthHeadersAsync() }
+    );
+    const data = await res.json();
+    return data.success === true;
+  } catch (e) {
+    console.error('Error declining join request:', e);
+    return false;
   }
 }
 

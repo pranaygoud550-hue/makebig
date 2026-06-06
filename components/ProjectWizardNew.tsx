@@ -173,7 +173,7 @@ function ProjectPickCard({
           disabled={joining}
           className="w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182] disabled:opacity-50 transition-all"
         >
-          {joining ? 'Joining…' : 'Join now — instant access'}
+          {joining ? 'Sending request…' : 'Request to join'}
         </button>
       </div>
     </div>
@@ -210,6 +210,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
   const [selectedProject, setSelectedProject] = useState<BrowseProject | null>(null);
   const [joiningProjectId, setJoiningProjectId] = useState<string | null>(null);
   const [sendError, setSendError]       = useState('');
+  const [joinSuccess, setJoinSuccess]   = useState('');
 
   /* ── Shared ── */
   const [error, setError] = useState('');
@@ -342,6 +343,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
   const handleInstantJoin = useCallback(async (project: BrowseProject) => {
     if (!project.id) return;
     setSendError('');
+    setJoinSuccess('');
     setJoiningProjectId(project.id);
 
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
@@ -349,7 +351,11 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
     const role = joinRole.trim() || state.skills[0] || 'member';
 
     try {
-      await apiJoinProject(project.id, userName, role);
+      const result = await apiJoinProject(project.id, userName, role);
+      if (result?.pending) {
+        setJoinSuccess(result.message || 'Join request sent — the creator will review it');
+        return;
+      }
       openMemberDashboard(project);
     } catch (e) {
       setSendError(getErrorMessage(e, 'join'));
@@ -860,7 +866,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
                 </Field>
 
                 <p className="text-xs text-[#666] bg-[#f8f9fa] rounded-xl px-4 py-3">
-                  Join is instant — tap Join now on any project. No waiting for approval.
+                  Request to join any project — the creator approves before you are added.
                 </p>
               </div>
             </div>
@@ -917,6 +923,11 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
                       joining={joiningProjectId === project.id}
                     />
                   ))}
+                </div>
+              )}
+              {joinSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                  {joinSuccess}
                 </div>
               )}
               {sendError && (

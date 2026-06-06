@@ -55,10 +55,11 @@ export async function streamAICofounder({
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    const body = err as { error?: string; message?: string };
     onError(
-      (err as { error?: string }).error ||
-        (err as { message?: string }).message ||
-        `Request failed (${res.status})`
+      body.error ||
+        body.message ||
+        (res.status === 401 ? 'Sign in again to use AI Co-founder' : `Request failed (${res.status})`)
     );
     return;
   }

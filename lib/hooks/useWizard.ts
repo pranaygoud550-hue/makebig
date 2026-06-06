@@ -27,7 +27,7 @@ const CREATE_COPY = [
 
 const JOIN_COPY = [
   { title: 'What can you bring?',  subtitle: 'Select your skills so we can match you with the right projects.' },
-  { title: 'Explore & join', subtitle: 'Tap Join now — you are added instantly, no owner approval needed.' },
+  { title: 'Explore & join', subtitle: 'Tap Request to join — the project creator approves before you are added.' },
 ];
 
 export function useWizard(): UseWizardReturn {

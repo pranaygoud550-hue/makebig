@@ -348,7 +348,7 @@ export function PublicProjectFeed({ isAuthed, onRequireAuth, onJoinProject }: Pu
                         onClick={() => handleJoinClick(project)}
                         className="px-4 py-1.5 text-xs font-semibold rounded-full bg-[#0A66C2] text-white hover:bg-[#004182] transition-all whitespace-nowrap"
                       >
-                        {isAuthed ? 'Join now' : 'Sign in to join'}
+                        {isAuthed ? 'Request to join' : 'Sign in to join'}
                       </button>
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiGetProjectInvites, apiAcceptInvite, apiDeclineInvite } from '@/lib/api';
+import { apiGetProjectInvites, apiAcceptInvite, apiDeclineInvite, apiGetJoinRequests, apiApproveJoinRequest, apiDeclineJoinRequest } from '@/lib/api';
 import { ProjectData, User } from '@/lib/types';
 
 interface RequestsViewProps {
@@ -25,8 +25,15 @@ const STATUS_COLORS: Record<string, string> = {
   declined: 'text-red-700 bg-red-50 border-red-200',
 };
 
+interface JoinRequestRow {
+  contact: string;
+  role: string;
+  requestedAt?: string;
+}
+
 export function RequestsView({ project, user }: RequestsViewProps) {
   const [invites, setInvites]         = useState<InviteRow[]>([]);
+  const [joinRequests, setJoinRequests] = useState<JoinRequestRow[]>([]);
   const [loading, setLoading]         = useState(true);
   const [actionId, setActionId]       = useState<string | null>(null);
   const [filter, setFilter]           = useState<'all' | 'pending' | 'accepted' | 'declined'>('all');
@@ -34,8 +41,12 @@ export function RequestsView({ project, user }: RequestsViewProps) {
   const fetchInvites = useCallback(async () => {
     if (!project.id) return;
     setLoading(true);
-    const list = await apiGetProjectInvites(project.id);
+    const [list, requests] = await Promise.all([
+      apiGetProjectInvites(project.id),
+      apiGetJoinRequests(project.id),
+    ]);
     setInvites(list as InviteRow[]);
+    setJoinRequests(requests);
     setLoading(false);
   }, [project.id]);
 
@@ -99,6 +110,51 @@ export function RequestsView({ project, user }: RequestsViewProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
+        {joinRequests.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-bold text-[#1d2226] mb-3">Join requests (need your approval)</h3>
+            <div className="space-y-3">
+              {joinRequests.map((req) => {
+                const busy = actionId === req.contact;
+                return (
+                  <div key={req.contact} className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
+                    <p className="font-semibold text-sm text-[#1d2226]">{req.contact}</p>
+                    <p className="text-xs text-[#666] mt-0.5">Wants to join as {req.role || 'member'}</p>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={async () => {
+                          setActionId(req.contact);
+                          await apiApproveJoinRequest(project.id!, req.contact);
+                          setJoinRequests((prev) => prev.filter((r) => r.contact !== req.contact));
+                          setActionId(null);
+                        }}
+                        className="px-3 py-1.5 rounded-full bg-[#0A66C2] text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={async () => {
+                          setActionId(req.contact);
+                          await apiDeclineJoinRequest(project.id!, req.contact);
+                          setJoinRequests((prev) => prev.filter((r) => r.contact !== req.contact));
+                          setActionId(null);
+                        }}
+                        className="px-3 py-1.5 rounded-full border border-[#d9d9d9] text-xs font-semibold text-[#666] disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map(i => (

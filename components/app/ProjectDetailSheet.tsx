@@ -248,7 +248,7 @@ export function ProjectDetailSheet({
                   onClick={() => onJoin(hit)}
                   className="w-full py-3 rounded-full bg-[#0A66C2] text-white font-semibold hover:bg-[#004182]"
                 >
-                  Join this project instantly — no approval needed
+                  Request to join — the creator must approve first
                 </button>
               )}
               {isOwner && (

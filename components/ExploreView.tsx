@@ -273,7 +273,7 @@ export function ExploreView({ embedded = false, onJoinProject }: ExploreViewProp
                             }
                             className="mt-4 w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
                           >
-                            Join now
+                            Request to join
                           </button>
                         )}
                       </div>

@@ -44,7 +44,7 @@ const projectSchema = new mongoose.Schema(
         role: String,
         status: {
           type: String,
-          enum: ["invited", "joined", "completed", "left"],
+          enum: ["invited", "pending", "joined", "completed", "left"],
           default: "invited",
         },
         joinedAt: Date,

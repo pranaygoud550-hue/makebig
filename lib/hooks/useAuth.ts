@@ -28,6 +28,7 @@ interface UseAuthReturn {
 
 function readStoredUser(): User | null {
   if (typeof window === 'undefined' || isSupabaseConfigured) return null;
+  if (!getAuthToken()) return null;
   try {
     const stored = localStorage.getItem('user');
     if (!stored) return null;
@@ -39,9 +40,9 @@ function readStoredUser(): User | null {
 }
 
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(readStoredUser);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async (contact: string) => {
@@ -53,7 +54,7 @@ export function useAuth(): UseAuthReturn {
           if (parsed.contact?.toLowerCase() === contact.toLowerCase()) {
             setProfile(parsed);
           }
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
@@ -68,7 +69,6 @@ export function useAuth(): UseAuthReturn {
     }
   }, []);
 
-  // Supabase session is the source of truth for production auth.
   useEffect(() => {
     let mounted = true;
 
@@ -105,26 +105,34 @@ export function useAuth(): UseAuthReturn {
             setAuthToken(session.access_token);
             const restoredUser = toUser(session.user);
             setUser(restoredUser);
-            loadProfile(restoredUser.contact);
+            await loadProfile(restoredUser.contact);
+          } else {
+            setUser(null);
+            setProfile(null);
           }
           return;
         }
 
+        const token = getAuthToken();
         const stored = localStorage.getItem('user');
-        if (stored) {
+        if (stored && token) {
           const parsed = JSON.parse(stored);
           if (parsed.isLoggedIn) {
-            if (!getAuthToken()) {
-              localStorage.removeItem('user');
-              setUser(null);
-            } else {
-              setUser(parsed);
-              loadProfile(parsed.contact);
-            }
+            setUser(parsed);
+            await loadProfile(parsed.contact);
+          } else {
+            localStorage.removeItem('user');
+            setUser(null);
           }
+        } else {
+          localStorage.removeItem('user');
+          setUser(null);
+          setProfile(null);
         }
       } catch (e) {
         console.error('Error restoring auth session:', e);
+        setUser(null);
+        setProfile(null);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -165,23 +173,7 @@ export function useAuth(): UseAuthReturn {
       graduationYear?: string
     ) => {
       const normalizedContact = contact.trim().toLowerCase();
-
-      const optimisticUser: User = {
-        id: normalizedContact,
-        name: name.trim() || normalizedContact.split('@')[0] || 'User',
-        contact: normalizedContact,
-        isLoggedIn: true,
-        skills,
-        hobbies,
-        college,
-        graduationYear,
-      };
-
-      // Persist immediately so checkAuth() and UI work before upsert finishes
-      setUser(optimisticUser);
-      if (!isSupabaseConfigured) {
-        localStorage.setItem('user', JSON.stringify(optimisticUser));
-      }
+      setError(null);
 
       try {
         if (isSupabaseConfigured) {
@@ -189,13 +181,13 @@ export function useAuth(): UseAuthReturn {
           if (data.session?.access_token) setAuthToken(data.session.access_token);
           if (data.session?.user) {
             await supabase.auth.updateUser({
-              data: { name: optimisticUser.name, skills, hobbies, college, graduationYear },
+              data: { name: name.trim(), skills, hobbies, college, graduationYear },
             });
           }
         }
 
         const result = await apiUpsertUser({
-          name: optimisticUser.name,
+          name: name.trim() || normalizedContact.split('@')[0] || 'User',
           contact: normalizedContact,
           skills,
           hobbies,
@@ -207,24 +199,30 @@ export function useAuth(): UseAuthReturn {
           throw new Error('Sign in again — session could not be started');
         }
 
-        const newUser: User = result?.user
-          ? {
-              ...result.user,
-              id: result.user.id || normalizedContact,
-              isLoggedIn: true,
-              skills,
-              hobbies,
-              college,
-              graduationYear,
-            }
-          : optimisticUser;
+        if (!result?.user) {
+          throw new Error('Could not save your account — try again');
+        }
+
+        const newUser: User = {
+          ...result.user,
+          id: result.user.id || normalizedContact,
+          isLoggedIn: true,
+          skills,
+          hobbies,
+          college,
+          graduationYear,
+        };
 
         setUser(newUser);
         if (!isSupabaseConfigured) localStorage.setItem('user', JSON.stringify(newUser));
         await loadProfile(normalizedContact);
       } catch (e) {
-        console.error('Login upsert failed:', e);
-        // Keep optimistic session — OTP already verified
+        clearAuthToken();
+        localStorage.removeItem('user');
+        setUser(null);
+        const msg = getErrorMessage(e, 'auth');
+        setError(msg);
+        throw new Error(msg);
       }
     },
     [loadProfile]
@@ -236,22 +234,15 @@ export function useAuth(): UseAuthReturn {
     setProfile(null);
     localStorage.removeItem('user');
     localStorage.removeItem('makeBigProfile');
+    if (typeof window !== 'undefined') sessionStorage.removeItem('makeBigProfileOpen');
     clearSessionActiveProject();
     clearAuthToken();
   }, []);
 
   const checkAuth = useCallback(() => {
-    if (isSupabaseConfigured) return Boolean(user);
-    const stored = localStorage.getItem('user');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        return parsed.isLoggedIn === true;
-      } catch {
-        return false;
-      }
-    }
-    return false;
+    if (!user?.isLoggedIn) return false;
+    if (isSupabaseConfigured) return Boolean(getAuthToken());
+    return Boolean(getAuthToken());
   }, [user]);
 
   const updateProfile = useCallback(

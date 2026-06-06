@@ -18,6 +18,7 @@ import { ProjectData } from '@/lib/types';
 import { apiCreateProject, apiPublishProject, apiCheckHealth, apiGetUser, apiJoinProject, BrowseProject, PlanLimitError } from '@/lib/api';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/userErrors';
+import { profileReadyMessage } from '@/lib/profileComplete';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
 
@@ -37,6 +38,7 @@ export default function Home() {
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [projectCreateError, setProjectCreateError] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinNotice, setJoinNotice] = useState<string | null>(null);
   const [wizardInitialEntry, setWizardInitialEntry] = useState<'create' | 'join' | undefined>();
   const [wizardInitialCategory, setWizardInitialCategory] = useState<string | undefined>();
   const [wizardInitialSkills, setWizardInitialSkills] = useState<string[] | undefined>();
@@ -71,20 +73,14 @@ export default function Home() {
 
   /* ── Restore project when session is ready (local + server) ── */
   useEffect(() => {
-    if (auth.isLoading) return;
-    let contact = auth.user?.contact;
-    if (!contact) {
-      try {
-        const u = JSON.parse(localStorage.getItem('user') || 'null');
-        if (u?.isLoggedIn) contact = u.contact;
-      } catch { /* ignore */ }
-    }
+    if (auth.isLoading || !auth.checkAuth()) return;
+    const contact = auth.user?.contact;
     if (!contact) return;
 
     let cancelled = false;
     setRestoringProject(true);
     restoreUserProject(contact).then((parsed) => {
-      if (!cancelled && parsed) applyRestoredProject(parsed, contact!);
+      if (!cancelled && parsed) applyRestoredProject(parsed, contact);
     }).finally(() => {
       if (!cancelled) setRestoringProject(false);
     });
@@ -92,7 +88,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [auth.user, auth.isLoading, applyRestoredProject]);
+  }, [auth.user, auth.isLoading, auth.checkAuth, applyRestoredProject]);
 
   /* ── Deep link: /?join=project-slug from shared public pages ── */
   useEffect(() => {
@@ -164,11 +160,20 @@ export default function Home() {
     }
   }, [auth.user, pendingJoinCategory]);
 
+  const requireProfileForAction = (): boolean => {
+    const msg = profileReadyMessage(auth.user, auth.profile);
+    if (!msg) return true;
+    setJoinError(msg);
+    setShowProfile(true);
+    return false;
+  };
+
   const handleStartProject = () => {
     if (!auth.checkAuth()) {
       setShowAuth(true);
       return;
     }
+    if (!requireProfileForAction()) return;
     setWizardInitialEntry('create');
     setWizardInitialCategory(undefined);
     setWizardInitialSkills(undefined);
@@ -180,6 +185,7 @@ export default function Home() {
       setShowAuth(true);
       return;
     }
+    if (!requireProfileForAction()) return;
     setWizardInitialEntry('join');
     setShowWizard(true);
   };
@@ -353,7 +359,10 @@ export default function Home() {
       return;
     }
     if (!auth.user) return;
+    if (!requireProfileForAction()) return;
+
     setJoinError(null);
+    setJoinNotice(null);
     try {
       const result = await apiJoinProject(
         project.id,
@@ -361,7 +370,11 @@ export default function Home() {
         auth.user.skills?.[0] || 'member'
       );
       if (!result?.project) {
-        setJoinError('Could not join project — try again');
+        setJoinError('Could not send join request — try again');
+        return;
+      }
+      if (result.pending) {
+        setJoinNotice(result.message || 'Join request sent — waiting for creator approval');
         return;
       }
       const categoryTitle =
@@ -416,6 +429,14 @@ export default function Home() {
     );
   }
 
+  if (auth.isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f3f2ef] flex items-center justify-center">
+        <p className="text-sm text-[#666]">Loading…</p>
+      </div>
+    );
+  }
+
   if (auth.user && restoringProject) {
     return (
       <div className="min-h-screen bg-[#f3f2ef] flex items-center justify-center">
@@ -425,7 +446,7 @@ export default function Home() {
   }
 
   /* Signed in → same app (Home, Posts, Explore, etc.) for create and join */
-  if (auth.user) {
+  if (auth.user && auth.checkAuth()) {
     return (
       <ProfileViewProvider>
       <>
@@ -465,6 +486,21 @@ export default function Home() {
           }}
           onComplete={handleWizardComplete}
         />
+        {joinNotice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+            <div className="bg-white rounded-2xl border border-green-200 p-6 max-w-md w-full shadow-xl">
+              <h3 className="text-lg font-bold text-[#1d2226] mb-2">Request sent</h3>
+              <p className="text-sm text-[#666] mb-5">{joinNotice}</p>
+              <button
+                type="button"
+                onClick={() => setJoinNotice(null)}
+                className="w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
         {joinError && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl border border-red-200 p-6 max-w-md w-full shadow-xl">
