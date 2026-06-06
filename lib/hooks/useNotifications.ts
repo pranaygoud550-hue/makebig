@@ -17,16 +17,19 @@ export interface AppNotification {
   metadata?: Record<string, unknown>;
 }
 
-const API = getApiOrigin();
+const RENDER_API = getApiOrigin();
 
-function getJwtUserId(): string | null {
+function getJwtPayload(): { userId: string | null; contact: string | null } {
   const token = getAuthToken();
-  if (!token) return null;
+  if (!token) return { userId: null, contact: null };
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    return typeof payload.userId === 'string' ? payload.userId : null;
+    return {
+      userId: typeof payload.userId === 'string' ? payload.userId : null,
+      contact: typeof payload.contact === 'string' ? payload.contact.toLowerCase().trim() : null,
+    };
   } catch {
-    return null;
+    return { userId: null, contact: null };
   }
 }
 
@@ -47,10 +50,16 @@ export function normalizeNotification(n: Record<string, unknown>): AppNotificati
   };
 }
 
-function isForUser(notif: AppNotification, effectiveUserId: string, fallbackUserId?: string) {
+function isForUser(
+  notif: AppNotification,
+  effectiveUserId: string,
+  fallbackUserId?: string,
+  authContact?: string | null
+) {
   if (!notif.userId) return true;
   if (notif.userId === effectiveUserId) return true;
   if (fallbackUserId && notif.userId === fallbackUserId) return true;
+  if (authContact && notif.userId === authContact) return true;
   return false;
 }
 
@@ -58,18 +67,33 @@ export function useNotifications(userId?: string) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const effectiveUserId = useMemo(
-    () => getJwtUserId() || userId || '',
-    [userId]
-  );
+  const jwt = useMemo(() => getJwtPayload(), [userId]);
+  const effectiveUserId = jwt.userId || userId || jwt.contact || '';
 
   const fetchNotifications = useCallback(async () => {
-    if (!effectiveUserId) return;
+    if (!effectiveUserId && !jwt.contact) return;
     setLoading(true);
     try {
       const headers = await getAuthHeadersAsync();
-      const res = await fetch(`${API}/api/users/${effectiveUserId}/notifications`, {
+
+      // Primary: Vercel + Mongo (same JWT as OTP sign-in, no Render CORS)
+      const localRes = await fetch('/api/users/me/notifications', { headers, cache: 'no-store' });
+      if (localRes.ok) {
+        const data = await localRes.json();
+        if (data.success) {
+          setNotifications(
+            (data.data.notifications || []).map((n: Record<string, unknown>) =>
+              normalizeNotification(n)
+            )
+          );
+          return;
+        }
+      }
+
+      // Fallback: Render API
+      const res = await fetch(`${RENDER_API}/api/users/${effectiveUserId}/notifications`, {
         headers,
+        cache: 'no-store',
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -85,7 +109,7 @@ export function useNotifications(userId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, jwt.contact]);
 
   useEffect(() => {
     fetchNotifications();
@@ -98,7 +122,7 @@ export function useNotifications(userId?: string) {
 
     const onNotification = (raw: Record<string, unknown>) => {
       const notif = normalizeNotification(raw);
-      if (!isForUser(notif, effectiveUserId, userId)) return;
+      if (!isForUser(notif, effectiveUserId, userId, jwt.contact)) return;
       setNotifications((prev) => {
         if (prev.some((n) => n.id === notif.id)) return prev;
         return [notif, ...prev];
@@ -116,21 +140,27 @@ export function useNotifications(userId?: string) {
       socket?.off('notification_received', onNotification);
       socket?.disconnect();
     };
-  }, [effectiveUserId, userId]);
+  }, [effectiveUserId, userId, jwt.contact]);
 
   const markAllRead = useCallback(async () => {
-    if (!effectiveUserId) return;
+    if (!effectiveUserId && !jwt.contact) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
       const headers = await getAuthHeadersAsync();
-      await fetch(`${API}/api/users/${effectiveUserId}/notifications/read`, {
+      const localRes = await fetch('/api/users/me/notifications/read', {
+        method: 'PATCH',
+        headers,
+      });
+      if (localRes.ok) return;
+
+      await fetch(`${RENDER_API}/api/users/${effectiveUserId}/notifications/read`, {
         method: 'PATCH',
         headers,
       });
     } catch {
       /* ignore */
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, jwt.contact]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

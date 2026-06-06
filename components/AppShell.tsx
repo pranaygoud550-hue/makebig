@@ -89,10 +89,9 @@ export function AppShell({
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'notifications') {
-      markAllRead();
-    }
-  }, [activeTab, markAllRead]);
+    if (activeTab !== 'notifications') return;
+    void notificationsState.fetchNotifications().then(() => markAllRead());
+  }, [activeTab, notificationsState.fetchNotifications, markAllRead]);
 
   useEffect(() => {
     if (!user.contact || !currentProject || !projectNeedsSync(currentProject)) return;

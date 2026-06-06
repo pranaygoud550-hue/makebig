@@ -82,11 +82,11 @@ function toClient(doc) {
 }
 
 async function notificationUserIdForQuery(userIdParam, authContact, jwtUserId) {
+  const user = await findUserByContact(authContact);
+  const mongoId = user?._id?.toString() || null;
+  if (mongoId) return mongoId;
   if (jwtUserId) return jwtUserId;
-  if (normalizeContact(userIdParam) === authContact) {
-    const user = await User.findOne({ contact: authContact });
-    return user?._id?.toString() || null;
-  }
+  if (normalizeContact(userIdParam) === authContact) return authContact;
   return userIdParam;
 }
 
@@ -107,8 +107,17 @@ async function pushNotification({
   metadata,
 }) {
   try {
-    const uid = userId || (contact ? await userIdForContact(contact) : null);
+    let uid = userId || (contact ? await userIdForContact(contact) : null);
+    let contactNorm = contact ? normalizeContact(contact) : null;
+    if (!contactNorm && uid) {
+      const u = await User.findById(uid).lean();
+      contactNorm = u?.contact ? normalizeContact(u.contact) : null;
+    }
+    if (!uid && contactNorm) {
+      uid = await userIdForContact(contactNorm);
+    }
     if (!uid) return null;
+
     const notification = await Notification.create({
       userId: uid,
       projectId: projectId || undefined,
@@ -121,8 +130,8 @@ async function pushNotification({
     const payload = toClient(notification);
     payload.read = Boolean(notification.isRead);
     io.to(`user_${uid}`).emit("notification_received", payload);
-    if (contact) {
-      io.to(`contact_${normalizeContact(contact)}`).emit("notification_received", payload);
+    if (contactNorm) {
+      io.to(`contact_${contactNorm}`).emit("notification_received", payload);
     }
     return notification;
   } catch (err) {
@@ -401,7 +410,9 @@ app.get("/api/users/:userId/notifications", authMiddleware, async (req, res) => 
     if (!queryUserId) {
       return res.json(formatResponse(true, { notifications: [] }));
     }
-    const notifications = await Notification.find({ userId: queryUserId })
+    const notifications = await Notification.find({
+      $or: [{ userId: queryUserId }, { userId: authContact }],
+    })
       .sort({ createdAt: -1 })
       .limit(50);
     res.json(formatResponse(true, { notifications: notifications.map(toClient) }));
@@ -1007,16 +1018,21 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
     const memberDisplayName =
       memberName !== memberContact ? memberName : await displayNameForContact(memberContact);
 
-    const owner = await User.findOne({ contact: normalizeContact(project.ownerContact) });
-    if (owner) {
+    const ownerContact = normalizeContact(project.ownerContact);
+    if (ownerContact) {
       await pushNotification({
-        userId: owner._id.toString(),
+        contact: ownerContact,
         projectId: project._id,
         type: "join_request",
         title: "Join request",
         message: `${memberDisplayName} asked to join "${project.name}"`,
         actionUrl: `/projects/${project._id}`,
-        metadata: { memberContact, projectId: project._id.toString(), status: "pending" },
+        metadata: {
+          memberContact,
+          requesterContact: memberContact,
+          projectId: project._id.toString(),
+          status: "pending",
+        },
       });
     }
 
@@ -1457,7 +1473,7 @@ app.patch("/api/users/:userId/notifications/read", authMiddleware, async (req, r
     const queryUserId = await notificationUserIdForQuery(userId, authContact, req.user?.userId);
     if (queryUserId) {
       await Notification.updateMany(
-        { userId: queryUserId, isRead: false },
+        { $or: [{ userId: queryUserId }, { userId: authContact }], isRead: false },
         { $set: { isRead: true } }
       );
     }
