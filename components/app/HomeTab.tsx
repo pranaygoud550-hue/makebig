@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ProjectFeed } from '@/components/ProjectFeed';
 import { ProjectDetailSheet, SearchProjectHit } from '@/components/app/ProjectDetailSheet';
 import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
 import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
@@ -10,17 +9,31 @@ import { BrowseProject } from '@/lib/api';
 import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
-import { getInitials } from '@/lib/utils';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
-interface SearchPerson {
-  id?: string;
-  name: string;
-  contact: string;
-  skills?: string[];
-  college?: string;
-  hobbies?: string[];
-}
+const STARTUP_TOOLS = [
+  {
+    href: '/idea-validator',
+    icon: '✨',
+    title: 'AI Idea Validator',
+    desc: 'Score market fit, competition, and viability before you build.',
+    accent: 'border-[#0A66C2]/25 bg-gradient-to-br from-[#EEF3FB] to-white',
+  },
+  {
+    href: '/ecosystem',
+    icon: '🗺️',
+    title: 'Ecosystem roadmap',
+    desc: 'See what’s live today and what’s coming next on MakeBig.',
+    accent: 'border-[#e0e0e0] bg-white',
+  },
+  {
+    href: '/learn',
+    icon: '📚',
+    title: 'Learn & build',
+    desc: 'Pick up skills, then spin up a project with your team.',
+    accent: 'border-[#e0e0e0] bg-white',
+  },
+] as const;
 
 interface HomeStats {
   totalProjects: number;
@@ -45,7 +58,6 @@ export function HomeTab({
   const [debounced, setDebounced] = useState('');
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<SearchProjectHit[]>([]);
-  const [people, setPeople] = useState<SearchPerson[]>([]);
   const [recommendations, setRecommendations] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [stats, setStats] = useState<HomeStats>({
@@ -86,12 +98,10 @@ export function HomeTab({
             filterAllowedProjects(data.data?.projects || [])
           ) as SearchProjectHit[]
         );
-        setPeople(data.data?.people || []);
         setRecommendations(Boolean(data.data?.recommendations));
       }
     } catch {
       setProjects([]);
-      setPeople([]);
     } finally {
       setLoading(false);
     }
@@ -123,27 +133,27 @@ export function HomeTab({
   const firstName = userName?.split(' ')[0] || 'there';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0A66C2] via-[#004182] to-[#1d2226] p-6 text-white shadow-lg">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-[#22c55e]/20 rounded-full blur-2xl pointer-events-none" />
         <div className="relative">
-          <p className="text-xs font-bold uppercase tracking-wider text-white/70">Dashboard</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-white/70">Home</p>
           <h1 className="text-2xl sm:text-3xl font-black mt-1">
             Welcome back, {firstName}
           </h1>
           <p className="text-sm sm:text-base text-white/85 mt-2 max-w-xl leading-relaxed">
-            Build, collaborate, and launch amazing projects with talented people around the world.
+            Discover startups, open roles, and tools to validate and launch your next idea.
           </p>
           <div className="grid grid-cols-3 gap-3 mt-5">
             {[
-              { label: 'Total projects', value: stats.totalProjects },
+              { label: 'Projects', value: stats.totalProjects },
               { label: 'Open roles', value: stats.openRoles },
               { label: 'Teams hiring', value: stats.teamsHiring },
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-xl bg-white/10 border border-white/15 px-3 py-2.5 backdrop-blur-sm"
+                className="rounded-xl bg-white/10 border border-white/15 px-3 py-2.5 backdrop-blur-sm text-center sm:text-left"
               >
                 <p className="text-lg sm:text-xl font-black">{s.value}</p>
                 <p className="text-[10px] sm:text-xs text-white/75 font-medium leading-tight mt-0.5">
@@ -155,170 +165,134 @@ export function HomeTab({
         </div>
       </section>
 
-      <div className="px-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <Link
-          href="/idea-validator"
-          className="flex items-center justify-between gap-2 rounded-xl border border-[#0A66C2]/20 bg-[#0A66C2]/5 px-4 py-3 text-sm font-semibold text-[#0A66C2] hover:bg-[#0A66C2]/10 transition-colors"
-        >
-          <span>AI Idea Validator</span>
-          <span aria-hidden>→</span>
-        </Link>
-        <Link
-          href="/ecosystem"
-          className="flex items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] bg-white px-4 py-3 text-sm font-semibold text-[#1d2226] hover:border-[#0A66C2]/40 transition-colors"
-        >
-          <span>Ecosystem roadmap</span>
-          <span aria-hidden>→</span>
-        </Link>
-        <Link
-          href="/learn"
-          className="flex items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] bg-white px-4 py-3 text-sm font-semibold text-[#1d2226] hover:border-[#0A66C2]/40 transition-colors"
-        >
-          <span>Learn & build</span>
-          <span aria-hidden>→</span>
-        </Link>
-      </div>
-
-      <header className="px-1 space-y-3">
+      <section className="space-y-3">
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666] text-sm">🔍</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#666] text-sm pointer-events-none">
+            🔍
+          </span>
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects, skills, colleges, people…"
-            className="w-full pl-9 pr-4 py-3 rounded-full border border-[#d9d9d9] bg-white text-sm text-[#1d2226] placeholder:text-[#999] focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/30 focus:border-[#0A66C2]"
+            placeholder="Search projects, skills, or categories…"
+            className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-[#d9d9d9] bg-white text-sm text-[#1d2226] placeholder:text-[#999] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/30 focus:border-[#0A66C2]"
           />
         </div>
-      </header>
 
-      {showResults && (
-        <section className="space-y-4">
-          <p className="text-xs font-bold text-[#666] uppercase tracking-wide px-1">
-            {debounced ? `Results for “${debounced}”` : 'Recommended for you'}
-          </p>
+        {showResults && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-[#666] uppercase tracking-wide px-0.5">
+              {debounced ? `Results for “${debounced}”` : 'Recommended projects'}
+            </p>
 
-          {loading && (
-            <p className="text-sm text-[#666] text-center py-6">Searching…</p>
-          )}
+            {loading && (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 bg-white rounded-xl border border-[#e0e0e0] animate-pulse" />
+                ))}
+              </div>
+            )}
 
-          {!loading && projects.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[#1d2226] px-1">Projects</p>
+            {!loading && projects.length > 0 && (
               <ul className="space-y-2">
                 {projects.map((p) => {
                   const owner = isProjectOwner(userContact, p.ownerContact);
                   return (
                     <li key={p.id}>
-                      <div className="w-full text-left bg-white rounded-xl border border-[#e0e0e0] p-4 hover:border-[#0A66C2]/40 hover:shadow-sm transition-all">
+                      <div className="bg-white rounded-xl border border-[#e0e0e0] p-4 hover:border-[#0A66C2]/35 hover:shadow-sm transition-all">
                         <button
                           type="button"
                           onClick={() => openProject(p.id)}
                           className="w-full text-left"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold text-[#1d2226]">{p.name}</p>
-                            {owner && (
-                              <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EEF3FB] text-[#0A66C2] border border-[#0A66C2]/20">
-                                Your project
-                              </span>
-                            )}
-                          </div>
-                          {p.desc && (
-                            <p className="text-xs text-[#666] mt-1 line-clamp-2">{p.desc}</p>
-                          )}
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {(p.roles || []).slice(0, 3).map((r) => (
-                              <span
-                                key={r}
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-[#EEF3FB] text-[#0A66C2] font-medium"
-                              >
-                                {r}
-                              </span>
-                            ))}
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-[#EEF3FB] text-[#0A66C2] flex items-center justify-center text-sm font-black shrink-0">
+                              {p.name.charAt(0)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="font-semibold text-[#1d2226]">{p.name}</p>
+                                {owner && (
+                                  <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EEF3FB] text-[#0A66C2] border border-[#0A66C2]/20">
+                                    Yours
+                                  </span>
+                                )}
+                              </div>
+                              {p.desc && (
+                                <p className="text-xs text-[#666] mt-1 line-clamp-2">{p.desc}</p>
+                              )}
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {(p.roles || []).slice(0, 3).map((r) => (
+                                  <span
+                                    key={r}
+                                    className="text-[10px] px-2 py-0.5 rounded-full bg-[#f3f2ef] text-[#444] font-medium"
+                                  >
+                                    {r}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </button>
-                        {p.slug && (
-                          <Link
-                            href={`/startup/${p.slug}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-2 inline-block text-xs font-semibold text-[#0A66C2] hover:underline"
-                          >
-                            View startup profile →
-                          </Link>
-                        )}
-                        {owner && onOpenDashboard && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenDashboard('dashboard')}
-                            className="mt-3 w-full py-2 rounded-full border border-[#0A66C2] text-[#0A66C2] text-xs font-semibold hover:bg-[#EEF3FB]"
-                          >
-                            Manage project
-                          </button>
-                        )}
+                        <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[#f0f0f0]">
+                          {p.slug && (
+                            <Link
+                              href={`/startup/${p.slug}`}
+                              className="text-xs font-semibold text-[#0A66C2] hover:underline"
+                            >
+                              Startup profile →
+                            </Link>
+                          )}
+                          {owner && onOpenDashboard && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenDashboard('dashboard')}
+                              className="text-xs font-semibold text-[#666] hover:text-[#0A66C2]"
+                            >
+                              Manage →
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </li>
                   );
                 })}
               </ul>
-            </div>
-          )}
+            )}
 
-          {!loading && people.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[#1d2226] px-1">People</p>
-              <ul className="space-y-2">
-                {people.map((person) => (
-                  <li
-                    key={person.contact}
-                    className="bg-white rounded-xl border border-[#e0e0e0] p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="w-10 h-10 rounded-full bg-[#0A66C2] text-white flex items-center justify-center text-sm font-bold shrink-0">
-                        {getInitials(person.name || person.contact)}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[#1d2226] text-sm">{person.name}</p>
-                        {person.college && (
-                          <p className="text-xs text-[#666]">{person.college}</p>
-                        )}
-                        {(person.skills?.length || 0) > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {person.skills!.slice(0, 6).map((s) => (
-                              <span
-                                key={s}
-                                className="text-[10px] px-1.5 py-0.5 rounded bg-[#f3f2ef] text-[#444]"
-                              >
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {!loading && !projects.length && !people.length && debounced && (
-            <p className="text-sm text-[#666] text-center py-6">
-              No matches — try another skill, project name, or college.
-            </p>
-          )}
-        </section>
-      )}
+            {!loading && !projects.length && debounced && (
+              <p className="text-sm text-[#666] text-center py-8 bg-white rounded-xl border border-dashed border-[#d9d9d9]">
+                No projects found — try another name, skill, or category.
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       <FeaturedStartupsSection embedded />
       <StartupJourneyFeed embedded />
 
-      <section className="space-y-3 pt-2 border-t border-[#e0e0e0]">
-        <header className="px-1">
-          <h2 className="text-base font-bold text-[#1d2226]">Recent activity</h2>
-          <p className="text-sm text-[#666] mt-0.5">Posts and updates from across Make Big</p>
-        </header>
-        <ProjectFeed global userContact={userContact} />
+      <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 sm:p-6">
+        <div className="mb-4">
+          <p className="text-xs font-bold text-[#0A66C2] uppercase tracking-widest">Startup tools</p>
+          <h2 className="text-lg font-bold text-[#1d2226] mt-0.5">Validate, learn, and grow</h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {STARTUP_TOOLS.map((tool) => (
+            <Link
+              key={tool.href}
+              href={tool.href}
+              className={`group flex flex-col rounded-xl border p-4 transition-all hover:border-[#0A66C2]/40 hover:shadow-sm ${tool.accent}`}
+            >
+              <span className="text-2xl mb-2">{tool.icon}</span>
+              <p className="text-sm font-bold text-[#1d2226] group-hover:text-[#0A66C2] transition-colors">
+                {tool.title}
+              </p>
+              <p className="text-xs text-[#666] mt-1 leading-relaxed flex-1">{tool.desc}</p>
+              <span className="text-xs font-semibold text-[#0A66C2] mt-3">Open →</span>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <ProjectDetailSheet

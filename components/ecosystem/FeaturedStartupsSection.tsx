@@ -43,11 +43,13 @@ export function FeaturedStartupsSection({ embedded = false }: FeaturedStartupsSe
   return (
     <section className={sectionClass}>
       <div className={embedded ? 'px-4 sm:px-5' : 'max-w-6xl mx-auto px-4 sm:px-6'}>
-        <div className="mb-8">
+        <div className={embedded ? 'mb-4' : 'mb-8'}>
           <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">
             🏆 Featured Startups This Week
           </p>
-          <h2 className="text-2xl font-bold text-[#1d2226]">Building in public on MakeBig</h2>
+          <h2 className={`font-bold text-[#1d2226] ${embedded ? 'text-lg' : 'text-2xl'}`}>
+            Building in public on MakeBig
+          </h2>
           {weekStart && (
             <p className="text-sm text-[#666] mt-1">Week of {weekStart}</p>
           )}
