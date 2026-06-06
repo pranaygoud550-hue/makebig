@@ -65,14 +65,14 @@ export default function IdeaValidatorPage() {
 
   return (
     <div className="min-h-screen bg-[#f3f2ef]">
-      <header className="bg-white border-b border-[#d9d9d9] px-4 py-3">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      <header className="bg-white border-b border-[#d9d9d9] px-4 sm:px-6 lg:px-8 py-3">
+        <div className="w-full flex items-center justify-between">
           <Link href="/"><BrandLogo /></Link>
           <Link href="/" className="text-sm text-[#0A66C2] font-semibold">← Home</Link>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div>
           <h1 className="text-2xl font-black text-[#1d2226]">AI Idea Validator</h1>
           <p className="text-sm text-[#666] mt-1">Validate your startup idea before you build</p>
@@ -90,7 +90,7 @@ export default function IdeaValidatorPage() {
                     rows={field === 'problemStatement' ? 3 : 1}
                     value={form[field]}
                     onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-                    className="mt-1 w-full border border-[#d9d9d9] rounded-xl px-3 py-2 text-sm"
+                    className="mt-1 w-full bg-white text-[#1d2226] border border-[#d9d9d9] rounded-xl px-3 py-2 text-sm placeholder:text-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20"
                     required={field === 'ideaName'}
                   />
                 </div>

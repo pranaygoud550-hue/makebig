@@ -158,7 +158,7 @@ export function MarketingHomepage({
         <div className="absolute bottom-10 -right-16 w-96 h-96 bg-[#22c55e]/10 rounded-full blur-3xl animate-float-slower pointer-events-none" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#0A66C2]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-6xl mx-auto px-4 py-16 md:py-24 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-16 md:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <div className="animate-rise-in text-center lg:text-left">
             <span className="inline-flex items-center gap-2 px-3 py-1 bg-white text-[#0A66C2] text-xs font-bold rounded-full uppercase tracking-wider mb-5 border border-[#0A66C2]/20 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#0A66C2] animate-pulse" />
@@ -210,7 +210,7 @@ export function MarketingHomepage({
 
       {/* ── Social proof ── */}
       <section className="bg-[#0A66C2] py-8 px-4">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div className="w-full px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {STATS.map((s) => (
             <div key={s.label}>
               <p className="text-3xl md:text-4xl font-black text-white">{s.value}</p>
@@ -222,7 +222,7 @@ export function MarketingHomepage({
 
       {/* ── Learn CTA (full dashboard at /learn) ── */}
       <section className="bg-white py-12 px-4 border-b border-[#e0e0e0]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="max-w-xl">
             <p className="text-xs font-bold uppercase tracking-wide text-[#0A66C2] mb-2">
               Learn course → Do project
@@ -246,7 +246,7 @@ export function MarketingHomepage({
 
       {/* ── Feature preview cards ── */}
       <section className="bg-white py-16 md:py-20 px-4 border-b border-[#e0e0e0]">
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">
               Everything you need to go from idea to shipped
@@ -288,7 +288,7 @@ export function MarketingHomepage({
       <StartupJourneyFeed />
 
       <section className="bg-white border-t border-[#e0e0e0] py-14 px-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-6">
             <div>
               <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">Browse by category</h2>
@@ -315,7 +315,7 @@ export function MarketingHomepage({
       </section>
 
       <section className="bg-[#f3f2ef] py-14 px-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">How it works</h2>
             <p className="text-[#666] text-sm mt-1">From idea to launch in four simple steps</p>

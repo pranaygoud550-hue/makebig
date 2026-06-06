@@ -15,7 +15,11 @@ interface StartupEcosystemPanelsProps {
   isOwner?: boolean;
 }
 
+const fieldClass =
+  'w-full border border-[#d9d9d9] rounded-xl px-3 py-2 text-sm bg-white text-[#1d2226] placeholder:text-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20';
+
 export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemPanelsProps) {
+  const [configured, setConfigured] = useState(false);
   const [journey, setJourney] = useState<{
     currentStage: JourneyStageId;
     completionPercent: number;
@@ -27,6 +31,7 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
   const [editNote, setEditNote] = useState('');
   const [editStage, setEditStage] = useState<JourneyStageId>('idea');
   const [editPct, setEditPct] = useState(0);
+  const [editNextMilestone, setEditNextMilestone] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -36,9 +41,11 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
       fetch(`/api/projects/${projectId}/readiness`).then((r) => r.json()),
     ]).then(([j, h, r]) => {
       if (j.success) {
+        setConfigured(Boolean(j.data.configured));
         setJourney(j.data.journey);
-        setEditStage(j.data.journey.currentStage);
-        setEditPct(j.data.journey.completionPercent);
+        setEditStage(j.data.journey?.currentStage || 'idea');
+        setEditPct(j.data.journey?.completionPercent || 0);
+        setEditNextMilestone(j.data.journey?.nextMilestone || '');
       }
       if (h.success) setHealth(h.data);
       if (r.success) setReadiness(r.data);
@@ -62,11 +69,13 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
         body: JSON.stringify({
           currentStage: editStage,
           completionPercent: editPct,
-          note: editNote || undefined,
+          nextMilestone: editNextMilestone.trim() || undefined,
+          note: editNote.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
+        setConfigured(Boolean(data.data.configured));
         setJourney(data.data.journey);
         setEditNote('');
         load();
@@ -76,25 +85,41 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
     }
   };
 
+  const showHealth =
+    health &&
+    (configured || health.score > 0 || health.heatmap.some((h) => h.count > 0));
+  const showReadiness = readiness && (configured || readiness.overall > 0);
+
   return (
     <div className="space-y-5">
-      {journey && (
+      {configured && journey ? (
         <ProjectTimeline
           currentStage={journey.currentStage}
           completionPercent={journey.completionPercent}
           nextMilestone={journey.nextMilestone}
           lastUpdated={journey.lastUpdated}
         />
+      ) : (
+        <section className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-5 text-center">
+          <p className="text-sm font-semibold text-[#1d2226]">Startup journey not started</p>
+          <p className="text-xs text-[#666] mt-1 max-w-sm mx-auto">
+            {isOwner
+              ? 'Save your first milestone below to start tracking stages on your public profile.'
+              : 'The founder has not published their journey timeline yet.'}
+          </p>
+        </section>
       )}
 
       {isOwner && (
-        <div className="bg-[#EEF3FB] rounded-2xl border border-[#0A66C2]/20 p-4 space-y-3">
-          <p className="text-xs font-bold text-[#0A66C2] uppercase">Update journey</p>
+        <div className="bg-[#EEF3FB] rounded-2xl border border-[#0A66C2]/20 p-4 space-y-3 [color-scheme:light]">
+          <p className="text-xs font-bold text-[#0A66C2] uppercase">
+            {configured ? 'Update journey' : 'Start your journey'}
+          </p>
           <div className="grid sm:grid-cols-2 gap-3">
             <select
               value={editStage}
               onChange={(e) => setEditStage(e.target.value as JourneyStageId)}
-              className="border border-[#d9d9d9] rounded-xl px-3 py-2 text-sm bg-white"
+              className={fieldClass}
             >
               {JOURNEY_STAGES.map((s) => (
                 <option key={s.id} value={s.id}>{s.label}</option>
@@ -106,15 +131,22 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
               max={100}
               value={editPct}
               onChange={(e) => setEditPct(Number(e.target.value))}
-              className="border border-[#d9d9d9] rounded-xl px-3 py-2 text-sm"
+              className={fieldClass}
               placeholder="Completion %"
             />
           </div>
+          <input
+            type="text"
+            value={editNextMilestone}
+            onChange={(e) => setEditNextMilestone(e.target.value)}
+            className={fieldClass}
+            placeholder="Next milestone (optional)"
+          />
           <textarea
             value={editNote}
             onChange={(e) => setEditNote(e.target.value)}
             placeholder="Milestone update (optional)"
-            className="w-full border border-[#d9d9d9] rounded-xl px-3 py-2 text-sm"
+            className={fieldClass}
             rows={2}
           />
           <button
@@ -123,19 +155,21 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
             disabled={saving}
             className="px-4 py-2 bg-[#0A66C2] text-white rounded-xl text-sm font-semibold disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save milestone'}
+            {saving ? 'Saving…' : configured ? 'Save milestone' : 'Start tracking'}
           </button>
         </div>
       )}
 
-      {health && (
+      {showHealth && (
         <>
-          <ProjectHealthMeter health={health} />
-          {health.heatmap.length > 0 && <ActivityHeatmap heatmap={health.heatmap} />}
+          <ProjectHealthMeter health={health!} />
+          {health!.heatmap.some((h) => h.count > 0) && (
+            <ActivityHeatmap heatmap={health!.heatmap} />
+          )}
         </>
       )}
 
-      {readiness && <StartupReadinessDashboard scores={readiness} />}
+      {showReadiness && <StartupReadinessDashboard scores={readiness!} />}
     </div>
   );
 }

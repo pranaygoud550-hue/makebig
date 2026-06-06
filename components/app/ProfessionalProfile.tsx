@@ -22,6 +22,8 @@ import { VerifiedSkillsSection } from '@/components/skillVerification/VerifiedSk
 import { ReputationPanel } from '@/components/ecosystem/ReputationPanel';
 
 const MAX_IMAGE_BYTES = 900_000;
+const FIELD =
+  'w-full bg-white text-[#1d2226] border border-[#d9d9d9] rounded-lg px-3 py-2 text-sm placeholder:text-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20 [color-scheme:light]';
 const draftKey = (contact: string) => `makeBigProfileDraft:${contact}`;
 
 interface ProfessionalProfileProps {
@@ -218,23 +220,19 @@ export function ProfessionalProfile({
 
   const shellClass =
     variant === 'page'
-      ? 'min-h-screen bg-[#f3f2ef]'
-      : 'fixed inset-0 z-[60] flex justify-center';
+      ? 'min-h-screen bg-[#f3f2ef] w-full'
+      : 'fixed inset-0 z-[60] flex flex-col bg-[#f3f2ef] w-full h-full';
 
   const cardClass =
     variant === 'page'
-      ? 'max-w-2xl mx-auto pb-16'
-      : 'relative w-full max-w-2xl h-full sm:h-auto sm:max-h-[92vh] sm:my-auto bg-[#f3f2ef] sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col';
+      ? 'w-full px-4 sm:px-6 lg:px-8 pb-16'
+      : 'relative w-full h-full bg-[#f3f2ef] overflow-y-auto flex flex-col';
 
   return (
     <div className={shellClass}>
-      {variant === 'panel' && onClose && (
-        <button type="button" className="absolute inset-0 bg-black/45" aria-label="Close" onClick={onClose} />
-      )}
-
       {variant === 'page' && (
         <header className="bg-white border-b border-[#e0e0e0] sticky top-0 z-30">
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
             <Link href="/" className="text-lg font-black text-[#0A66C2]">
               Make Big
             </Link>
@@ -251,9 +249,9 @@ export function ProfessionalProfile({
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 text-white text-lg hover:bg-white/30"
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 px-3 py-1.5 rounded-full bg-white/90 text-[#1d2226] text-sm font-semibold border border-[#e0e0e0] hover:bg-white shadow-sm"
             >
-              ×
+              Close
             </button>
           )}
         </div>
@@ -284,7 +282,7 @@ export function ProfessionalProfile({
                       <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full text-2xl font-bold text-[#1d2226] border border-[#d9d9d9] rounded-lg px-3 py-1.5"
+                        className={`${FIELD} text-2xl font-bold py-1.5`}
                       />
                     ) : (
                       <h1 className="text-2xl font-bold text-[#1d2226]">{name}</h1>
@@ -432,7 +430,7 @@ export function ProfessionalProfile({
                         value={tagline}
                         onChange={(e) => setTagline(e.target.value)}
                         placeholder="Full-stack developer · Building for campus"
-                        className="w-full text-sm border border-[#d9d9d9] rounded-lg px-3 py-2"
+                        className={FIELD}
                       />
                     ) : (
                       <p className="text-sm text-[#1d2226]">{displayTagline}</p>
@@ -448,7 +446,7 @@ export function ProfessionalProfile({
                       onChange={(e) => setBio(e.target.value)}
                       rows={5}
                       placeholder="Your story, experience, and what you want to build with a team…"
-                      className="w-full text-sm border border-[#d9d9d9] rounded-lg px-3 py-2 resize-none"
+                      className={`${FIELD} resize-none`}
                     />
                   ) : (
                     <p className="text-sm text-[#1d2226] leading-relaxed whitespace-pre-wrap">
@@ -470,7 +468,7 @@ export function ProfessionalProfile({
                         onChange={(e) => setSkillInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                         placeholder="Add skill"
-                        className="flex-1 text-sm border border-[#d9d9d9] rounded-lg px-3 py-2"
+                        className={`flex-1 ${FIELD}`}
                       />
                       <button type="button" onClick={addSkill} className="px-3 text-sm font-semibold text-[#0A66C2]">
                         Add
@@ -510,7 +508,7 @@ export function ProfessionalProfile({
                         onChange={(e) => setPortfolio(e.target.value)}
                         rows={3}
                         placeholder="One link per line — GitHub, LinkedIn, Behance, demo site…"
-                        className="w-full text-sm border border-[#d9d9d9] rounded-lg px-3 py-2 resize-none font-mono"
+                        className={`${FIELD} resize-none font-mono`}
                       />
                     ) : (
                       <ul className="space-y-2">
@@ -605,7 +603,7 @@ export function ProfessionalProfile({
                         <select
                           value={role}
                           onChange={(e) => setRole(e.target.value as Profile['role'])}
-                          className="mt-1 w-full border border-[#d9d9d9] rounded-lg px-3 py-2 text-sm"
+                          className={`mt-1 ${FIELD}`}
                         >
                           <option value="member">Team member</option>
                           <option value="creator">Project creator</option>
@@ -626,14 +624,14 @@ export function ProfessionalProfile({
                           value={rateMin}
                           onChange={(e) => setRateMin(e.target.value)}
                           placeholder="Rate min (INR)"
-                          className="text-sm border border-[#d9d9d9] rounded-lg px-3 py-2"
+                          className={FIELD}
                         />
                         <input
                           type="number"
                           value={rateMax}
                           onChange={(e) => setRateMax(e.target.value)}
                           placeholder="Rate max"
-                          className="text-sm border border-[#d9d9d9] rounded-lg px-3 py-2"
+                          className={FIELD}
                         />
                       </div>
                     </section>

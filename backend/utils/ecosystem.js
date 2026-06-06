@@ -43,6 +43,40 @@ export function journeyTimeline(currentStage) {
   }));
 }
 
+const DEMO_NEXT_MILESTONE = 'Complete problem research';
+
+export function isJourneyConfigured(journey) {
+  if (!journey) return false;
+  if (journey.configured === true) return true;
+  if ((journey.stageNotes?.length || 0) > 0) return true;
+  if ((journey.completionPercent || 0) > 0) return true;
+  if (journey.currentStage && journey.currentStage !== 'idea') return true;
+  if (journey.nextMilestone?.trim() && journey.nextMilestone !== DEMO_NEXT_MILESTONE) return true;
+  return false;
+}
+
+export function sanitizeJourneyForApi(journey) {
+  const configured = isJourneyConfigured(journey);
+  if (!configured) {
+    return {
+      configured: false,
+      journey: { currentStage: 'idea', completionPercent: 0, stageNotes: [] },
+    };
+  }
+  const nextMilestone =
+    journey?.nextMilestone === DEMO_NEXT_MILESTONE ? undefined : journey?.nextMilestone;
+  return {
+    configured: true,
+    journey: {
+      currentStage: journey?.currentStage || 'idea',
+      completionPercent: journey?.completionPercent ?? 0,
+      nextMilestone,
+      lastUpdated: journey?.lastUpdated,
+      stageNotes: journey?.stageNotes || [],
+    },
+  };
+}
+
 export function healthLevel(score) {
   return HEALTH_LEVELS.find((l) => score >= l.min) || HEALTH_LEVELS[HEALTH_LEVELS.length - 1];
 }

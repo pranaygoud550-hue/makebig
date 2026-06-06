@@ -34,7 +34,7 @@ export default function EcosystemPage() {
   return (
     <div className="min-h-screen bg-[#f3f2ef]">
       <header className="bg-white border-b border-[#d9d9d9] sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <BrandLogo size="sm" />
           <Link href="/" className="text-sm font-semibold text-[#0A66C2] hover:underline">
             ← Back to app
@@ -42,7 +42,7 @@ export default function EcosystemPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-10 space-y-10">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-10 space-y-10">
         <div>
           <p className="text-xs font-bold text-[#0A66C2] uppercase tracking-widest">MakeBig Ecosystem</p>
           <h1 className="text-3xl font-black text-[#1d2226] mt-1">Startup building platform</h1>

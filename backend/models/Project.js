@@ -115,11 +115,11 @@ const projectSchema = new mongoose.Schema(
       currentStage: {
         type: String,
         enum: ['idea', 'research', 'prototype', 'mvp', 'beta', 'launch', 'revenue', 'scaling'],
-        default: 'idea',
       },
-      completionPercent: { type: Number, default: 0, min: 0, max: 100 },
-      nextMilestone: { type: String, default: 'Complete problem research' },
-      lastUpdated: { type: Date, default: Date.now },
+      completionPercent: { type: Number, min: 0, max: 100 },
+      configured: { type: Boolean },
+      nextMilestone: { type: String },
+      lastUpdated: { type: Date },
       stageNotes: [
         {
           stage: String,

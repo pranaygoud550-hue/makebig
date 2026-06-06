@@ -141,7 +141,7 @@ export function ExploreView({
     <div className={embedded ? '' : 'min-h-screen bg-[#f3f2ef]'}>
       {!embedded && (
         <header className="sticky top-0 z-40 bg-white border-b border-[#d9d9d9] shadow-sm">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
             <Link href="/" className="text-xl font-black text-[#0A66C2] tracking-tight">
               Make Big
             </Link>
@@ -156,7 +156,7 @@ export function ExploreView({
         </header>
       )}
 
-      <main className={embedded ? 'px-0 py-2' : 'max-w-6xl mx-auto px-4 sm:px-6 py-8'}>
+      <main className={embedded ? 'px-0 py-2 w-full' : 'w-full px-4 sm:px-6 lg:px-8 py-8'}>
         {embedded && <div className="mb-4">{searchInput}</div>}
 
         <div className="mb-4">

@@ -419,7 +419,7 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
 
         {/* Main Content — full width until sidebar opens */}
         <main className="flex-1 overflow-y-auto bg-[#f3f2ef] w-full min-w-0">
-          <div className={`p-4 md:p-6 pb-24 mx-auto w-full ${sidebarOpen ? 'max-w-5xl' : 'max-w-none'}`}>
+          <div className="p-4 md:p-6 lg:px-8 pb-24 mx-auto w-full max-w-none">
 
             {activeNav === 'dashboard' && (
               <DashboardOverview

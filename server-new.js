@@ -69,6 +69,7 @@ import {
   computeUserReputation,
   getFeaturedStartups,
   journeyTimeline,
+  sanitizeJourneyForApi,
   recordJourneyActivity,
   notifyFollowers,
   INVITE_ROLE_TYPES,
@@ -1335,10 +1336,10 @@ app.get("/api/projects/:projectId/journey", async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId).lean();
     if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
-    const journey = project.journey || { currentStage: "idea", completionPercent: 0, stageNotes: [] };
+    const journeyPayload = sanitizeJourneyForApi(project.journey);
     res.json(formatResponse(true, {
-      journey,
-      timeline: journeyTimeline(journey.currentStage || "idea"),
+      ...journeyPayload,
+      timeline: journeyTimeline(journeyPayload.journey?.currentStage || "idea"),
     }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1360,6 +1361,7 @@ app.put("/api/projects/:projectId/journey", authMiddleware, async (req, res) => 
       project.journey.completionPercent = Math.max(0, Math.min(100, completionPercent));
     }
     if (nextMilestone) project.journey.nextMilestone = clampString(nextMilestone, 200);
+    project.journey.configured = true;
     project.journey.lastUpdated = new Date();
 
     if (note) {
@@ -1403,8 +1405,8 @@ app.put("/api/projects/:projectId/journey", authMiddleware, async (req, res) => 
     await computeProjectHealth(Project, User, Post, Activity, project._id.toString());
 
     res.json(formatResponse(true, {
-      journey: project.journey,
-      timeline: journeyTimeline(project.journey.currentStage),
+      ...sanitizeJourneyForApi(project.journey),
+      timeline: journeyTimeline(project.journey.currentStage || "idea"),
     }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
@@ -1638,6 +1640,8 @@ app.get("/api/startup/:slug", async (req, res) => {
       ? Math.floor((Date.now() - new Date(project.createdAt)) / 86400000)
       : 0;
 
+    const journeyPayload = sanitizeJourneyForApi(project.journey);
+
     res.json(formatResponse(true, {
       startup: {
         id: project._id.toString(),
@@ -1651,8 +1655,11 @@ app.get("/api/startup/:slug", async (req, res) => {
         city: project.city,
         state: project.state,
         owner: { name: owner?.name, contact: owner?.contact },
-        journey: project.journey,
-        timeline: journeyTimeline(project.journey?.currentStage || "idea"),
+        journeyConfigured: journeyPayload.configured,
+        journey: journeyPayload.configured ? journeyPayload.journey : null,
+        timeline: journeyPayload.configured
+          ? journeyTimeline(journeyPayload.journey?.currentStage || "idea")
+          : [],
         startupReadiness: project.startupReadiness,
         health: project.health,
         featured: project.featured,

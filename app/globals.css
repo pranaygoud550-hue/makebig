@@ -10,6 +10,7 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: light;
 }
 
 body {
@@ -17,6 +18,19 @@ body {
   color: #1d2226;
   font-family: inherit;
   overflow-x: hidden;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='button']):not([type='submit']),
+select,
+textarea {
+  background-color: #ffffff;
+  color: #1d2226;
+  color-scheme: light;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #999999;
 }
 
 input, select, textarea {

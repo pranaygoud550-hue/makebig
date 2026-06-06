@@ -107,9 +107,11 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
       {apiOnline === false && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-900">
+        <div className="bg-white border-b border-[#e0e0e0] px-4 sm:px-6 py-2.5 text-center text-sm text-[#666]">
           Backend API is offline — posts, team chat, and AI need the Render API. Check{' '}
-          <code className="font-mono text-xs bg-white/80 px-1 rounded">NEXT_PUBLIC_API_URL</code>{' '}
+          <code className="font-mono text-xs bg-[#f3f2ef] text-[#1d2226] px-1.5 py-0.5 rounded border border-[#e0e0e0]">
+            NEXT_PUBLIC_API_URL
+          </code>{' '}
           on Vercel and that Render is awake.
         </div>
       )}
@@ -142,7 +144,7 @@ export function AppShell({
         onLogout={onLogout}
       />
 
-      <main className="flex-1 pb-20 max-w-4xl w-full mx-auto px-4 py-4">
+      <main className="flex-1 pb-20 w-full px-4 sm:px-6 lg:px-8 py-4">
         {activeTab === 'home' && (
           <HomeTab
             userName={user.name}

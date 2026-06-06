@@ -31,7 +31,7 @@ export function AppTopBar({
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-[#d9d9d9] shadow-sm">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
         <div className="min-w-0 shrink">
           <BrandLogo size="sm" href={null} />
           {hasProject && (

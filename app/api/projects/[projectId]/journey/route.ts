@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectMongoServer } from '@/lib/mongoServer';
-import { journeyTimeline } from '@/lib/ecosystem/journey';
+import { journeyTimeline, sanitizeJourneyForApi } from '@/lib/ecosystem/journey';
 import type { JourneyStageId } from '@/lib/ecosystem/constants';
 import { verifyAuthFromRequest } from '@/lib/verifyAuthToken';
 
@@ -18,23 +18,13 @@ export async function GET(
     if (!project) {
       return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
     }
-    const journey = project.journey || {
-      currentStage: 'idea',
-      completionPercent: 0,
-      stageNotes: [],
-    };
-    const j = journey as { currentStage?: string; completionPercent?: number; lastUpdated?: Date | string; stageNotes?: unknown[]; nextMilestone?: string };
-    const lastUpdated =
-      j.lastUpdated instanceof Date
-        ? j.lastUpdated.toISOString()
-        : j.lastUpdated
-          ? String(j.lastUpdated)
-          : undefined;
+    const { journey, configured } = sanitizeJourneyForApi(project.journey as never);
     return NextResponse.json({
       success: true,
       data: {
-        journey: { ...j, lastUpdated },
-        timeline: journeyTimeline((j.currentStage || 'idea') as JourneyStageId),
+        configured,
+        journey,
+        timeline: journeyTimeline((journey?.currentStage || 'idea') as JourneyStageId),
       },
     });
   } catch (e) {
@@ -70,8 +60,6 @@ export async function PUT(
       project.journey = {
         currentStage: 'idea',
         completionPercent: 0,
-        nextMilestone: 'Complete problem research',
-        lastUpdated: new Date(),
         stageNotes: [],
       };
     }
@@ -83,6 +71,7 @@ export async function PUT(
       project.journey.completionPercent = Math.max(0, Math.min(100, body.completionPercent));
     }
     if (body.nextMilestone) project.journey.nextMilestone = String(body.nextMilestone).slice(0, 200);
+    project.journey.configured = true;
     project.journey.lastUpdated = new Date();
 
     if (body.note) {
@@ -98,6 +87,16 @@ export async function PUT(
 
     await project.save();
 
+    const savedJourney = { ...(project.journey as Record<string, unknown>) };
+    const lastUpdatedRaw = savedJourney.lastUpdated as Date | string | undefined;
+    const journeyForApi = {
+      ...savedJourney,
+      lastUpdated:
+        lastUpdatedRaw instanceof Date
+          ? lastUpdatedRaw.toISOString()
+          : lastUpdatedRaw,
+    };
+
     if (body.currentStage && body.currentStage !== prevStage) {
       await Activity.create({
         projectId: project._id,
@@ -111,8 +110,8 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       data: {
-        journey: project.journey,
-        timeline: journeyTimeline(project.journey.currentStage),
+        ...sanitizeJourneyForApi(journeyForApi),
+        timeline: journeyTimeline((project.journey.currentStage || 'idea') as JourneyStageId),
       },
     });
   } catch (e) {

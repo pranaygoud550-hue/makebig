@@ -165,6 +165,32 @@ export function HomeTab({
         </div>
       </section>
 
+      <FeaturedStartupsSection embedded />
+      <StartupJourneyFeed embedded />
+
+      <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 sm:p-6">
+        <div className="mb-4">
+          <p className="text-xs font-bold text-[#0A66C2] uppercase tracking-widest">Startup ecosystem</p>
+          <h2 className="text-lg font-bold text-[#1d2226] mt-0.5">Validate, learn, and grow</h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {STARTUP_TOOLS.map((tool) => (
+            <Link
+              key={tool.href}
+              href={tool.href}
+              className={`group flex flex-col rounded-xl border p-4 transition-all hover:border-[#0A66C2]/40 hover:shadow-sm ${tool.accent}`}
+            >
+              <span className="text-2xl mb-2">{tool.icon}</span>
+              <p className="text-sm font-bold text-[#1d2226] group-hover:text-[#0A66C2] transition-colors">
+                {tool.title}
+              </p>
+              <p className="text-xs text-[#666] mt-1 leading-relaxed flex-1">{tool.desc}</p>
+              <span className="text-xs font-semibold text-[#0A66C2] mt-3">Open →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="space-y-3">
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#666] text-sm pointer-events-none">
@@ -267,32 +293,6 @@ export function HomeTab({
             )}
           </div>
         )}
-      </section>
-
-      <FeaturedStartupsSection embedded />
-      <StartupJourneyFeed embedded />
-
-      <section className="rounded-2xl border border-[#e0e0e0] bg-white p-5 sm:p-6">
-        <div className="mb-4">
-          <p className="text-xs font-bold text-[#0A66C2] uppercase tracking-widest">Startup tools</p>
-          <h2 className="text-lg font-bold text-[#1d2226] mt-0.5">Validate, learn, and grow</h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {STARTUP_TOOLS.map((tool) => (
-            <Link
-              key={tool.href}
-              href={tool.href}
-              className={`group flex flex-col rounded-xl border p-4 transition-all hover:border-[#0A66C2]/40 hover:shadow-sm ${tool.accent}`}
-            >
-              <span className="text-2xl mb-2">{tool.icon}</span>
-              <p className="text-sm font-bold text-[#1d2226] group-hover:text-[#0A66C2] transition-colors">
-                {tool.title}
-              </p>
-              <p className="text-xs text-[#666] mt-1 leading-relaxed flex-1">{tool.desc}</p>
-              <span className="text-xs font-semibold text-[#0A66C2] mt-3">Open →</span>
-            </Link>
-          ))}
-        </div>
       </section>
 
       <ProjectDetailSheet

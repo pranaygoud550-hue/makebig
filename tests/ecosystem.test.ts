@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { journeyTimeline } from '@/lib/ecosystem/journey';
+import { journeyTimeline, isJourneyConfigured, sanitizeJourneyForApi } from '@/lib/ecosystem/journey';
 import { computeHealthScore, healthLevel, buildHeatmap } from '@/lib/ecosystem/health';
 import { computeReputation, reputationLevel } from '@/lib/ecosystem/reputation';
 import { rankShowcaseProjects, weekStartDate } from '@/lib/ecosystem/showcase';
@@ -16,6 +16,31 @@ describe('ecosystem journey', () => {
 
   it('has 8 journey stages', () => {
     expect(JOURNEY_STAGES.length).toBe(8);
+  });
+
+  it('treats schema defaults as unconfigured', () => {
+    expect(
+      isJourneyConfigured({
+        currentStage: 'idea',
+        completionPercent: 0,
+        nextMilestone: 'Complete problem research',
+        lastUpdated: new Date().toISOString(),
+        stageNotes: [],
+      })
+    ).toBe(false);
+  });
+
+  it('marks journey configured after founder saves', () => {
+    expect(isJourneyConfigured({ configured: true, currentStage: 'idea', completionPercent: 0, stageNotes: [] })).toBe(true);
+    const sanitized = sanitizeJourneyForApi({
+      configured: true,
+      currentStage: 'research',
+      completionPercent: 20,
+      lastUpdated: '2026-06-01',
+      stageNotes: [],
+    });
+    expect(sanitized.configured).toBe(true);
+    expect(sanitized.journey?.nextMilestone).toBeUndefined();
   });
 });
 

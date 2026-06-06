@@ -34,6 +34,7 @@ export function StartupPageClient({ slug }: StartupPageClientProps) {
         nextMilestone?: string;
         lastUpdated?: string;
       };
+      journeyConfigured?: boolean;
       startupReadiness?: StartupReadinessScores;
       health?: HealthScore;
       featured?: { badgeIcon?: string; badge?: string };
@@ -119,7 +120,7 @@ export function StartupPageClient({ slug }: StartupPageClientProps) {
           </div>
 
           {/* Roadmap / Timeline */}
-          {startup.journey && (
+          {startup.journeyConfigured && startup.journey && (
             <ProjectTimeline
               currentStage={startup.journey.currentStage}
               completionPercent={startup.journey.completionPercent}
