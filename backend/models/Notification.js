@@ -12,6 +12,8 @@ const notificationSchema = new mongoose.Schema(
       enum: [
         "invite",
         "join",
+        "join_request",
+        "friend_request",
         "message",
         "activity",
         "mention",
@@ -33,5 +35,8 @@ const notificationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+notificationSchema.index({ userId: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, isRead: 1 });
 
 export default mongoose.model("Notification", notificationSchema);

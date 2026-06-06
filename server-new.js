@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import crypto from "crypto";
 
 const __rootDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
@@ -54,6 +55,7 @@ import Like from "./backend/models/Like.js";
 import Comment from "./backend/models/Comment.js";
 import Course from "./backend/models/Course.js";
 import CourseEnrollment from "./backend/models/CourseEnrollment.js";
+import Invite from "./backend/models/Invite.js";
 import { saveOtpRecord, verifyOtpRecord } from "./lib/otpStore.js";
 import { sendOtpEmail, isEmailOtpConfigured } from "./lib/emailOtp.js";
 import { upsertVerifiedUser, findUserByContact, loginExistingUserAfterOtp } from "./lib/userUpsert.js";
@@ -118,7 +120,7 @@ async function pushNotification({
     });
     const payload = toClient(notification);
     payload.read = Boolean(notification.isRead);
-    io.emit("notification_received", payload);
+    io.to(`user_${uid}`).emit("notification_received", payload);
     return notification;
   } catch (err) {
     console.error("pushNotification:", err.message);
@@ -191,7 +193,7 @@ app.use(express.json({ limit: "2mb" }));
 // ==================== OTP STORE ====================
 
 function generateOTPCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 function isPhoneNumber(contact) {
@@ -1291,6 +1293,22 @@ app.post("/api/projects/:projectId/publish", authMiddleware, async (req, res) =>
         authorId: project.ownerContact || "system",
         body: `🚀 ${project.name} is now live on Make Big!${locationPart} ${project.desc || ""}${rolesPart} Join us and let's build something big together!`,
       });
+      const publishPost = await Post.findOne({ projectId: project._id }).sort({ createdAt: -1 }).lean();
+      if (publishPost) {
+        const postPayload = {
+          id: publishPost._id.toString(),
+          projectId: project._id.toString(),
+          projectName: project.name,
+          projectSlug: project.slug || "",
+          projectCategory: project.categoryId || "",
+          authorId: publishPost.authorId,
+          body: publishPost.body,
+          likeCount: 0,
+          commentCount: 0,
+          createdAt: publishPost.createdAt,
+        };
+        io.emit("feed_post_created", postPayload);
+      }
     }
 
     res.json(formatResponse(true, { project: toClient(project) }));
@@ -1350,6 +1368,7 @@ app.post("/api/projects/:projectId/tasks", authMiddleware, async (req, res) => {
 
     const project = await Project.findById(req.params.projectId);
     if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
 
     const task = { title: title.trim(), description: description || '', priority: priority || 'medium', assignee: assignee || '', status: 'todo', createdBy: req.user?.contact || '', createdAt: new Date() };
     project.tasks.push(task);
@@ -1373,6 +1392,7 @@ app.put("/api/projects/:projectId/tasks/:taskId", authMiddleware, async (req, re
     const { status, priority, assignee, title, description } = req.body;
     const project = await Project.findById(req.params.projectId);
     if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
 
     const task = project.tasks.id(req.params.taskId);
     if (!task) return res.status(404).json(formatResponse(false, null, "Task not found"));
@@ -1403,6 +1423,7 @@ app.delete("/api/projects/:projectId/tasks/:taskId", authMiddleware, async (req,
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
 
     const task = project.tasks.id(req.params.taskId);
     if (!task) return res.status(404).json(formatResponse(false, null, "Task not found"));
@@ -1567,7 +1588,7 @@ app.get("/api/search", async (req, res) => {
 
     const regex = new RegExp(escapeRegex(q), "i");
     const projects = await Project.find({
-      status: { $in: ["published", "in-progress", "draft"] },
+      status: { $in: ["published", "in-progress"] },
       $or: [
         { name: regex },
         { desc: regex },
@@ -1776,7 +1797,10 @@ app.get("/api/explore", async (req, res) => {
     const limit = Math.min(50, parseInt(limitQ) || 20);
     const skip  = (page - 1) * limit;
 
-    const filter = { status: { $in: ["published", "in-progress"] } };
+    const filter = {
+      status: { $in: ["published", "in-progress"] },
+      visibility: { $in: ["public", "invite-only"] },
+    };
     if (city)       filter.city = new RegExp(city, "i");
     if (categoryId && categoryId !== "all") filter.categoryId = categoryId;
     const textQuery = String(req.query.q || skills || "").trim();
@@ -1819,7 +1843,11 @@ app.get("/api/explore", async (req, res) => {
 // Public project page by slug — for Next.js SSG
 app.get("/api/p/:slug", async (req, res) => {
   try {
-    const project = await Project.findOne({ slug: req.params.slug }).lean();
+    const project = await Project.findOne({
+      slug: req.params.slug,
+      status: { $in: ["published", "in-progress"] },
+      visibility: { $in: ["public", "invite-only"] },
+    }).lean();
     if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
 
     const posts = await Post.find({ projectId: project._id })
@@ -1885,6 +1913,12 @@ app.post("/api/posts", authMiddleware, async (req, res) => {
     if (img.length > 2_500_000) {
       return res.status(400).json(formatResponse(false, null, "Image too large (max ~2MB)"));
     }
+    const projectDoc = await Project.findById(projectId);
+    if (!projectDoc) {
+      return res.status(404).json(formatResponse(false, null, "Project not found"));
+    }
+    if (!assertProjectMember(req, res, projectDoc)) return;
+
     const post = await Post.create({
       projectId,
       authorId: req.user?.contact || "",
@@ -2265,7 +2299,14 @@ app.post("/api/friends/request", authMiddleware, async (req, res) => {
       );
     }
 
-    await FriendRequest.create({ fromContact: me, toContact: target, status: "pending" });
+    if (existing?.status === "declined" && normalizeContact(existing.fromContact) === me) {
+      existing.status = "pending";
+      await existing.save();
+    } else if (!existing) {
+      await FriendRequest.create({ fromContact: me, toContact: target, status: "pending" });
+    } else {
+      return res.json(formatResponse(true, { status: "none", message: "Could not send request" }));
+    }
 
     const senderName = await displayNameForContact(me);
     await pushNotification({
@@ -2398,29 +2439,32 @@ app.post("/api/invites/send", authMiddleware, async (req, res) => {
 
 app.post("/api/invites/:inviteId/accept", authMiddleware, async (req, res) => {
   try {
-    const invite = await Invite.findByIdAndUpdate(
-      req.params.inviteId,
-      { status: "accepted" },
-      { new: true }
-    );
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const invite = await Invite.findById(req.params.inviteId);
     if (!invite) {
       return res.status(404).json(formatResponse(false, null, "Invite not found"));
     }
-    const authContact = requireAuthContact(req, res);
-    if (!authContact) return;
     if (normalizeContact(invite.receiverContact) !== authContact) {
       return res.status(403).json(formatResponse(false, null, "This invite is not for your account"));
     }
+    if (invite.status !== "pending") {
+      return res.status(400).json(formatResponse(false, null, "Invite is no longer pending"));
+    }
+
+    invite.status = "accepted";
+    await invite.save();
 
     const project = await Project.findById(invite.projectId);
     if (project) {
       const exists = project.teamMembers?.some(
-        (m) => m.contact === invite.receiverContact
+        (m) => normalizeContact(m.contact) === authContact && m.status === "joined"
       );
       if (!exists) {
         await assertCanAddTeamMember(project);
         project.teamMembers.push({
-          contact: invite.receiverContact,
+          contact: authContact,
           role: invite.role || "member",
           status: "joined",
           joinedAt: new Date(),
@@ -2535,8 +2579,15 @@ app.get("/api/projects/:projectId/invites", authMiddleware, async (req, res) => 
 
 app.put("/api/notifications/:notificationId/read", authMiddleware, async (req, res) => {
   try {
-    const notification = await Notification.findByIdAndUpdate(
-      req.params.notificationId,
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+    const uid = await userIdForContact(authContact);
+    if (!uid) {
+      return res.status(404).json(formatResponse(false, null, "User not found"));
+    }
+
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.notificationId, userId: uid },
       { isRead: true },
       { new: true }
     );

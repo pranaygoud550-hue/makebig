@@ -23,12 +23,15 @@ const inviteSchema = new mongoose.Schema(
     message: String,
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "withdrawn"],
+      enum: ["pending", "accepted", "rejected", "declined", "withdrawn"],
       default: "pending",
     },
     expiresAt: Date,
   },
   { timestamps: true }
 );
+
+inviteSchema.index({ receiverContact: 1, status: 1 });
+inviteSchema.index({ projectId: 1, receiverContact: 1 });
 
 export default mongoose.model("Invite", inviteSchema);

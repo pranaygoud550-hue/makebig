@@ -34,6 +34,7 @@ export async function exploreProjectsFromMongo(
 
   const filter: Record<string, unknown> = {
     status: { $in: ['published', 'in-progress'] },
+    visibility: { $in: ['public', 'invite-only'] },
   };
 
   if (params.city) {

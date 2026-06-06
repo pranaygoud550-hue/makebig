@@ -57,6 +57,7 @@ export function ExploreView({
   const [projects, setProjects] = useState<ExploreProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [city, setCity] = useState('');
   const [category, setCategory] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -72,23 +73,29 @@ export function ExploreView({
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
     setPage(1);
-  }, [city, category, search]);
+  }, [city, category, debouncedSearch]);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     async function load() {
       setLoading(true);
       const params = new URLSearchParams();
       if (city) params.set('city', city);
       if (category) params.set('categoryId', category);
-      if (search) params.set('q', search);
+      if (debouncedSearch) params.set('q', debouncedSearch);
       params.set('page', String(page));
       params.set('limit', '12');
 
       try {
-        const res = await fetch(`${EXPLORE_API}?${params}`);
+        const res = await fetch(`${EXPLORE_API}?${params}`, { signal: controller.signal });
         const data = await res.json();
         if (cancelled || !data.success) return;
 
@@ -101,6 +108,9 @@ export function ExploreView({
         );
         setHasMore(Boolean(data.data.hasMore));
         setTotal(data.data.total ?? incoming.length);
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return;
+        if (page === 1) setProjects([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -109,8 +119,9 @@ export function ExploreView({
     load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [city, category, search, page]);
+  }, [city, category, debouncedSearch, page]);
 
   const searchInput = (
     <input

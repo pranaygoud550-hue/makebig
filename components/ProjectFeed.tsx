@@ -469,8 +469,31 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
   const [hasMore, setHasMore] = useState(false);
   const { openProfile } = useProfileView();
 
+  const refreshPosts = useCallback(async () => {
+    if (!global && !projectId) return;
+    setLoading(true);
+    setPage(1);
+    try {
+      const url = global
+        ? `${API}/api/feed?page=1&limit=15`
+        : `${API}/api/projects/${projectId}/posts?page=1&limit=10`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        const loaded = Array.isArray(data.data?.posts) ? data.data.posts as FeedPost[] : [];
+        setPosts(loaded);
+        setHasMore(Boolean(data.data?.hasMore));
+      }
+    } catch {
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, global]);
+
   useEffect(() => {
     setPage(1);
+    setPosts([]);
   }, [projectId, global]);
 
   useEffect(() => {
@@ -618,7 +641,7 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
     <div className="space-y-4">
       {/* Composer — only for project members or owners */}
       {!global && projectId && userContact && (canPost ?? isOwner) && (
-        <PostComposer projectId={projectId} userContact={userContact} onPosted={() => loadPosts(true)} />
+        <PostComposer projectId={projectId} userContact={userContact} onPosted={() => void refreshPosts()} />
       )}
 
       {/* Feed */}

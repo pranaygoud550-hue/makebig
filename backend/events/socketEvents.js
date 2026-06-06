@@ -7,6 +7,9 @@ const activeUsers = new Map(); // userId -> { socketId, name, contact }
 
 export function setupSocketEvents(io) {
   io.on("connection", (socket) => {
+    if (socket.user?.userId) {
+      socket.join(`user_${socket.user.userId}`);
+    }
     console.log(`👤 User connected: ${socket.id}`);
 
     // User joins project room

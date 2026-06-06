@@ -1,4 +1,4 @@
-import { apiCheckHealth } from '@/lib/api';
+import { apiCheckHealth, getAuthHeadersAsync } from '@/lib/api';
 import { apiProjectToProjectData } from '@/lib/projectMappers';
 import { loadActiveProject, saveActiveProject } from '@/lib/activeProjectStorage';
 import { hasActiveWorkspace } from '@/lib/projectWorkspace';
@@ -26,7 +26,8 @@ export interface WorkspaceRow {
 async function fetchWorkspacesFromServer(contact: string): Promise<WorkspaceRow[]> {
   try {
     const res = await fetch(
-      `${API}/api/users/${encodeURIComponent(normalizeContact(contact))}/workspaces`
+      `${API}/api/users/${encodeURIComponent(normalizeContact(contact))}/workspaces`,
+      { headers: await getAuthHeadersAsync() }
     );
     const data = await res.json();
     if (!data.success) return [];

@@ -25,6 +25,7 @@ const friendRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-friendRequestSchema.index({ fromContact: 1, toContact: 1 });
+friendRequestSchema.index({ fromContact: 1, toContact: 1 }, { unique: true });
+friendRequestSchema.index({ toContact: 1, status: 1 });
 
 export default mongoose.model("FriendRequest", friendRequestSchema);

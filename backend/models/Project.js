@@ -99,4 +99,8 @@ const projectSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+projectSchema.index({ ownerContact: 1, updatedAt: -1 });
+projectSchema.index({ status: 1, visibility: 1, updatedAt: -1 });
+projectSchema.index({ "teamMembers.contact": 1 });
+
 export default mongoose.model("Project", projectSchema);
