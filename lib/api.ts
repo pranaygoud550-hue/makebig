@@ -17,10 +17,8 @@ export { PlanLimitError };
 const API_BASE = getApiBase();
 
 function otpAuthEndpoints(path: 'send-otp' | 'verify-otp') {
-  const remote = `${API_BASE}/auth/${path}`;
-  const local = `/api/auth/${path}`;
-  // Express owns OTP verification consumed by /users/upsert and /projects/join — try it first.
-  return [remote, local];
+  // OTP runs entirely on Vercel (Resend + MongoDB). Do not call Render.
+  return [`/api/auth/${path}`];
 }
 
 // Store JWT token locally
