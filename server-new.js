@@ -1032,9 +1032,25 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
           requesterContact: memberContact,
           projectId: project._id.toString(),
           status: "pending",
+          direction: "received",
         },
       });
     }
+
+    await pushNotification({
+      contact: memberContact,
+      projectId: project._id,
+      type: "join_request_sent",
+      title: "Join request sent",
+      message: `You asked to join "${project.name}" — waiting for the creator to respond`,
+      actionUrl: "/explore",
+      metadata: {
+        direction: "sent",
+        projectId: project._id.toString(),
+        projectName: project.name,
+        ownerContact,
+      },
+    });
 
     res.json(
       formatResponse(true, {
@@ -1128,16 +1144,32 @@ app.post("/api/projects/:projectId/join-requests/:contact/approve", authMiddlewa
     const memberName = await displayNameForContact(memberContact);
     await finalizeJoinMember(project, memberContact, memberName, pending.role);
 
-    const memberUser = await User.findOne({ contact: memberContact });
-    if (memberUser) {
+    const ownerContact = normalizeContact(req.user?.contact || "");
+
+    await pushNotification({
+      contact: memberContact,
+      projectId: project._id,
+      type: "join",
+      title: "Join request approved",
+      message: `You were approved to join "${project.name}"`,
+      actionUrl: `/projects/${project._id}`,
+      metadata: { projectId: project._id.toString(), direction: "received" },
+    });
+
+    if (ownerContact) {
       await pushNotification({
-        userId: memberUser._id.toString(),
+        contact: ownerContact,
         projectId: project._id,
-        type: "join",
+        type: "join_approved_sent",
         title: "Join request approved",
-        message: `You were approved to join "${project.name}"`,
+        message: `You approved ${memberName} to join "${project.name}"`,
         actionUrl: `/projects/${project._id}`,
-        metadata: { projectId: project._id.toString() },
+        metadata: {
+          direction: "sent",
+          targetContact: memberContact,
+          targetName: memberName,
+          projectId: project._id.toString(),
+        },
       });
     }
 
@@ -2328,13 +2360,28 @@ app.post("/api/friends/request", authMiddleware, async (req, res) => {
     }
 
     const senderName = await displayNameForContact(me);
+    const targetName = targetUser.name || (await displayNameForContact(target));
+
     await pushNotification({
       contact: target,
       type: "friend_request",
       title: "New friend request",
       message: `${senderName} wants to connect with you`,
       actionUrl: "/friends",
-      metadata: { requesterContact: me, requesterName: senderName },
+      metadata: { requesterContact: me, requesterName: senderName, direction: "received" },
+    });
+
+    await pushNotification({
+      contact: me,
+      type: "friend_request_sent",
+      title: "Friend request sent",
+      message: `You sent a friend request to ${targetName}`,
+      actionUrl: "/friends",
+      metadata: {
+        direction: "sent",
+        targetContact: target,
+        targetName,
+      },
     });
 
     res.json(formatResponse(true, { status: "pending_sent", message: "Friend request sent" }));
@@ -2368,7 +2415,20 @@ app.post("/api/friends/requests/:contact/accept", authMiddleware, async (req, re
       title: "Friend request accepted",
       message: `${myName} accepted your friend request`,
       actionUrl: "/friends",
-      metadata: { friendContact: me, friendName: myName },
+      metadata: { friendContact: me, friendName: myName, direction: "received" },
+    });
+
+    await pushNotification({
+      contact: me,
+      type: "friend_accepted_sent",
+      title: "Friend request accepted",
+      message: `You accepted ${await displayNameForContact(other)}'s friend request`,
+      actionUrl: "/friends",
+      metadata: {
+        direction: "sent",
+        targetContact: other,
+        action: "accepted",
+      },
     });
 
     res.json(formatResponse(true, { status: "friends", message: "You are now friends" }));
@@ -2438,17 +2498,36 @@ app.post("/api/invites/send", authMiddleware, async (req, res) => {
       contact: normalizeContact(receiverContact),
     });
     const senderName = await displayNameForContact(senderContact);
+    const receiverNorm = normalizeContact(receiverContact);
+    const receiverName = receiver?.name || (await displayNameForContact(receiverNorm));
+
     if (receiver) {
       await pushNotification({
-        userId: receiver._id.toString(),
+        contact: receiverNorm,
         projectId,
         type: "invite",
         title: "Project invite",
         message: `${senderName} invited you to join "${project.name}" as ${role || "member"}`,
         actionUrl: `/projects/${projectId}`,
-        metadata: { senderContact, projectId: String(projectId) },
+        metadata: { senderContact, projectId: String(projectId), direction: "received" },
       });
     }
+
+    await pushNotification({
+      contact: senderContact,
+      projectId,
+      type: "invite_sent",
+      title: "Invite sent",
+      message: `You invited ${receiverName} to join "${project.name}" as ${role || "member"}`,
+      actionUrl: `/projects/${projectId}`,
+      metadata: {
+        direction: "sent",
+        targetContact: receiverNorm,
+        targetName: receiverName,
+        projectId: String(projectId),
+        projectName: project.name,
+      },
+    });
 
     res.json(formatResponse(true, { invite: toClient(invite) }));
   } catch (error) {

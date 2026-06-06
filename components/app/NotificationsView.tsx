@@ -6,8 +6,13 @@ import { useProfileView } from '@/lib/context/ProfileViewContext';
 const NOTIF_ICON: Record<string, string> = {
   join: '🙋',
   join_request: '🙋',
+  join_request_sent: '📤',
+  join_approved_sent: '✅',
   invite: '📩',
+  invite_sent: '📤',
   friend_request: '👋',
+  friend_request_sent: '📤',
+  friend_accepted_sent: '🤝',
   task: '✅',
   system: '⚙️',
   post: '📝',
@@ -29,9 +34,14 @@ function timeAgo(d: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function actorContactFromNotification(n: AppNotification): string | null {
+function profileContactFromNotification(n: AppNotification): string | null {
   const m = n.metadata;
   if (!m) return null;
+
+  if (m.direction === 'sent' && typeof m.targetContact === 'string' && m.targetContact.trim()) {
+    return m.targetContact.trim().toLowerCase();
+  }
+
   const keys = [
     'authorContact',
     'liker',
@@ -41,6 +51,7 @@ function actorContactFromNotification(n: AppNotification): string | null {
     'rater',
     'requesterContact',
     'friendContact',
+    'ownerContact',
   ];
   for (const key of keys) {
     const val = m[key];
@@ -107,18 +118,19 @@ export function NotificationsView({
             <p className="text-2xl mb-2">🔔</p>
             <p>No notifications yet</p>
             <p className="text-xs mt-2 text-[#bbb]">
-              Posts, likes, friend requests, invites, and team updates appear here.
+              Sent and received friend requests, join requests, invites, and team updates appear here.
             </p>
           </div>
         )}
         {notifications.map((n) => {
-          const actor = actorContactFromNotification(n);
+          const profileContact = profileContactFromNotification(n);
+          const isSent = n.metadata?.direction === 'sent' || n.type.endsWith('_sent');
           return (
             <button
               key={n.id}
               type="button"
               onClick={() => {
-                if (actor) openProfile(actor, actor);
+                if (profileContact) openProfile(profileContact, profileContact);
               }}
               className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-[#f8f9fa] transition-colors ${
                 !n.read ? 'bg-[#EEF3FB]' : ''
@@ -128,11 +140,20 @@ export function NotificationsView({
                 {NOTIF_ICON[n.type] || '📢'}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[#1d2226]">{n.title}</p>
+                <p className="text-sm font-semibold text-[#1d2226]">
+                  {n.title}
+                  {isSent && (
+                    <span className="ml-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wide">
+                      You
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-[#666] mt-0.5">{n.message}</p>
                 <p className="text-[10px] text-[#999] mt-1">{timeAgo(n.createdAt)}</p>
-                {actor && (
-                  <p className="text-[10px] text-[#0A66C2] mt-1 font-medium">Tap to view profile</p>
+                {profileContact && (
+                  <p className="text-[10px] text-[#0A66C2] mt-1 font-medium">
+                    {isSent ? 'Tap to view their profile' : 'Tap to view profile'}
+                  </p>
                 )}
               </div>
               {!n.read && (
