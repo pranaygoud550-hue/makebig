@@ -39,22 +39,24 @@ export function PostsTab({
           'Your project is saved on this device. Link it to the server to post updates and images for your team.',
       }}
     >
-      <div className="space-y-4">
-        <header>
-          <h1 className="text-xl font-bold text-[#1d2226]">
-            {workspaceLabel(currentProject)} — posts
-          </h1>
-          <p className="text-sm text-[#666] mt-0.5">
-            Share updates and photos with your team. Visible on Home for everyone.
-          </p>
-        </header>
-        <ProjectFeed
-          projectId={currentProject!.id!}
-          userContact={userContact}
-          isOwner={isOwner}
-          canPost={canPost}
-        />
-      </div>
+      {currentProject?.id ? (
+        <div className="space-y-4">
+          <header>
+            <h1 className="text-xl font-bold text-[#1d2226]">
+              {workspaceLabel(currentProject)} — posts
+            </h1>
+            <p className="text-sm text-[#666] mt-0.5">
+              Share updates and photos with your team. Visible on Home for everyone.
+            </p>
+          </header>
+          <ProjectFeed
+            projectId={currentProject.id}
+            userContact={userContact}
+            isOwner={isOwner}
+            canPost={canPost}
+          />
+        </div>
+      ) : null}
     </ProjectWorkspaceGate>
   );
 }

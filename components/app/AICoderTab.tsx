@@ -69,7 +69,7 @@ export function AICoderTab({
             {currentProject.mode === 'join' ? 'Go to Explore' : 'Open team dashboard'}
           </button>
         </div>
-      ) : (
+      ) : currentProject ? (
         <div className="space-y-3">
           <header>
             <h1 className="text-xl font-bold text-[#1d2226]">AI Co-founder</h1>
@@ -106,13 +106,13 @@ export function AICoderTab({
           )}
           <div className="min-h-[60vh] flex flex-col bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">
             <AICofounder
-              project={currentProject!}
+              project={currentProject}
               user={user}
               ownerContact={ownerContact}
             />
           </div>
         </div>
-      )}
+      ) : null}
     </ProjectWorkspaceGate>
   );
 }

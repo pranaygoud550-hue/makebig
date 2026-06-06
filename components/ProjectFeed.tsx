@@ -69,7 +69,7 @@ function PostCard({
     try {
       const res = await fetch(`${API}/api/posts/${post.id}/comments`);
       const data = await res.json();
-      if (data.success) setComments(data.data.comments);
+      if (data.success) setComments(Array.isArray(data.data?.comments) ? data.data.comments : []);
     } finally {
       setLoadingComments(false);
     }
@@ -479,11 +479,13 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
-        const loaded = data.data.posts as FeedPost[];
-        setPosts(prev => reset ? loaded : [...prev, ...loaded]);
-        setHasMore(data.data.hasMore);
+        const loaded = Array.isArray(data.data?.posts) ? data.data.posts as FeedPost[] : [];
+        setPosts((prev) => (reset ? loaded : [...prev, ...loaded]));
+        setHasMore(Boolean(data.data?.hasMore));
         if (reset) setPage(1);
       }
+    } catch {
+      if (reset) setPosts([]);
     } finally {
       setLoading(false);
     }
