@@ -9,6 +9,7 @@ import { searchColleges } from '@/lib/telanganaColleges';
 
 interface AuthModalProps {
   isOpen: boolean;
+  initialMode?: 'signin' | 'signup';
   onClose: () => void;
   onSignIn: (contact: string) => void | Promise<void>;
   onSignUp: (
@@ -32,8 +33,8 @@ const SKILL_SUGGESTIONS = [
   'Content Writing', 'Digital Marketing', 'SEO', 'Video Editing', 'Photography',
 ];
 
-export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProps) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, onSignUp }: AuthModalProps) {
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
 
   // Multi-step signup: 1=personal, 2=education, 3=skills, 4=otp
   const [step, setStep] = useState(1);
@@ -86,6 +87,15 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setMode(initialMode);
+    setStep(1);
+    setSiStep('contact');
+    setOtpError('');
+    setSiOtpError('');
+  }, [isOpen, initialMode]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -325,7 +335,13 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     } catch (e) {
       setSiDevCode(null);
       setSiOtpSentMsg('');
-      setSiOtpError(getErrorMessage(e, 'otp'));
+      const msg = getErrorMessage(e, 'otp');
+      setSiOtpError(msg);
+      if (msg.toLowerCase().includes('sign up first')) {
+        setMode('signup');
+        setStep(1);
+        setContact(siContact.trim().toLowerCase());
+      }
     } finally {
       setSiOtpSending(false);
     }
@@ -377,7 +393,13 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
     } catch (e) {
       setSignUpDevCode(null);
       setSignUpOtpSentMsg('');
-      setOtpError(getErrorMessage(e, 'otp'));
+      const msg = getErrorMessage(e, 'otp');
+      setOtpError(msg);
+      if (msg.toLowerCase().includes('sign in instead')) {
+        setSiContact(contact.trim().toLowerCase());
+        setMode('signin');
+        setSiStep('contact');
+      }
     } finally {
       setOtpSending(false);
     }
@@ -669,8 +691,8 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                         onChange={(e) => setName(e.target.value)}
                         autoComplete="name" className={inputCls} />
                     </Field>
-                    <Field label="Email *">
-                      <input type="email" placeholder="you@college.edu" value={contact}
+                    <Field label="Email or phone *">
+                      <input type="text" placeholder="you@college.edu or 10-digit mobile" value={contact}
                         onChange={(e) => setContact(e.target.value)}
                         autoComplete="username" className={inputCls} />
                     </Field>
@@ -800,6 +822,10 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                         />
                       </div>
                     </Field>
+
+                    {otpError && step === 3 && (
+                      <p className="text-red-500 text-sm">{otpError}</p>
+                    )}
 
                     <div className="flex gap-3">
                       <BackButton onClick={() => setStep(2)} />

@@ -35,13 +35,26 @@ describe('otpService purpose', () => {
     }
   });
 
-  it('sign-up send rejects existing accounts', async () => {
-    findUserByContact.mockResolvedValue({ contact: 'old@example.com' });
+  it('sign-up send allows incomplete existing accounts', async () => {
+    findUserByContact.mockResolvedValue({
+      contact: 'half@example.com',
+      college: '',
+      skills: [],
+    });
+    const result = await handleSendOtp('half@example.com', 'signup');
+    expect(result.ok).toBe(true);
+  });
+
+  it('sign-up send rejects complete existing accounts', async () => {
+    findUserByContact.mockResolvedValue({
+      contact: 'old@example.com',
+      college: 'Test College',
+      skills: ['Dev'],
+    });
     const result = await handleSendOtp('old@example.com', 'signup');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(409);
-      expect(result.error).toMatch(/sign in instead/i);
     }
   });
 

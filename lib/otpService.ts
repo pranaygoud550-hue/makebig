@@ -13,6 +13,16 @@ import { validateContact, validateOtpCode } from './userErrors';
 
 export type OtpPurpose = 'signin' | 'signup';
 
+function isProfileIncomplete(user: {
+  college?: string;
+  skills?: unknown[];
+} | null) {
+  if (!user) return false;
+  const hasCollege = Boolean(String(user.college || '').trim());
+  const hasSkills = Array.isArray(user.skills) && user.skills.length > 0;
+  return !hasCollege || !hasSkills;
+}
+
 function generateOtpCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -67,7 +77,7 @@ export async function handleSendOtp(rawContact: string, rawPurpose?: unknown) {
     };
   }
 
-  if (purpose === 'signup' && existing) {
+  if (purpose === 'signup' && existing && !isProfileIncomplete(existing)) {
     return {
       ok: false as const,
       status: 409,
@@ -138,7 +148,7 @@ export async function handleVerifyOtp(
   }
 
   const existing = await findUserByContact(normalized);
-  if (existing) {
+  if (existing && !isProfileIncomplete(existing)) {
     return {
       ok: false as const,
       status: 409,

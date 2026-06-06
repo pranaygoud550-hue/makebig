@@ -1,5 +1,13 @@
 export function normalizeContact(contact) {
-  return String(contact || "").trim().toLowerCase();
+  const v = String(contact || "").trim().toLowerCase();
+  if (!v) return "";
+  if (v.includes("@")) return v;
+  const digits = v.replace(/\D/g, "");
+  if (digits.length >= 10) {
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    return digits.length > 15 ? digits.slice(-15) : digits;
+  }
+  return digits || v;
 }
 
 export function normalizeSkill(skill) {

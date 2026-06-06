@@ -218,6 +218,13 @@ async function sendSMSOTP(phone, code) {
   }
 }
 
+function isProfileIncomplete(user) {
+  if (!user) return false;
+  const hasCollege = Boolean(String(user.college || "").trim());
+  const hasSkills = Array.isArray(user.skills) && user.skills.length > 0;
+  return !hasCollege || !hasSkills;
+}
+
 // POST /api/auth/send-otp
 function isValidEmail(contact) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(contact).trim());
@@ -249,7 +256,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
         .status(404)
         .json(formatResponse(false, null, "Account not found — sign up first"));
     }
-    if (purpose === "signup" && existing) {
+    if (purpose === "signup" && existing && !isProfileIncomplete(existing)) {
       return res
         .status(409)
         .json(formatResponse(false, null, "Account already exists — sign in instead"));
@@ -310,7 +317,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     }
 
     const existing = await findUserByContact(normalized);
-    if (existing) {
+    if (existing && !isProfileIncomplete(existing)) {
       return res
         .status(409)
         .json(formatResponse(false, null, "Account already exists — sign in instead"));

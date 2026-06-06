@@ -26,6 +26,7 @@ import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
 export default function Home() {
   const auth = useAuth();
   const [showAuth, setShowAuth]               = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [showWizard, setShowWizard]           = useState(false);
   const [showSplash, setShowSplash]           = useState(true);
   const [showProfile, setShowProfile]         = useState(false);
@@ -49,6 +50,11 @@ export default function Home() {
     if (typeof window !== 'undefined' && sessionStorage.getItem('makeBigSplashSeen')) {
       setShowSplash(false);
     }
+  }, []);
+
+  const openAuth = useCallback((mode: 'signin' | 'signup' = 'signin') => {
+    setAuthInitialMode(mode);
+    setShowAuth(true);
   }, []);
 
   const finishSplash = useCallback(() => {
@@ -105,7 +111,7 @@ export default function Home() {
         const p = data.data.project;
         if (!auth.user) {
           setPendingJoinSlug(joinSlug);
-          setShowAuth(true);
+          openAuth('signup');
           return;
         }
         window.history.replaceState({}, '', '/');
@@ -171,7 +177,7 @@ export default function Home() {
 
   const handleStartProject = () => {
     if (!auth.checkAuth()) {
-      setShowAuth(true);
+      openAuth('signup');
       return;
     }
     if (!requireProfileForAction()) return;
@@ -183,7 +189,7 @@ export default function Home() {
 
   const handleJoinProject = () => {
     if (!auth.checkAuth()) {
-      setShowAuth(true);
+      openAuth('signup');
       return;
     }
     if (!requireProfileForAction()) return;
@@ -356,7 +362,7 @@ export default function Home() {
 
   const handlePublicJoinClick = async (project: BrowseProject) => {
     if (!auth.checkAuth()) {
-      setShowAuth(true);
+      openAuth('signup');
       return;
     }
     if (!auth.user) return;
@@ -470,6 +476,7 @@ export default function Home() {
         />
         <AuthModal
           isOpen={showAuth}
+          initialMode={authInitialMode}
           onClose={() => setShowAuth(false)}
           onSignIn={handleSignIn}
           onSignUp={handleSignUp}
@@ -566,7 +573,7 @@ export default function Home() {
       <Navbar
         user={auth.user}
         profileImage={auth.profile?.profileImage}
-        onAuthClick={() => setShowAuth(true)}
+        onAuthClick={() => openAuth('signin')}
         onProfileClick={() => setShowProfile(true)}
         onLogout={() => {
           auth.logout();
@@ -585,6 +592,7 @@ export default function Home() {
 
       <AuthModal
         isOpen={showAuth}
+        initialMode={authInitialMode}
         onClose={() => setShowAuth(false)}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}
@@ -659,7 +667,7 @@ export default function Home() {
       <MarketingHomepage
         isSignedIn={false}
         onStartProject={handleStartProject}
-        onRequireAuth={() => setShowAuth(true)}
+        onRequireAuth={() => openAuth('signup')}
         onJoinProject={handlePublicJoinClick}
         onCheckDebug={handleCheckDebug}
         showDebug={showDebug}
