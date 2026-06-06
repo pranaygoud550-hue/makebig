@@ -93,12 +93,26 @@ export function AppTopBar({
             </button>
           )}
           {userName && (
-            <Link
-              href="/profile"
-              className="hidden md:inline text-xs font-semibold text-[#0A66C2] hover:underline whitespace-nowrap"
-            >
-              Profile
-            </Link>
+            <>
+              <Link
+                href="/idea-validator"
+                className="hidden sm:inline text-xs font-semibold text-[#666] hover:text-[#0A66C2] whitespace-nowrap"
+              >
+                Idea Validator
+              </Link>
+              <Link
+                href="/ecosystem"
+                className="hidden md:inline text-xs font-semibold text-[#666] hover:text-[#0A66C2] whitespace-nowrap"
+              >
+                Ecosystem
+              </Link>
+              <Link
+                href="/profile"
+                className="hidden md:inline text-xs font-semibold text-[#0A66C2] hover:underline whitespace-nowrap"
+              >
+                Profile
+              </Link>
+            </>
           )}
           <button
             type="button"

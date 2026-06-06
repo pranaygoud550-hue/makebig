@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { formatSalaryBand, getInitials } from '@/lib/utils';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { getErrorMessage } from '@/lib/userErrors';
@@ -160,6 +161,14 @@ export function ProjectDetailSheet({
                   <p className="text-sm text-[#666] mt-1">
                     📍 {[p.city, p.state].filter(Boolean).join(', ')}
                   </p>
+                )}
+                {p.slug && (
+                  <Link
+                    href={`/startup/${p.slug}`}
+                    className="inline-block mt-2 text-xs font-semibold text-[#0A66C2] hover:underline"
+                  >
+                    View full startup profile →
+                  </Link>
                 )}
               </div>
 

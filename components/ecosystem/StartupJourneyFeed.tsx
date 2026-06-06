@@ -11,7 +11,11 @@ interface FeedItem {
   project: { name: string; slug: string; logoUrl?: string };
 }
 
-export function StartupJourneyFeed() {
+interface StartupJourneyFeedProps {
+  embedded?: boolean;
+}
+
+export function StartupJourneyFeed({ embedded = false }: StartupJourneyFeedProps) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,17 +28,26 @@ export function StartupJourneyFeed() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (!loading && items.length === 0) return null;
+  const sectionClass = embedded
+    ? 'rounded-2xl bg-[#fafcff] border border-[#e0e0e0] py-6'
+    : 'py-10 bg-[#fafcff] border-y border-[#e0e0e0]';
 
   return (
-    <section className="py-10 bg-[#fafcff] border-y border-[#e0e0e0]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+    <section className={sectionClass}>
+      <div className={embedded ? 'px-4 sm:px-5' : 'max-w-3xl mx-auto px-4 sm:px-6'}>
         <h2 className="text-xl font-bold text-[#1d2226] mb-4">Startup Journey Feed</h2>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-16 bg-white rounded-xl animate-pulse" />
             ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#d9d9d9] bg-white px-4 py-8 text-center">
+            <p className="text-sm font-semibold text-[#1d2226]">No journey updates yet</p>
+            <p className="text-xs text-[#666] mt-1">
+              Milestones, stage changes, and launches from startups will appear here.
+            </p>
           </div>
         ) : (
           <ul className="space-y-3">

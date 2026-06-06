@@ -26,6 +26,9 @@ import { isValidMongoId } from '@/lib/projectMappers';
 import { getInitials } from '@/lib/utils';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { connectProjectRoom } from '@/lib/realtime';
+import Link from 'next/link';
+import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
+import { isProjectOwner } from '@/lib/projectOwnership';
 
 interface DashboardOverviewProps {
   project: ProjectData;
@@ -500,6 +503,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
 
   const iCls = 'w-full px-3 py-2 border border-[#d9d9d9] rounded-lg text-sm text-[#1d2226] placeholder-[#aaa] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20 bg-white transition-all';
   const activeTask = tasks.find(t => t.id === activeId);
+  const isOwner = isProjectOwner(user?.contact, project.ownerContact);
 
   return (
     <div className="space-y-6">
@@ -508,7 +512,19 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
       <div>
         <h2 className="text-2xl font-bold text-[#1d2226]">{project.name}</h2>
         <p className="text-[#666] text-sm mt-1">{project.description}</p>
+        {project.slug && (
+          <Link
+            href={`/startup/${project.slug}`}
+            className="inline-block mt-2 text-xs font-semibold text-[#0A66C2] hover:underline"
+          >
+            View public startup profile →
+          </Link>
+        )}
       </div>
+
+      {project.id && (
+        <StartupEcosystemPanels projectId={project.id} isOwner={isOwner} />
+      )}
 
       {/* ── Health widget + stats ── */}
       <div className="bg-white rounded-2xl border border-[#e0e0e0] p-5">

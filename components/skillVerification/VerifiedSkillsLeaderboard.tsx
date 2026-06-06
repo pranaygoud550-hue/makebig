@@ -42,8 +42,6 @@ export function VerifiedSkillsLeaderboard() {
 
   const entries = data?.[tab] || [];
 
-  if (!loading && entries.length === 0 && !data) return null;
-
   return (
     <section className="py-12 bg-[#fafcff] border-y border-[#e0e0e0]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">

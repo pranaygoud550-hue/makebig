@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { ProjectData } from '@/lib/types';
 import { hasActiveWorkspace } from '@/lib/projectWorkspace';
+import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
 interface YourProjectTabProps {
@@ -45,6 +47,14 @@ export function YourProjectTab({
           {currentProject!.description && (
             <p className="text-sm text-[#666] mt-2 line-clamp-2">{currentProject!.description}</p>
           )}
+          {currentProject!.slug && (
+            <Link
+              href={`/startup/${currentProject!.slug}`}
+              className="inline-block mt-3 text-xs font-semibold text-[#0A66C2] hover:underline"
+            >
+              View public startup profile →
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => onOpenDashboard('dashboard')}
@@ -53,6 +63,15 @@ export function YourProjectTab({
             Open project dashboard
           </button>
         </section>
+
+        {currentProject!.id && (
+          <section>
+            <p className="text-xs font-semibold text-[#999] uppercase tracking-wide mb-2 px-1">
+              Journey · Health · Readiness
+            </p>
+            <StartupEcosystemPanels projectId={currentProject!.id} isOwner />
+          </section>
+        )}
 
         <section>
           <p className="text-xs font-semibold text-[#999] uppercase tracking-wide mb-2 px-1">

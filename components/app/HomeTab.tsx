@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ProjectFeed } from '@/components/ProjectFeed';
 import { ProjectDetailSheet, SearchProjectHit } from '@/components/app/ProjectDetailSheet';
+import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
+import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
 import { BrowseProject } from '@/lib/api';
 import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
@@ -153,12 +155,26 @@ export function HomeTab({
         </div>
       </section>
 
-      <div className="px-1">
+      <div className="px-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <Link
+          href="/idea-validator"
+          className="flex items-center justify-between gap-2 rounded-xl border border-[#0A66C2]/20 bg-[#0A66C2]/5 px-4 py-3 text-sm font-semibold text-[#0A66C2] hover:bg-[#0A66C2]/10 transition-colors"
+        >
+          <span>AI Idea Validator</span>
+          <span aria-hidden>→</span>
+        </Link>
+        <Link
+          href="/ecosystem"
+          className="flex items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] bg-white px-4 py-3 text-sm font-semibold text-[#1d2226] hover:border-[#0A66C2]/40 transition-colors"
+        >
+          <span>Ecosystem roadmap</span>
+          <span aria-hidden>→</span>
+        </Link>
         <Link
           href="/learn"
-          className="flex items-center justify-between gap-3 rounded-xl border border-[#0A66C2]/20 bg-[#0A66C2]/5 px-4 py-3 text-sm font-semibold text-[#0A66C2] hover:bg-[#0A66C2]/10 transition-colors"
+          className="flex items-center justify-between gap-2 rounded-xl border border-[#e0e0e0] bg-white px-4 py-3 text-sm font-semibold text-[#1d2226] hover:border-[#0A66C2]/40 transition-colors"
         >
-          <span>Learn a course → start a project</span>
+          <span>Learn & build</span>
           <span aria-hidden>→</span>
         </Link>
       </div>
@@ -222,6 +238,15 @@ export function HomeTab({
                             ))}
                           </div>
                         </button>
+                        {p.slug && (
+                          <Link
+                            href={`/startup/${p.slug}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-2 inline-block text-xs font-semibold text-[#0A66C2] hover:underline"
+                          >
+                            View startup profile →
+                          </Link>
+                        )}
                         {owner && onOpenDashboard && (
                           <button
                             type="button"
@@ -284,6 +309,9 @@ export function HomeTab({
           )}
         </section>
       )}
+
+      <FeaturedStartupsSection embedded />
+      <StartupJourneyFeed embedded />
 
       <section className="space-y-3 pt-2 border-t border-[#e0e0e0]">
         <header className="px-1">

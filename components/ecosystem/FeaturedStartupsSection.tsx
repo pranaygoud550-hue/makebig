@@ -15,7 +15,11 @@ interface FeaturedStartup {
   badge: { id: string; label: string; icon: string };
 }
 
-export function FeaturedStartupsSection() {
+interface FeaturedStartupsSectionProps {
+  embedded?: boolean;
+}
+
+export function FeaturedStartupsSection({ embedded = false }: FeaturedStartupsSectionProps) {
   const [featured, setFeatured] = useState<FeaturedStartup[]>([]);
   const [weekStart, setWeekStart] = useState('');
   const [loading, setLoading] = useState(true);
@@ -32,11 +36,13 @@ export function FeaturedStartupsSection() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (!loading && featured.length === 0) return null;
+  const sectionClass = embedded
+    ? 'rounded-2xl bg-white border border-[#e0e0e0] py-6'
+    : 'py-12 bg-white border-y border-[#e0e0e0]';
 
   return (
-    <section className="py-12 bg-white border-y border-[#e0e0e0]">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+    <section className={sectionClass}>
+      <div className={embedded ? 'px-4 sm:px-5' : 'max-w-6xl mx-auto px-4 sm:px-6'}>
         <div className="mb-8">
           <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">
             🏆 Featured Startups This Week
@@ -52,6 +58,13 @@ export function FeaturedStartupsSection() {
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-40 bg-[#f3f2ef] rounded-2xl animate-pulse" />
             ))}
+          </div>
+        ) : featured.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#d9d9d9] bg-[#fafcff] px-4 py-8 text-center">
+            <p className="text-sm font-semibold text-[#1d2226]">No featured startups this week yet</p>
+            <p className="text-xs text-[#666] mt-1">
+              Update your journey and health scores to get featured on the showcase.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

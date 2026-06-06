@@ -9,6 +9,7 @@ import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { getErrorMessage } from '@/lib/userErrors';
 import { isJoinApproved, joinRequestNotice } from '@/lib/joinFlow';
 import { useProjectListSocket } from '@/lib/useProjectListSocket';
+import { CollaborationInvitesPanel } from '@/components/ecosystem/CollaborationInvitesPanel';
 
 interface JoinDashboardProps {
   user: User | null;
@@ -296,7 +297,9 @@ export function JoinDashboard({
 
             {/* ── INVITATIONS TAB ── */}
             {activeTab === 'invitations' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                <CollaborationInvitesPanel />
+                <div className="space-y-3">
                 {inviteLoading ? (
                   <div className="space-y-3">
                     {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl p-4 animate-pulse h-20 border border-[#e0e0e0]" />)}
@@ -380,6 +383,7 @@ export function JoinDashboard({
                     </div>
                   ))
                 )}
+                </div>
               </div>
             )}
 
