@@ -2,6 +2,7 @@ import Message from "../models/Message.js";
 import Activity from "../models/Activity.js";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
+import { normalizeContact } from "../utils/helpers.js";
 
 const activeUsers = new Map(); // userId -> { socketId, name, contact }
 
@@ -9,6 +10,9 @@ export function setupSocketEvents(io) {
   io.on("connection", (socket) => {
     if (socket.user?.userId) {
       socket.join(`user_${socket.user.userId}`);
+    }
+    if (socket.user?.contact) {
+      socket.join(`contact_${normalizeContact(socket.user.contact)}`);
     }
     console.log(`👤 User connected: ${socket.id}`);
 

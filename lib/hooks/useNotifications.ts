@@ -96,22 +96,24 @@ export function useNotifications(userId?: string) {
     let socket: Awaited<ReturnType<typeof createApiSocket>> = null;
     let cancelled = false;
 
+    const onNotification = (raw: Record<string, unknown>) => {
+      const notif = normalizeNotification(raw);
+      if (!isForUser(notif, effectiveUserId, userId)) return;
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === notif.id)) return prev;
+        return [notif, ...prev];
+      });
+    };
+
     createApiSocket().then((s) => {
       if (cancelled || !s) return;
       socket = s;
-      s.on('notification_received', (raw: Record<string, unknown>) => {
-        const notif = normalizeNotification(raw);
-        if (!isForUser(notif, effectiveUserId, userId)) return;
-        setNotifications((prev) => {
-          if (prev.some((n) => n.id === notif.id)) return prev;
-          return [notif, ...prev];
-        });
-      });
+      s.on('notification_received', onNotification);
     });
 
     return () => {
       cancelled = true;
-      socket?.off('notification_received');
+      socket?.off('notification_received', onNotification);
       socket?.disconnect();
     };
   }, [effectiveUserId, userId]);

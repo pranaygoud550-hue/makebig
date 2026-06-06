@@ -121,6 +121,9 @@ async function pushNotification({
     const payload = toClient(notification);
     payload.read = Boolean(notification.isRead);
     io.to(`user_${uid}`).emit("notification_received", payload);
+    if (contact) {
+      io.to(`contact_${normalizeContact(contact)}`).emit("notification_received", payload);
+    }
     return notification;
   } catch (err) {
     console.error("pushNotification:", err.message);
