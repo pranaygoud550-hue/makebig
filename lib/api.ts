@@ -39,6 +39,7 @@ export function getAuthToken(): string | null {
     return (
       localStorage.getItem('auth_token') ||
       localStorage.getItem('makeBigToken') ||
+      localStorage.getItem('makebig_token') ||
       authToken
     );
   }
@@ -1109,8 +1110,9 @@ export async function apiGetProjectMessages(projectId: string): Promise<any[]> {
       }));
     }
 
-    const res = await fetch(`${API_BASE}/projects/${projectId}/messages`, {
+    const res = await fetch(`/api/projects/${projectId}/messages`, {
       method: 'GET',
+      headers: await getAuthHeadersAsync(),
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -1118,6 +1120,53 @@ export async function apiGetProjectMessages(projectId: string): Promise<any[]> {
   } catch (e) {
     console.error('Error fetching messages:', e);
     return [];
+  }
+}
+
+export async function apiSendProjectMessage(
+  projectId: string,
+  content: string
+): Promise<{ ok: boolean; message?: Record<string, unknown>; error?: string }> {
+  try {
+    if (isSupabaseConfigured) {
+      const headers = await getAuthHeadersAsync();
+      const userRes = await fetch('/api/users/me', { headers }).catch(() => null);
+      const userJson = userRes ? await userRes.json().catch(() => null) : null;
+      const name = userJson?.data?.name || 'User';
+      const contact = userJson?.data?.contact || '';
+      const { data, error } = await supabase.from('messages').insert({
+        project_id: projectId,
+        sender_id: contact,
+        sender_name: name,
+        sender_contact: contact,
+        content,
+      }).select().single();
+      if (error) throw error;
+      return {
+        ok: true,
+        message: {
+          id: data.id,
+          senderId: data.sender_id,
+          senderName: data.sender_name,
+          content: data.content,
+          createdAt: data.created_at,
+        },
+      };
+    }
+
+    const res = await fetch(`/api/projects/${projectId}/messages`, {
+      method: 'POST',
+      headers: await getAuthHeadersAsync(),
+      body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { ok: false, error: data.error || 'Could not send message' };
+    }
+    return { ok: true, message: data.data.message };
+  } catch (e) {
+    console.error('Error sending message:', e);
+    return { ok: false, error: getErrorMessage(e, 'send') };
   }
 }
 

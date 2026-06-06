@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useProjectSocket } from '@/lib/useProjectSocket';
 import { apiGetProjectMessages, getAuthToken } from '@/lib/api';
 import { getInitials } from '@/lib/utils';
@@ -40,32 +40,43 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]       = useState('');
   const [loading, setLoading]   = useState(true);
+  const [sendError, setSendError] = useState<string | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef   = useRef<HTMLDivElement>(null);
+
+  const loadMessages = useCallback(async () => {
+    const stored = await apiGetProjectMessages(projectId);
+    setChatMessages(
+      stored
+        .map((m: Record<string, string>) => ({
+          id: m.id || m._id || String(m.createdAt),
+          senderId: m.senderId,
+          senderName: m.senderName || 'User',
+          content: m.content,
+          createdAt: m.createdAt,
+        }))
+        .reverse()
+    );
+  }, [projectId]);
 
   /* ── Load existing messages ── */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const stored = await apiGetProjectMessages(projectId);
-      if (!cancelled) {
-        setChatMessages(
-          stored
-            .map((m: Record<string, string>) => ({
-              id: m.id || m._id || String(m.createdAt),
-              senderId: m.senderId,
-              senderName: m.senderName || 'User',
-              content: m.content,
-              createdAt: m.createdAt,
-            }))
-            .reverse()
-        );
-        setLoading(false);
-      }
+      await loadMessages();
+      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [loadMessages]);
+
+  /* ── Poll for new messages (fallback when socket is slow/offline) ── */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadMessages();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [loadMessages]);
 
   /* ── Incoming socket messages ── */
   useEffect(() => {
@@ -96,18 +107,18 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
     typingTimer.current = setTimeout(() => emitTyping(false), 2000);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
-    sendMessage(input.trim());
-    setChatMessages(prev => [...prev, {
-      id: `local-${Date.now()}`,
-      senderId: userId,
-      senderName: userName,
-      content: input.trim(),
-      createdAt: new Date().toISOString(),
-    }]);
+    const text = input.trim();
+    setSendError(null);
+    const result = await sendMessage(text);
+    if (result?.ok === false) {
+      setSendError(result.error || 'Could not send message');
+      return;
+    }
     setInput('');
     emitTyping(false);
+    setTimeout(() => void loadMessages(), 400);
   };
 
   const typingLabel = typingUsers.length > 0
@@ -125,7 +136,7 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
             <p className="text-xs mt-0.5">
               {isConnected
                 ? <span className="text-green-600 font-medium">● Live — {activeUsers.length} online</span>
-                : <span className="text-amber-500">○ Connecting…</span>}
+                : <span className="text-[#666]">○ Saved via server — refreshes every few seconds</span>}
             </p>
           </div>
 
@@ -235,6 +246,9 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
 
       {/* Input bar */}
       <div className="bg-white border border-t-0 border-[#e0e0e0] rounded-b-xl p-4">
+        {sendError && (
+          <p className="text-xs text-red-600 mb-2 px-1">{sendError}</p>
+        )}
         <div className="flex gap-3 items-end">
           <div className="w-8 h-8 rounded-full bg-[#0A66C2] flex items-center justify-center text-white text-xs font-bold shrink-0">
             {getInitials(userName)}
@@ -245,13 +259,12 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
               value={input}
               onChange={e => handleInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder={isConnected ? 'Write a message…' : 'Connecting to chat…'}
-              disabled={!isConnected}
-              className="messages-input flex-1 px-4 py-2 bg-[#f3f2ef] border border-[#d9d9d9] rounded-full text-sm text-[#1d2226] placeholder-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20 disabled:opacity-50 transition-all"
+              placeholder="Write a message…"
+              className="messages-input flex-1 px-4 py-2 bg-white border border-[#d9d9d9] rounded-full text-sm text-[#1d2226] placeholder:text-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20 transition-all"
             />
             <button
-              onClick={handleSend}
-              disabled={!isConnected || !input.trim()}
+              onClick={() => void handleSend()}
+              disabled={!input.trim()}
               className="w-10 h-10 flex items-center justify-center bg-[#0A66C2] text-white rounded-full hover:bg-[#004182] disabled:opacity-40 transition-all text-base shrink-0"
               title="Send"
             >

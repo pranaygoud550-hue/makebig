@@ -2018,6 +2018,44 @@ app.get("/api/projects/:projectId/messages", authMiddleware, async (req, res) =>
   }
 });
 
+app.post("/api/projects/:projectId/messages", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const content = clampString(req.body?.content, 2000);
+    if (!content) return res.status(400).json(formatResponse(false, null, "Message cannot be empty"));
+
+    const profile = await User.findOne({ contact: authContact }).lean();
+    const senderName = profile?.name || authContact;
+    const senderId = req.user?.userId || authContact;
+
+    const message = await Message.create({
+      projectId: req.params.projectId,
+      senderId,
+      senderName,
+      content,
+      type: "text",
+    });
+
+    const preview = content.length > 50 ? `${content.slice(0, 50)}…` : content;
+    await Activity.create({
+      projectId: req.params.projectId,
+      userId: senderId,
+      type: "team_message",
+      description: `${senderName}: ${preview}`,
+    });
+
+    res.json(formatResponse(true, { message: toClient(message) }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
 // ==================== FEED & EXPLORE & PUBLIC PAGES ====================
 
 // Public feed — paginated, newest first, no auth required
