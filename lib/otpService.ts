@@ -41,11 +41,21 @@ async function ensureOtpDatabase(): Promise<{ ok: true } | { ok: false; error: s
   }
 }
 
-async function deliverPhoneOtp(phone: string, code: string): Promise<{ sent: boolean; error?: string }> {
+function isSmsOtpConfigured(): boolean {
   const apiKey = (process.env.FAST2SMS_API_KEY || '').trim();
-  if (!apiKey || apiKey.startsWith('your_')) {
-    return { sent: false, error: 'FAST2SMS_API_KEY is not configured for SMS OTP' };
+  return Boolean(apiKey && !apiKey.startsWith('your_'));
+}
+
+async function deliverPhoneOtp(phone: string, code: string): Promise<{ sent: boolean; error?: string }> {
+  if (!isSmsOtpConfigured()) {
+    return {
+      sent: false,
+      error:
+        'Phone OTP is not available yet — sign in with your email address instead, or add FAST2SMS_API_KEY on Vercel for SMS.',
+    };
   }
+
+  const apiKey = process.env.FAST2SMS_API_KEY!.trim();
 
   try {
     const cleanPhone = phone.replace(/[^\d]/g, '').slice(-10);
@@ -67,6 +77,15 @@ export async function handleSendOtp(rawContact: string) {
   const contactErr = validateContact(contact);
   if (contactErr) {
     return { ok: false as const, status: 400, error: contactErr };
+  }
+
+  if (isPhoneContact(contact) && !isSmsOtpConfigured()) {
+    return {
+      ok: false as const,
+      status: 400,
+      error:
+        'Phone OTP is not available yet — please sign in with your email address (e.g. you@gmail.com).',
+    };
   }
 
   const db = await ensureOtpDatabase();
@@ -99,7 +118,11 @@ export async function handleSendOtp(rawContact: string) {
   }
 
   if (!sent && process.env.NODE_ENV === 'production' && !allowDevOtp()) {
-    const status = deliveryError?.includes('OTP email is in beta') ? 400 : 503;
+    const status =
+      deliveryError?.includes('OTP email is in beta') ||
+      deliveryError?.includes('Phone OTP is not available')
+        ? 400
+        : 503;
     return {
       ok: false as const,
       status,

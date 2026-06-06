@@ -585,6 +585,7 @@ export function AuthModal({ isOpen, onClose, onSignIn, onSignUp }: AuthModalProp
                         className={inputCls}
                       />
                     </Field>
+                    {siOtpError && <p className="text-red-500 text-sm">{siOtpError}</p>}
                     <LiButton onClick={handleSiSend} disabled={!siContact.trim() || siOtpSending || resendCooldown > 0}>
                       {siOtpSending ? 'Sending…' : resendCooldown > 0 ? `Wait ${resendCooldown}s` : 'Send OTP'}
                     </LiButton>
