@@ -17,6 +17,7 @@ import {
 import { formatSalaryBand } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/userErrors';
 import { StarRating } from '@/components/StarRating';
+import { FriendRequestButton } from '@/components/app/FriendRequestButton';
 
 const MAX_IMAGE_BYTES = 900_000;
 const draftKey = (contact: string) => `makeBigProfileDraft:${contact}`;
@@ -27,6 +28,7 @@ interface ProfessionalProfileProps {
   variant?: 'page' | 'panel';
   onClose?: () => void;
   onSaved?: () => void;
+  onLogout?: () => void;
 }
 
 function categoryLabel(id?: string) {
@@ -45,6 +47,7 @@ export function ProfessionalProfile({
   variant = 'panel',
   onClose,
   onSaved,
+  onLogout,
 }: ProfessionalProfileProps) {
   const auth = useAuth();
   const [editing, setEditing] = useState(false);
@@ -309,13 +312,24 @@ export function ProfessionalProfile({
                 {canEdit && (
                   <div className="mt-5 flex flex-wrap gap-2 justify-center sm:justify-start">
                     {!editing ? (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(true)}
-                        className="px-5 py-2 rounded-full border-2 border-[#0A66C2] text-[#0A66C2] text-sm font-bold hover:bg-[#EEF3FB]"
-                      >
-                        Edit profile
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(true)}
+                          className="px-5 py-2 rounded-full border-2 border-[#0A66C2] text-[#0A66C2] text-sm font-bold hover:bg-[#EEF3FB]"
+                        >
+                          Edit profile
+                        </button>
+                        {onLogout && (
+                          <button
+                            type="button"
+                            onClick={onLogout}
+                            className="px-5 py-2 rounded-full border border-[#d9d9d9] text-[#666] text-sm font-semibold hover:bg-[#f3f2ef]"
+                          >
+                            Sign out
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <>
                         <button
@@ -356,6 +370,15 @@ export function ProfessionalProfile({
                         View public profile
                       </Link>
                     )}
+                  </div>
+                )}
+
+                {!canEdit && auth.user?.contact && (
+                  <div className="mt-5 flex justify-center sm:justify-start">
+                    <FriendRequestButton
+                      targetContact={user.contact}
+                      viewerContact={auth.user.contact}
+                    />
                   </div>
                 )}
 

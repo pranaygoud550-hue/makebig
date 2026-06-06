@@ -87,7 +87,7 @@ export function ExploreView({ embedded = false, onJoinProject }: ExploreViewProp
       const params = new URLSearchParams();
       if (city) params.set('city', city);
       if (category) params.set('categoryId', category);
-      if (search) params.set('skills', search);
+      if (search) params.set('q', search);
       params.set('page', String(reset ? 1 : page));
       params.set('limit', '12');
 
@@ -119,7 +119,7 @@ export function ExploreView({ embedded = false, onJoinProject }: ExploreViewProp
       value={search}
       onChange={(e) => setSearch(e.target.value)}
       onKeyDown={(e) => e.key === 'Enter' && fetchProjects(true)}
-      placeholder="Search by skill (e.g. React, Video Editing)…"
+      placeholder="Search by project name, skill, or description…"
       className={
         embedded
           ? 'w-full px-4 py-2.5 bg-white border border-[#d9d9d9] rounded-full text-sm text-[#1d2226] placeholder-[#999] focus:outline-none focus:border-[#0A66C2]'

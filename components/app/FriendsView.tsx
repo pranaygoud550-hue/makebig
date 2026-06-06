@@ -1,25 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiGetTalent, apiRateProfile } from '@/lib/api';
+import {
+  apiAcceptFriendRequest,
+  apiDeclineFriendRequest,
+  apiGetFriendRequests,
+  apiGetFriends,
+  apiGetTalent,
+  type FriendPerson,
+} from '@/lib/api';
 import { ProjectData } from '@/lib/types';
-import { StarRating } from '@/components/StarRating';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
-
-interface TalentCard {
-  id?: string;
-  contact?: string;
-  name?: string;
-  tagline?: string;
-  skills?: string[];
-  college?: string;
-  role?: string;
-  availableForInvites?: boolean;
-  workRatingAvg?: number;
-  workRatingCount?: number;
-}
-
-type FriendsFilter = 'all' | 'available' | 'creators' | 'top-rated';
+import { FriendRequestButton } from '@/components/app/FriendRequestButton';
 
 interface FriendsViewProps {
   currentProject: ProjectData | null;
@@ -27,20 +19,16 @@ interface FriendsViewProps {
   onInvite?: () => void;
 }
 
-const FILTERS: { id: FriendsFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'available', label: 'Available' },
-  { id: 'creators', label: 'Creators' },
-  { id: 'top-rated', label: 'Top rated' },
-];
-
 export function FriendsView({ currentProject, userContact, onInvite }: FriendsViewProps) {
-  const [talent, setTalent] = useState<TalentCard[]>([]);
+  const [friends, setFriends] = useState<FriendPerson[]>([]);
+  const [incoming, setIncoming] = useState<FriendPerson[]>([]);
+  const [outgoing, setOutgoing] = useState<FriendPerson[]>([]);
+  const [searchResults, setSearchResults] = useState<FriendPerson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [filter, setFilter] = useState<FriendsFilter>('all');
-  const [ratingBusy, setRatingBusy] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const { openProfile } = useProfileView();
 
   useEffect(() => {
@@ -48,116 +36,94 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
     return () => clearTimeout(t);
   }, [query]);
 
-  const loadTalent = useCallback(async (q: string) => {
+  const loadSocial = useCallback(async () => {
+    if (!userContact) {
+      setFriends([]);
+      setIncoming([]);
+      setOutgoing([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const list = await apiGetTalent(q || undefined);
-    setTalent(Array.isArray(list) ? list : []);
+    const [friendList, requests] = await Promise.all([
+      apiGetFriends(),
+      apiGetFriendRequests(),
+    ]);
+    setFriends(friendList);
+    setIncoming(requests.incoming);
+    setOutgoing(requests.outgoing);
     setLoading(false);
-  }, []);
+  }, [userContact]);
 
   useEffect(() => {
-    loadTalent(debounced);
-  }, [debounced, loadTalent]);
+    loadSocial();
+  }, [loadSocial]);
 
-  const skillTabs = useMemo(() => {
-    const counts = new Map<string, number>();
-    talent.forEach((t) => {
-      (t.skills || []).slice(0, 3).forEach((s) => {
-        counts.set(s, (counts.get(s) || 0) + 1);
-      });
+  useEffect(() => {
+    if (debounced.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearchLoading(true);
+    apiGetTalent(debounced).then((list) => {
+      if (cancelled) return;
+      const mapped = (Array.isArray(list) ? list : [])
+        .filter((t) => t.contact && t.contact !== userContact)
+        .map((t) => ({
+          contact: t.contact as string,
+          name: t.name || t.contact,
+          college: t.college,
+          tagline: t.tagline,
+          skills: t.skills,
+        }));
+      setSearchResults(mapped);
+      setSearchLoading(false);
     });
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([skill]) => skill);
-  }, [talent]);
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced, userContact]);
 
-  const [skillFilter, setSkillFilter] = useState<string | null>(null);
+  const friendContacts = useMemo(
+    () => new Set(friends.map((f) => f.contact.toLowerCase())),
+    [friends]
+  );
 
-  const filtered = useMemo(() => {
-    let list = talent.filter((t) => t.contact !== userContact);
-    if (filter === 'available') {
-      list = list.filter((t) => t.availableForInvites);
-    } else if (filter === 'creators') {
-      list = list.filter((t) => t.role === 'creator' || t.role === 'both');
-    } else if (filter === 'top-rated') {
-      list = list.filter((t) => (t.workRatingAvg || 0) >= 4);
-    }
-    if (skillFilter) {
-      list = list.filter((t) =>
-        (t.skills || []).some((s) => s.toLowerCase() === skillFilter.toLowerCase())
-      );
-    }
-    return list;
-  }, [talent, filter, skillFilter, userContact]);
-
-  const handleRate = async (contact: string, stars: number) => {
-    if (!contact || ratingBusy) return;
-    setRatingBusy(contact);
-    const ok = await apiRateProfile(contact, stars);
-    if (ok) await loadTalent(debounced);
-    setRatingBusy(null);
+  const handleAccept = async (contact: string) => {
+    setActionBusy(contact);
+    await apiAcceptFriendRequest(contact);
+    await loadSocial();
+    setActionBusy(null);
   };
 
+  const handleDecline = async (contact: string) => {
+    setActionBusy(contact);
+    await apiDeclineFriendRequest(contact);
+    await loadSocial();
+    setActionBusy(null);
+  };
+
+  if (!userContact) {
+    return (
+      <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-10 text-center">
+        <p className="font-semibold text-[#1d2226]">Sign in to add friends</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
-      <header className="space-y-3">
-        <div>
-          <h1 className="text-xl font-bold text-[#1d2226]">Friends</h1>
-          <p className="text-sm text-[#666] mt-0.5">
-            Find creators, rate their work, and build your team.
-          </p>
-        </div>
-
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666] text-sm">🔍</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, skill, or college…"
-            className="w-full pl-9 pr-4 py-3 rounded-full border border-[#d9d9d9] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/30 focus:border-[#0A66C2]"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => {
-                setFilter(f.id);
-                setSkillFilter(null);
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                filter === f.id && !skillFilter
-                  ? 'bg-[#0A66C2] text-white border-[#0A66C2]'
-                  : 'bg-white text-[#666] border-[#d9d9d9] hover:border-[#0A66C2]'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-          {skillTabs.map((skill) => (
-            <button
-              key={skill}
-              type="button"
-              onClick={() => setSkillFilter(skillFilter === skill ? null : skill)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                skillFilter === skill
-                  ? 'bg-[#EEF3FB] text-[#0A66C2] border-[#0A66C2]'
-                  : 'bg-white text-[#666] border-[#d9d9d9] hover:border-[#0A66C2]'
-              }`}
-            >
-              {skill}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-xl font-bold text-[#1d2226]">Friends</h1>
+        <p className="text-sm text-[#666] mt-0.5">
+          Accept requests, connect with people, and search when you want to add someone new.
+        </p>
       </header>
 
       {currentProject?.id && onInvite && (
         <div className="bg-[#EEF3FB] border border-[#0A66C2]/20 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-          <p className="text-sm text-[#1d2226]">Have a project? Invite creators from your dashboard.</p>
+          <p className="text-sm text-[#1d2226]">Have a project? Invite teammates from your dashboard.</p>
           <button
             type="button"
             onClick={onInvite}
@@ -168,77 +134,152 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
         </div>
       )}
 
-      {loading && (
+      {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-[#e0e0e0] p-4 h-24 animate-pulse" />
+          {[1, 2].map((i) => (
+            <div key={i} className="bg-white rounded-2xl border border-[#e0e0e0] p-4 h-20 animate-pulse" />
           ))}
         </div>
-      )}
+      ) : (
+        <>
+          {incoming.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-sm font-bold text-[#1d2226]">Friend requests</h2>
+              {incoming.map((p) => (
+                <div
+                  key={p.contact}
+                  className="bg-white rounded-2xl border border-amber-200 p-4 flex items-center justify-between gap-3"
+                >
+                  <button
+                    type="button"
+                    onClick={() => openProfile(p.contact, p.name)}
+                    className="text-left min-w-0 flex-1"
+                  >
+                    <p className="font-semibold text-[#1d2226]">{p.name}</p>
+                    {p.college && <p className="text-xs text-[#666] mt-0.5">{p.college}</p>}
+                  </button>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={actionBusy === p.contact}
+                      onClick={() => void handleAccept(p.contact)}
+                      className="px-3 py-1.5 bg-[#0A66C2] text-white text-xs font-semibold rounded-full disabled:opacity-50"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionBusy === p.contact}
+                      onClick={() => void handleDecline(p.contact)}
+                      className="px-3 py-1.5 border border-[#d9d9d9] text-[#666] text-xs font-semibold rounded-full disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
 
-      {!loading && filtered.length === 0 && (
-        <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-10 text-center">
-          <p className="text-2xl mb-2">👋</p>
-          <p className="font-semibold text-[#1d2226]">No people match this filter</p>
-          <p className="text-sm text-[#666] mt-1">Try All or a different search term.</p>
-        </div>
-      )}
+          {outgoing.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-sm font-bold text-[#1d2226]">Sent requests</h2>
+              {outgoing.map((p) => (
+                <div
+                  key={p.contact}
+                  className="bg-white rounded-2xl border border-[#e0e0e0] p-4 flex items-center justify-between gap-3"
+                >
+                  <button
+                    type="button"
+                    onClick={() => openProfile(p.contact, p.name)}
+                    className="text-left"
+                  >
+                    <p className="font-semibold text-[#1d2226]">{p.name}</p>
+                    <p className="text-xs text-amber-700 mt-0.5">Waiting for approval</p>
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
 
-      {!loading &&
-        filtered.map((t, idx) => (
-          <article
-            key={t.contact || String(idx)}
-            role="button"
-            tabIndex={0}
-            onClick={() => t.contact && openProfile(t.contact, t.name || t.contact)}
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && t.contact) {
-                e.preventDefault();
-                openProfile(t.contact, t.name || t.contact);
-              }
-            }}
-            className="bg-white rounded-2xl border border-[#e0e0e0] p-4 space-y-2 cursor-pointer hover:border-[#0A66C2]/40 hover:shadow-sm transition-all"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-[#1d2226]">{t.name || t.contact || 'Creator'}</p>
-                {t.college && <p className="text-xs text-[#0A66C2] mt-0.5">🎓 {t.college}</p>}
-                {t.tagline && (
-                  <p className="text-sm text-[#666] mt-1 line-clamp-2">{t.tagline}</p>
-                )}
+          <section className="space-y-2">
+            <h2 className="text-sm font-bold text-[#1d2226]">Your friends</h2>
+            {friends.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-8 text-center">
+                <p className="text-sm text-[#666]">No friends yet — search below and send a request.</p>
               </div>
-              {t.availableForInvites && (
-                <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                  Open
+            ) : (
+              friends.map((p) => (
+                <button
+                  key={p.contact}
+                  type="button"
+                  onClick={() => openProfile(p.contact, p.name)}
+                  className="w-full text-left bg-white rounded-2xl border border-[#e0e0e0] p-4 hover:border-[#0A66C2]/40 transition-colors"
+                >
+                  <p className="font-semibold text-[#1d2226]">{p.name}</p>
+                  {p.tagline && (
+                    <p className="text-sm text-[#666] mt-1 line-clamp-1">{p.tagline}</p>
+                  )}
+                  {p.college && <p className="text-xs text-[#0A66C2] mt-1">{p.college}</p>}
+                </button>
+              ))
+            )}
+          </section>
+        </>
+      )}
+
+      <section className="space-y-3 pt-2 border-t border-[#e0e0e0]">
+        <h2 className="text-sm font-bold text-[#1d2226]">Find people</h2>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666] text-sm">🔍</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, skill, or college…"
+            className="w-full pl-9 pr-4 py-3 rounded-full border border-[#d9d9d9] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/30 focus:border-[#0A66C2]"
+          />
+        </div>
+        {debounced.length > 0 && debounced.length < 2 && (
+          <p className="text-xs text-[#666]">Type at least 2 characters to search.</p>
+        )}
+        {searchLoading && <p className="text-sm text-[#666]">Searching…</p>}
+        {!searchLoading && debounced.length >= 2 && searchResults.length === 0 && (
+          <p className="text-sm text-[#666]">No matches for &ldquo;{debounced}&rdquo;.</p>
+        )}
+        {searchResults.map((p) => (
+          <div
+            key={p.contact}
+            className="bg-white rounded-2xl border border-[#e0e0e0] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          >
+            <button
+              type="button"
+              onClick={() => openProfile(p.contact, p.name)}
+              className="text-left min-w-0 flex-1"
+            >
+              <p className="font-semibold text-[#1d2226]">{p.name}</p>
+              {p.college && <p className="text-xs text-[#666] mt-0.5">{p.college}</p>}
+              {p.tagline && (
+                <p className="text-sm text-[#666] mt-1 line-clamp-2">{p.tagline}</p>
+              )}
+            </button>
+            <div className="shrink-0 flex flex-wrap gap-2 items-center">
+              {!friendContacts.has(p.contact.toLowerCase()) && (
+                <FriendRequestButton
+                  targetContact={p.contact}
+                  viewerContact={userContact}
+                  onChanged={loadSocial}
+                />
+              )}
+              {friendContacts.has(p.contact.toLowerCase()) && (
+                <span className="px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-200">
+                  Friends
                 </span>
               )}
             </div>
-
-            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-            <StarRating
-              value={t.workRatingAvg || 0}
-              count={t.workRatingCount}
-              interactive={Boolean(t.contact && t.contact !== userContact)}
-              onRate={(stars) => t.contact && handleRate(t.contact, stars)}
-            />
-            </div>
-
-            <p className="text-xs text-[#0A66C2] font-semibold">Tap to view full profile →</p>
-
-            {t.skills && t.skills.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {t.skills.slice(0, 6).map((s) => (
-                  <span
-                    key={s}
-                    className="text-[10px] px-2 py-0.5 bg-[#f3f2ef] text-[#666] rounded-full"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
-          </article>
+          </div>
         ))}
+      </section>
     </div>
   );
 }

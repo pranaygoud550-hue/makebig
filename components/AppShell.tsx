@@ -140,6 +140,7 @@ export function AppShell({
           setShowProfile(false);
           if (typeof window !== 'undefined') sessionStorage.setItem(PROFILE_OPEN_KEY, '0');
         }}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 pb-20 max-w-4xl w-full mx-auto px-4 py-4">

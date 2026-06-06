@@ -524,6 +524,96 @@ export async function apiGetTalent(search?: string): Promise<any[]> {
   }
 }
 
+export type FriendLinkStatus = 'none' | 'pending_sent' | 'pending_received' | 'friends';
+
+export interface FriendPerson {
+  contact: string;
+  name: string;
+  college?: string;
+  tagline?: string;
+  skills?: string[];
+}
+
+export async function apiGetFriends(): Promise<FriendPerson[]> {
+  try {
+    const res = await fetch(`${API_BASE}/friends`, { headers: await getAuthHeadersAsync() });
+    const data = await res.json();
+    return data.success ? data.data.friends || [] : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function apiGetFriendRequests(): Promise<{
+  incoming: FriendPerson[];
+  outgoing: FriendPerson[];
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/friends/requests`, { headers: await getAuthHeadersAsync() });
+    const data = await res.json();
+    if (!data.success) return { incoming: [], outgoing: [] };
+    return {
+      incoming: data.data.incoming || [],
+      outgoing: data.data.outgoing || [],
+    };
+  } catch {
+    return { incoming: [], outgoing: [] };
+  }
+}
+
+export async function apiGetFriendStatus(contact: string): Promise<FriendLinkStatus> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/friends/status/${encodeURIComponent(contact.trim().toLowerCase())}`,
+      { headers: await getAuthHeadersAsync() }
+    );
+    const data = await res.json();
+    return data.success ? (data.data.status as FriendLinkStatus) : 'none';
+  } catch {
+    return 'none';
+  }
+}
+
+export async function apiSendFriendRequest(contact: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/friends/request`, {
+      method: 'POST',
+      headers: await getAuthHeadersAsync(),
+      body: JSON.stringify({ contact: contact.trim().toLowerCase() }),
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function apiAcceptFriendRequest(contact: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/friends/requests/${encodeURIComponent(contact.trim().toLowerCase())}/accept`,
+      { method: 'POST', headers: await getAuthHeadersAsync() }
+    );
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function apiDeclineFriendRequest(contact: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/friends/requests/${encodeURIComponent(contact.trim().toLowerCase())}/decline`,
+      { method: 'POST', headers: await getAuthHeadersAsync() }
+    );
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function apiRateProfile(contact: string, stars: number): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/profile/rate`, {

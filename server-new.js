@@ -46,7 +46,7 @@ import Profile from "./backend/models/Profile.js";
 import Project from "./backend/models/Project.js";
 import Message from "./backend/models/Message.js";
 import Activity from "./backend/models/Activity.js";
-import Invite from "./backend/models/Invite.js";
+import FriendRequest from "./backend/models/FriendRequest.js";
 import Notification from "./backend/models/Notification.js";
 import Post from "./backend/models/Post.js";
 import Like from "./backend/models/Like.js";
@@ -1763,21 +1763,18 @@ app.get("/api/explore", async (req, res) => {
     const filter = { status: { $in: ["published", "in-progress"] } };
     if (city)       filter.city = new RegExp(city, "i");
     if (categoryId && categoryId !== "all") filter.categoryId = categoryId;
-    if (skills) {
-      const skillArr = String(skills).split(",").map(s => s.trim()).filter(Boolean);
-      if (skillArr.length) filter.roles = { $in: skillArr.map(s => new RegExp(s, "i")) };
+    const textQuery = String(req.query.q || skills || "").trim();
+    if (textQuery) {
+      const regex = new RegExp(escapeRegex(textQuery), "i");
+      filter.$or = [{ name: regex }, { desc: regex }, { roles: regex }];
     }
 
-    const projects = await Project.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    const filtered = filterAllowedProjects(projects);
+    const allProjects = await Project.find(filter).sort({ createdAt: -1 }).lean();
+    const filtered = filterAllowedProjects(allProjects);
     const total = filtered.length;
+    const projects = filtered.slice(skip, skip + limit);
     res.json(formatResponse(true, {
-      projects: filtered.map(p => ({
+      projects: projects.map(p => ({
         id: p._id.toString(),
         name: p.name,
         desc: p.desc,
@@ -2105,6 +2102,223 @@ app.get("/api/projects/:projectId/posts", async (req, res) => {
 
     const total = await Post.countDocuments({ projectId: req.params.projectId });
     res.json(formatResponse(true, { posts: enriched, total, page, hasMore: skip + limit < total }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// ==================== FRIENDS ====================
+
+async function findFriendLink(a, b) {
+  const A = normalizeContact(a);
+  const B = normalizeContact(b);
+  if (!A || !B) return null;
+  return FriendRequest.findOne({
+    $or: [
+      { fromContact: A, toContact: B },
+      { fromContact: B, toContact: A },
+    ],
+  }).lean();
+}
+
+async function enrichFriendContacts(contacts) {
+  const unique = [...new Set(contacts.map(normalizeContact).filter(Boolean))];
+  const users = await User.find({ contact: { $in: unique } }).lean();
+  const profiles = await Profile.find({ contact: { $in: unique } }).lean();
+  const userMap = new Map(users.map((u) => [u.contact, u]));
+  const profileMap = new Map(profiles.map((p) => [p.contact, p]));
+
+  return unique.map((contact) => {
+    const user = userMap.get(contact);
+    const profile = profileMap.get(contact);
+    return {
+      contact,
+      name: user?.name || contact.split("@")[0] || contact,
+      college: user?.college || "",
+      tagline: profile?.tagline || "",
+      skills: user?.skills || profile?.skills || [],
+    };
+  });
+}
+
+app.get("/api/friends", authMiddleware, async (req, res) => {
+  try {
+    const me = requireAuthContact(req, res);
+    if (!me) return;
+
+    const rows = await FriendRequest.find({
+      status: "accepted",
+      $or: [{ fromContact: me }, { toContact: me }],
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const contacts = rows.map((r) =>
+      normalizeContact(r.fromContact) === me ? r.toContact : r.fromContact
+    );
+    const friends = await enrichFriendContacts(contacts);
+    res.json(formatResponse(true, { friends }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/friends/requests", authMiddleware, async (req, res) => {
+  try {
+    const me = requireAuthContact(req, res);
+    if (!me) return;
+
+    const incomingRows = await FriendRequest.find({ toContact: me, status: "pending" })
+      .sort({ createdAt: -1 })
+      .lean();
+    const outgoingRows = await FriendRequest.find({ fromContact: me, status: "pending" })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const incoming = await enrichFriendContacts(incomingRows.map((r) => r.fromContact));
+    const outgoing = await enrichFriendContacts(outgoingRows.map((r) => r.toContact));
+
+    res.json(formatResponse(true, { incoming, outgoing }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/friends/status/:contact", authMiddleware, async (req, res) => {
+  try {
+    const me = requireAuthContact(req, res);
+    if (!me) return;
+    const other = normalizeContact(req.params.contact);
+    if (!other) {
+      return res.status(400).json(formatResponse(false, null, "Enter a valid contact"));
+    }
+    if (other === me) {
+      return res.json(formatResponse(true, { status: "none" }));
+    }
+
+    const row = await findFriendLink(me, other);
+    if (!row) {
+      return res.json(formatResponse(true, { status: "none" }));
+    }
+    if (row.status === "accepted") {
+      return res.json(formatResponse(true, { status: "friends" }));
+    }
+    if (row.status === "pending") {
+      if (normalizeContact(row.fromContact) === me) {
+        return res.json(formatResponse(true, { status: "pending_sent" }));
+      }
+      return res.json(formatResponse(true, { status: "pending_received" }));
+    }
+    return res.json(formatResponse(true, { status: "none" }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/friends/request", authMiddleware, async (req, res) => {
+  try {
+    const me = requireAuthContact(req, res);
+    if (!me) return;
+    const targetErr = validateContact(req.body?.contact);
+    if (targetErr) {
+      return res.status(400).json(formatResponse(false, null, targetErr));
+    }
+    const target = normalizeContact(req.body.contact);
+    if (target === me) {
+      return res.status(400).json(formatResponse(false, null, "You cannot add yourself"));
+    }
+
+    const targetUser = await User.findOne({ contact: target });
+    if (!targetUser) {
+      return res.status(404).json(formatResponse(false, null, "User not found"));
+    }
+
+    const existing = await findFriendLink(me, target);
+    if (existing?.status === "accepted") {
+      return res.json(formatResponse(true, { status: "friends", message: "Already friends" }));
+    }
+    if (existing?.status === "pending") {
+      if (normalizeContact(existing.fromContact) === me) {
+        return res.json(formatResponse(true, { status: "pending_sent", message: "Request already sent" }));
+      }
+      return res.json(
+        formatResponse(true, {
+          status: "pending_received",
+          message: "They already sent you a request — accept it below",
+        })
+      );
+    }
+
+    await FriendRequest.create({ fromContact: me, toContact: target, status: "pending" });
+
+    const senderName = await displayNameForContact(me);
+    await pushNotification({
+      contact: target,
+      type: "friend_request",
+      title: "New friend request",
+      message: `${senderName} wants to connect with you`,
+      actionUrl: "/friends",
+      metadata: { requesterContact: me, requesterName: senderName },
+    });
+
+    res.json(formatResponse(true, { status: "pending_sent", message: "Friend request sent" }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/friends/requests/:contact/accept", authMiddleware, async (req, res) => {
+  try {
+    const me = requireAuthContact(req, res);
+    if (!me) return;
+    const other = normalizeContact(req.params.contact);
+
+    const row = await FriendRequest.findOne({
+      fromContact: other,
+      toContact: me,
+      status: "pending",
+    });
+    if (!row) {
+      return res.status(404).json(formatResponse(false, null, "Friend request not found"));
+    }
+
+    row.status = "accepted";
+    await row.save();
+
+    const myName = await displayNameForContact(me);
+    await pushNotification({
+      contact: other,
+      type: "friend_request",
+      title: "Friend request accepted",
+      message: `${myName} accepted your friend request`,
+      actionUrl: "/friends",
+      metadata: { friendContact: me, friendName: myName },
+    });
+
+    res.json(formatResponse(true, { status: "friends", message: "You are now friends" }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/friends/requests/:contact/decline", authMiddleware, async (req, res) => {
+  try {
+    const me = requireAuthContact(req, res);
+    if (!me) return;
+    const other = normalizeContact(req.params.contact);
+
+    const row = await FriendRequest.findOne({
+      fromContact: other,
+      toContact: me,
+      status: "pending",
+    });
+    if (!row) {
+      return res.status(404).json(formatResponse(false, null, "Friend request not found"));
+    }
+
+    row.status = "declined";
+    await row.save();
+    res.json(formatResponse(true, { message: "Request declined" }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

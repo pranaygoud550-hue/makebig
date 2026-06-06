@@ -5,7 +5,9 @@ import { useProfileView } from '@/lib/context/ProfileViewContext';
 
 const NOTIF_ICON: Record<string, string> = {
   join: '🙋',
+  join_request: '🙋',
   invite: '📩',
+  friend_request: '👋',
   task: '✅',
   system: '⚙️',
   post: '📝',
@@ -30,7 +32,16 @@ function timeAgo(d: string) {
 function actorContactFromNotification(n: AppNotification): string | null {
   const m = n.metadata;
   if (!m) return null;
-  const keys = ['authorContact', 'liker', 'commenter', 'memberContact', 'senderContact', 'rater'];
+  const keys = [
+    'authorContact',
+    'liker',
+    'commenter',
+    'memberContact',
+    'senderContact',
+    'rater',
+    'requesterContact',
+    'friendContact',
+  ];
   for (const key of keys) {
     const val = m[key];
     if (typeof val === 'string' && val.trim()) return val.trim().toLowerCase();
@@ -96,7 +107,7 @@ export function NotificationsView({
             <p className="text-2xl mb-2">🔔</p>
             <p>No notifications yet</p>
             <p className="text-xs mt-2 text-[#bbb]">
-              Posts, likes, comments, invites, and team updates appear here.
+              Posts, likes, friend requests, invites, and team updates appear here.
             </p>
           </div>
         )}

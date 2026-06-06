@@ -18,7 +18,6 @@ import { ProjectData } from '@/lib/types';
 import { apiCreateProject, apiPublishProject, apiCheckHealth, apiGetUser, apiJoinProject, BrowseProject, PlanLimitError } from '@/lib/api';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/userErrors';
-import { profileReadyMessage } from '@/lib/profileComplete';
 import { joinRequestNotice, isJoinApproved } from '@/lib/joinFlow';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
@@ -167,20 +166,11 @@ export default function Home() {
     }
   }, [auth.user, pendingJoinCategory]);
 
-  const requireProfileForAction = (): boolean => {
-    const msg = profileReadyMessage(auth.user, auth.profile);
-    if (!msg) return true;
-    setJoinError(msg);
-    setShowProfile(true);
-    return false;
-  };
-
   const handleStartProject = () => {
     if (!auth.checkAuth()) {
       openAuth('signup');
       return;
     }
-    if (!requireProfileForAction()) return;
     setWizardInitialEntry('create');
     setWizardInitialCategory(undefined);
     setWizardInitialSkills(undefined);
@@ -192,7 +182,6 @@ export default function Home() {
       openAuth('signup');
       return;
     }
-    if (!requireProfileForAction()) return;
     setWizardInitialEntry('join');
     setShowWizard(true);
   };
@@ -366,7 +355,6 @@ export default function Home() {
       return;
     }
     if (!auth.user) return;
-    if (!requireProfileForAction()) return;
 
     setJoinError(null);
     setJoinNotice(null);
@@ -606,6 +594,12 @@ export default function Home() {
           onSaved={async () => {
             await auth.refreshProfile();
             setShowProfile(false);
+          }}
+          onLogout={() => {
+            auth.logout();
+            setCurrentProject(null);
+            clearSessionActiveProject();
+            setShowDashboard(false);
           }}
         />
       )}

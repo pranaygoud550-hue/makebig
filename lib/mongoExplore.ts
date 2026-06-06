@@ -41,14 +41,10 @@ export async function exploreProjectsFromMongo(
   if (params.categoryId && params.categoryId !== 'all') {
     filter.categoryId = params.categoryId;
   }
-  if (params.skills) {
-    const skillArr = String(params.skills)
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (skillArr.length) {
-      filter.roles = { $in: skillArr.map((s) => new RegExp(s, 'i')) };
-    }
+  const textQuery = (params.q || params.skills || '').trim();
+  if (textQuery) {
+    const regex = new RegExp(textQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ name: regex }, { desc: regex }, { roles: regex }];
   }
 
   const [projects, totalBeforeFilter] = await Promise.all([

@@ -155,6 +155,7 @@ export interface ExploreParams {
   city?: string;
   categoryId?: string;
   skills?: string;
+  q?: string;
   page?: number;
   limit?: number;
 }

@@ -9,9 +9,10 @@ interface UserProfilePanelProps {
   onClose: () => void;
   user: User;
   onSaved?: () => void;
+  onLogout?: () => void;
 }
 
-export function UserProfilePanel({ isOpen, onClose, user, onSaved }: UserProfilePanelProps) {
+export function UserProfilePanel({ isOpen, onClose, user, onSaved, onLogout }: UserProfilePanelProps) {
   const [mounted, setMounted] = useState(isOpen);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export function UserProfilePanel({ isOpen, onClose, user, onSaved }: UserProfile
           variant="panel"
           onClose={onClose}
           onSaved={onSaved}
+          onLogout={onLogout}
         />
       </div>
     </div>
