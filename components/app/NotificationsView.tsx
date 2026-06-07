@@ -2,6 +2,7 @@
 
 import type { AppNotification } from '@/lib/hooks/useNotifications';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const NOTIF_ICON: Record<string, string> = {
   join: '🙋',
@@ -86,9 +87,9 @@ export function NotificationsView({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e0e0e0]">
-        <p className="text-sm font-bold text-[#1d2226]">Notifications</p>
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-[#e0e0e0] dark:border-gray-700 overflow-hidden animate-fadeIn">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e0e0e0] dark:border-gray-700">
+        <p className="text-sm font-bold text-[#1d2226] dark:text-white">Notifications</p>
         <div className="flex items-center gap-3">
           {notifications.some((n) => !n.read) && (
             <button
@@ -109,17 +110,25 @@ export function NotificationsView({
         </div>
       </div>
 
-      <div className="max-h-[60vh] overflow-y-auto divide-y divide-[#f0f0f0]">
+      <div className="max-h-[60vh] overflow-y-auto divide-y divide-[#f0f0f0] dark:divide-gray-700">
         {loading && (
-          <div className="px-4 py-6 text-center text-sm text-[#999]">Loading…</div>
+          <div className="px-4 py-4 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {!loading && notifications.length === 0 && (
-          <div className="px-4 py-10 text-center text-sm text-[#999]">
-            <p className="text-2xl mb-2">🔔</p>
-            <p>No notifications yet</p>
-            <p className="text-xs mt-2 text-[#bbb]">
-              Sent and received friend requests, join requests, invites, and team updates appear here.
-            </p>
+          <div className="px-4 py-12 text-center animate-fadeIn">
+            <p className="text-4xl mb-3">🔔</p>
+            <p className="font-semibold text-[#1d2226] dark:text-white">You&apos;re all caught up!</p>
+            <p className="text-sm text-[#666] dark:text-gray-400 mt-2">No new notifications</p>
           </div>
         )}
         {notifications.map((n) => {
@@ -132,8 +141,8 @@ export function NotificationsView({
               onClick={() => {
                 if (profileContact) openProfile(profileContact, profileContact);
               }}
-              className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-[#f8f9fa] transition-colors ${
-                !n.read ? 'bg-[#EEF3FB]' : ''
+              className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-[#f8f9fa] dark:hover:bg-gray-700/50 transition-colors toast-slide-in ${
+                !n.read ? 'bg-[#EEF3FB] dark:bg-blue-950/30' : ''
               }`}
             >
               <span className="text-xl shrink-0 mt-0.5">

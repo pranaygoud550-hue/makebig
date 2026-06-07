@@ -10,6 +10,13 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
   color-scheme: light;
 }
 
@@ -20,11 +27,29 @@ body {
   overflow-x: hidden;
 }
 
+.dark body {
+  background: #111827;
+  color: #f9fafb;
+}
+
 input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='button']):not([type='submit']),
 select,
 textarea {
   background-color: #ffffff;
   color: #1d2226;
+}
+
+.dark input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='button']):not([type='submit']),
+.dark select,
+.dark textarea {
+  background-color: #1f2937;
+  color: #f9fafb;
+  color-scheme: dark;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='button']):not([type='submit']),
+select,
+textarea {
   color-scheme: light;
 }
 
@@ -64,6 +89,45 @@ input[type=number] {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+.toast-slide-in {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.page-enter {
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.message-enter {
+  animation: messageFadeIn 0.3s ease-out;
+}
+
+@keyframes messageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Animations */

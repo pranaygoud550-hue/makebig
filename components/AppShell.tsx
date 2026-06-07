@@ -20,6 +20,7 @@ import { apiCheckHealth } from '@/lib/api';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
 import { useToast } from '@/lib/context/ToastContext';
 import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
+import { useTabPageTitle } from '@/lib/hooks/usePageTitle';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
 const TAB_STORAGE_KEY = 'makeBigActiveTab';
@@ -69,6 +70,8 @@ export function AppShell({
   const notificationsState = useNotifications(notifUserKey);
   const { unreadCount, markAllRead } = notificationsState;
   const { showToast } = useToast();
+
+  useTabPageTitle(activeTab);
 
   const handleTabChange = useCallback((tab: AppTab) => {
     setActiveTab(tab);
@@ -134,7 +137,7 @@ export function AppShell({
   });
 
   return (
-    <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
+    <div className="min-h-screen bg-[#f3f2ef] dark:bg-gray-900 flex flex-col">
       {apiOnline === false && (
         <div className="bg-white border-b border-[#e0e0e0] px-4 sm:px-6 py-2.5 text-center text-sm text-[#666]">
           Backend API is offline — posts, team chat, and AI need the Render API. Check{' '}
@@ -176,7 +179,7 @@ export function AppShell({
         onLogout={onLogout}
       />
 
-      <main className="flex-1 pb-20 md:pb-4 w-full px-4 sm:px-6 lg:px-8 py-4 text-sm md:text-base">
+      <main className="flex-1 pb-20 md:pb-0 w-full px-4 sm:px-6 lg:px-8 py-4 text-sm md:text-base page-enter">
         {activeTab === 'home' && (
           <HomeTab
             userName={user.name}
@@ -202,6 +205,10 @@ export function AppShell({
             userContact={user.contact}
             onOpenDashboard={() => onOpenYourProject('feed')}
             onProjectSynced={handleProjectSynced}
+            onBrowseProjects={() => {
+              if (user.contact) markOnboardingBrowse(user.contact);
+              handleTabChange('explore');
+            }}
           />
         )}
         {activeTab === 'ai' && (

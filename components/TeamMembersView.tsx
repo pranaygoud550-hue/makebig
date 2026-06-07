@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { connectProjectRoom } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { apiRemoveProjectMember } from '@/lib/api';
+import { useToast } from '@/lib/context/ToastContext';
 
 interface TeamMember {
   contact: string;
@@ -46,6 +47,8 @@ export function TeamMembersView({
   userName,
   userContact,
 }: TeamMembersViewProps) {
+  const { showToast: localToast } = useToast();
+  const toast = onShowToast || localToast;
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
@@ -254,7 +257,11 @@ export function TeamMembersView({
               </button>
             )}
             <button
-              onClick={() => navigator.clipboard?.writeText(window.location.href).then(() => alert('Project link copied! Send it to your collaborators.'))}
+              onClick={() =>
+                navigator.clipboard?.writeText(window.location.href).then(() =>
+                  toast('Project link copied! Send it to your collaborators.', 'success')
+                )
+              }
               className="px-6 py-2.5 border border-[#d9d9d9] text-[#666] text-sm font-semibold rounded-full hover:border-[#0A66C2] hover:text-[#0A66C2] transition-all"
             >
               🔗 Copy project link

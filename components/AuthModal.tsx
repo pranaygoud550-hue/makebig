@@ -12,6 +12,7 @@ import { SkillBadgeChip } from '@/components/skillVerification/SkillBadgeChip';
 import type { SkillGradeResult } from '@/lib/skillVerification/types';
 import { toVerifiedSkillRecord } from '@/lib/skillVerification/exam';
 import type { VerifiedSkill } from '@/lib/types';
+import { useToast } from '@/lib/context/ToastContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ const GRAD_YEARS = Array.from({ length: 12 }, (_, i) => String(CURRENT_YEAR + 4 
 
 export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, onSignUp }: AuthModalProps) {
   const { skills: catalogSkills, loading: catalogLoading } = useSkillCatalog();
+  const { showToast } = useToast();
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
 
   // Multi-step signup: 1=personal, 2=education, 3=skills, 4=verify tests, 5=otp
@@ -138,7 +140,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
 
   const handleOAuth = async (provider: 'google' | 'github') => {
     if (!isSupabaseConfigured) {
-      alert('Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env to enable OAuth.');
+      showToast('Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env to enable OAuth.', 'warning');
       return;
     }
     await supabase.auth.signInWithOAuth({

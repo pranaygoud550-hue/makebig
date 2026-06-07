@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ProfessionalProfile } from '@/components/app/ProfessionalProfile';
 import { apiGetUser } from '@/lib/api';
 import { User } from '@/lib/types';
+import { ProfileSkeleton } from '@/components/ui/Skeleton';
+import { usePageTitle } from '@/lib/hooks/usePageTitle';
 
 export default function PublicUserProfilePage({ params }: { params: { contact: string } }) {
   const contact = decodeURIComponent(params.contact);
@@ -23,10 +25,14 @@ export default function PublicUserProfilePage({ params }: { params: { contact: s
     });
   }, [contact]);
 
+  usePageTitle(user?.name ? user.name : 'Profile');
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f3f2ef] flex items-center justify-center">
-        <p className="text-sm text-[#666]">Loading profile…</p>
+      <div className="min-h-screen bg-[#f3f2ef] dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <ProfileSkeleton />
+        </div>
       </div>
     );
   }

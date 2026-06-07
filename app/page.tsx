@@ -7,7 +7,6 @@ import { SplashScreen } from '@/components/SplashScreen';
 import { ProjectWizardNew } from '@/components/ProjectWizardNew';
 import { DashboardNew, type DashboardNavTab } from '@/components/DashboardNew';
 import { saveActiveProject, clearSessionActiveProject, clearActiveProject } from '@/lib/activeProjectStorage';
-import { ToastProvider } from '@/lib/context/ToastContext';
 import { restoreUserProject } from '@/lib/restoreUserProject';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
 import { projectNeedsSync, hasActiveWorkspace } from '@/lib/projectWorkspace';
@@ -424,7 +423,6 @@ export default function Home() {
   /* ── Routing ── */
   if (showDashboard && hasActiveWorkspace(currentProject)) {
     return (
-      <ToastProvider>
       <ProfileViewProvider>
         <DashboardNew
         project={currentProject!}
@@ -445,7 +443,6 @@ export default function Home() {
         }}
       />
       </ProfileViewProvider>
-      </ToastProvider>
     );
   }
 
@@ -468,7 +465,6 @@ export default function Home() {
   /* Signed in → same app (Home, Posts, Explore, etc.) for create and join */
   if (auth.user && auth.checkAuth()) {
     return (
-      <ToastProvider>
       <ProfileViewProvider>
       <>
         <AppShell
@@ -579,7 +575,6 @@ export default function Home() {
         )}
       </>
       </ProfileViewProvider>
-      </ToastProvider>
     );
   }
 

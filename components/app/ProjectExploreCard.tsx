@@ -92,7 +92,7 @@ export function ProjectExploreCard({
   } as BrowseProject;
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e0e0e0] hover:border-[#0A66C2]/40 hover:shadow-sm p-5 transition-all flex flex-col h-full min-h-[220px]">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-[#e0e0e0] dark:border-gray-700 hover:border-[#0A66C2]/40 hover:shadow-sm p-5 transition-all flex flex-col h-full min-h-[220px] hover:scale-[1.01] active:scale-[0.99]">
       <Link href={p.slug ? `/p/${p.slug}` : '/explore'} className="block flex-1">
         <div className="flex justify-between items-start gap-2 mb-2 min-h-[28px]">
           <span className="text-lg shrink-0">{CAT_ICONS[p.categoryId || ''] || '🚀'}</span>

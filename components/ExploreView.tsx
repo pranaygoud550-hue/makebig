@@ -7,6 +7,7 @@ import { INDIAN_CITIES } from '@/lib/indianCities';
 import { BrowseProject } from '@/lib/api';
 import { dedupeById } from '@/lib/dedupeProjects';
 import { ProjectExploreCard } from '@/components/app/ProjectExploreCard';
+import { ProjectCardSkeleton } from '@/components/ui/Skeleton';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
 const EXPLORE_API = '/api/public/explore';
@@ -264,12 +265,9 @@ export function ExploreView({
 
           <div className="flex-1 min-w-0">
             {loading && projects.length === 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-2xl border border-[#e0e0e0] p-5 animate-pulse h-52"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <ProjectCardSkeleton key={i} />
                 ))}
               </div>
             ) : projects.length === 0 ? (
@@ -279,7 +277,7 @@ export function ExploreView({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map((p) => (
                     <ProjectExploreCard
                       key={p.id}

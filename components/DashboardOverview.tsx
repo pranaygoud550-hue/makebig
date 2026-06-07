@@ -23,6 +23,7 @@ import { apiCheckHealth, getAuthHeadersAsync, apiGetSmartTasks, apiGetGithubComm
 import { getErrorMessage } from '@/lib/userErrors';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
 import { isValidMongoId } from '@/lib/projectMappers';
+import { useToast } from '@/lib/context/ToastContext';
 import { getInitials } from '@/lib/utils';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { connectProjectRoom } from '@/lib/realtime';
@@ -208,6 +209,7 @@ function SortableTaskCard({
 }
 
 export function DashboardOverview({ project, user, onProjectUpdate, externalShowNewTask, onExternalTaskClose }: DashboardOverviewProps) {
+  const { showToast } = useToast();
   const [tasks, setTasks]     = useState<Task[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -927,7 +929,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
             <div className="space-y-2">
               {[
                 { icon: '📝', label: 'Create New Task',  fn: () => setShowNewTask(true) },
-                { icon: '🔗', label: 'Share Project Link', fn: () => navigator.clipboard?.writeText(window.location.href).then(() => alert('Link copied!')) },
+                { icon: '🔗', label: 'Share Project Link', fn: () => navigator.clipboard?.writeText(window.location.href).then(() => showToast('Link copied!', 'success')) },
               ].map(a => (
                 <button key={a.label} onClick={a.fn}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#1d2226] border border-[#d9d9d9] rounded-xl hover:border-[#0A66C2] hover:bg-[#EEF3FB] hover:text-[#0A66C2] transition-all text-left">

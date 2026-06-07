@@ -6,6 +6,10 @@ import { apiGetProjectMessages, apiSendProjectMessage, apiGetStandupToday, apiSu
 import { socketManager } from '@/lib/realtime';
 import { getInitials } from '@/lib/utils';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { useToast } from '@/lib/context/ToastContext';
+import { MessageSkeleton } from '@/components/ui/Skeleton';
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '✅', '👀', '🎉', '💪', '🤔', '😅', '🙏', '💡'];
 
 interface MessagesViewProps {
   projectId: string;
@@ -95,7 +99,9 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [readerIds, setReaderIds] = useState<string[]>([]);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { showToast } = useToast();
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -474,20 +480,16 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
           </div>
         )}
 
-        {loading && (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-4 border-[#0A66C2] border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
+        {loading && <MessageSkeleton />}
 
         {!loading && chatMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full py-16 text-center">
-            <div className="w-20 h-20 rounded-full bg-[#EEF3FB] flex items-center justify-center text-3xl mb-5">
+          <div className="flex flex-col items-center justify-center h-full py-16 text-center animate-fadeIn">
+            <div className="w-20 h-20 rounded-full bg-[#EEF3FB] dark:bg-gray-800 flex items-center justify-center text-3xl mb-5">
               💬
             </div>
-            <p className="text-[#1d2226] font-bold text-sm md:text-base">Start the conversation</p>
-            <p className="text-xs md:text-sm text-[#666] mt-1.5 max-w-[240px] leading-relaxed">
-              Your team chat is ready. Say hello — real-time messages are delivered instantly.
+            <p className="text-[#1d2226] dark:text-white font-bold text-sm md:text-base">Your team chat</p>
+            <p className="text-xs md:text-sm text-[#666] dark:text-gray-400 mt-1.5 max-w-[280px] leading-relaxed">
+              Join a project to start messaging your team — or say hello to kick things off here.
             </p>
           </div>
         )}
@@ -511,7 +513,7 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
             <div
               key={msg.id}
               ref={(el) => { messageRefs.current[msg.id] = el; }}
-              className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}
+              className={`flex gap-3 message-enter ${isOwn ? 'flex-row-reverse' : ''}`}
               onClick={() => {
                 if (searchQuery.trim()) {
                   messageRefs.current[msg.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -573,13 +575,48 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
         <div ref={bottomRef} />
       </div>
 
-      <div className="sticky bottom-0 z-10 bg-white border border-t border-[#e0e0e0] rounded-b-xl p-3 md:p-4 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-900 border border-t border-[#e0e0e0] dark:border-gray-700 rounded-b-xl p-3 md:p-4 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {sendError && <p className="text-xs text-red-600 mb-2 px-1">{sendError}</p>}
         <div className="flex gap-2 md:gap-3 items-end">
-          <div className="w-8 h-8 rounded-full bg-[#0A66C2] flex items-center justify-center text-white text-xs font-bold shrink-0">
-            {getInitials(userName)}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setEmojiOpen((o) => !o)}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#f3f2ef] dark:hover:bg-gray-800 text-lg active:scale-95 transition-transform"
+              title="Emoji"
+              aria-label="Insert emoji"
+            >
+              😊
+            </button>
+            {emojiOpen && (
+              <div className="absolute bottom-11 left-0 z-20 bg-white dark:bg-gray-800 border border-[#e0e0e0] dark:border-gray-600 rounded-xl shadow-lg p-2 grid grid-cols-6 gap-1 animate-fadeIn">
+                {QUICK_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    className="text-lg p-1 hover:bg-[#f3f2ef] dark:hover:bg-gray-700 rounded active:scale-95"
+                    onClick={() => {
+                      setInput((prev) => prev + em);
+                      setEmojiOpen(false);
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex-1 flex gap-2 items-end">
+          <button
+            type="button"
+            onClick={() => showToast('File attachments coming soon', 'info')}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#f3f2ef] dark:hover:bg-gray-800 text-[#666] dark:text-gray-400 active:scale-95 transition-transform shrink-0"
+            title="Attach file"
+            aria-label="Attach file"
+          >
+            📎
+          </button>
+          <div className="flex-1 flex gap-2 items-end min-w-0">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -592,13 +629,13 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
                 }
               }}
               placeholder="Write a message…"
-              className="messages-input flex-1 px-4 py-2 bg-white border border-[#d9d9d9] rounded-2xl text-sm text-[#1d2226] placeholder:text-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20 transition-all resize-none overflow-y-auto leading-5"
+              className="messages-input flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-[#d9d9d9] dark:border-gray-600 rounded-2xl text-sm text-[#1d2226] dark:text-white placeholder:text-[#999] focus:outline-none focus:border-[#0A66C2] focus:ring-2 focus:ring-[#0A66C2]/20 transition-all resize-none overflow-y-auto leading-5"
             />
             <button
               type="button"
               onClick={() => void handleSend()}
               disabled={!input.trim()}
-              className="w-10 h-10 flex items-center justify-center bg-[#0A66C2] text-white rounded-full hover:bg-[#004182] disabled:opacity-40 transition-all text-base shrink-0"
+              className="w-10 h-10 flex items-center justify-center bg-[#0A66C2] text-white rounded-full hover:bg-[#004182] disabled:opacity-40 active:scale-95 transition-transform text-base shrink-0"
               title="Send"
             >
               ➤

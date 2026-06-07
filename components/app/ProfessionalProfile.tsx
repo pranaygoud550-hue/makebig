@@ -20,6 +20,7 @@ import { StarRating } from '@/components/StarRating';
 import { FriendRequestButton } from '@/components/app/FriendRequestButton';
 import { VerifiedSkillsSection } from '@/components/skillVerification/VerifiedSkillsSection';
 import { computeProfileStrength } from '@/lib/profileStrength';
+import { ProfileSkeleton } from '@/components/ui/Skeleton';
 import { UserSafetyActions } from '@/components/app/UserSafetyActions';
 import {
   apiGetReferralInfo,
@@ -310,7 +311,7 @@ export function ProfessionalProfile({
 
         <div className={`flex-1 overflow-y-auto px-4 sm:px-6 pb-10 -mt-16 ${variant === 'page' ? 'pt-0' : ''}`}>
           {loading ? (
-            <p className="text-center text-sm text-[#666] py-16">Loading profile…</p>
+            <ProfileSkeleton />
           ) : (
             <>
               <div className="bg-white rounded-2xl border border-[#e0e0e0] shadow-sm p-5 sm:p-6">

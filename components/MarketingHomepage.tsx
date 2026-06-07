@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { PublicProjectFeed } from '@/components/PublicProjectFeed';
 import { SalaryLeaderboard } from '@/components/SalaryLeaderboard';
@@ -64,11 +65,10 @@ const FEATURES = [
   },
 ];
 
-const STATS = [
-  { value: '50+', label: 'Total Projects' },
-  { value: '100+', label: 'Active Members' },
-  { value: '200+', label: 'Open Roles' },
-  { value: `${WIZARD_CATEGORIES.length}+`, label: 'Categories' },
+const DEFAULT_STATS = [
+  { value: '50+', label: 'Total Projects', key: 'projects' },
+  { value: '100+', label: 'Active Members', key: 'members' },
+  { value: '12+', label: 'Cities', key: 'cities' },
 ];
 
 function HeroIllustration() {
@@ -118,6 +118,21 @@ export function MarketingHomepage({
   onCloseDebug,
 }: MarketingHomepageProps) {
   const exploreHref = '/explore';
+  const [stats, setStats] = useState(DEFAULT_STATS);
+
+  useEffect(() => {
+    fetch('/api/public/stats')
+      .then((r) => r.json())
+      .then((data) => {
+        setStats([
+          { value: `${data.totalProjects || 0}+`, label: 'Total Projects', key: 'projects' },
+          { value: `${data.totalUsers || 0}+`, label: 'Active Members', key: 'members' },
+          { value: `${data.totalCities || 0}+`, label: 'Cities', key: 'cities' },
+          { value: `${WIZARD_CATEGORIES.length}+`, label: 'Categories', key: 'categories' },
+        ]);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <>
@@ -211,8 +226,8 @@ export function MarketingHomepage({
       {/* ── Social proof ── */}
       <section className="bg-[#0A66C2] py-8 px-4">
         <div className="w-full px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {STATS.map((s) => (
-            <div key={s.label}>
+          {stats.map((s) => (
+            <div key={s.key}>
               <p className="text-3xl md:text-4xl font-black text-white">{s.value}</p>
               <p className="text-sm text-white/75 mt-1 font-medium">{s.label}</p>
             </div>

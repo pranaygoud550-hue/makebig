@@ -413,6 +413,24 @@ app.get("/api/health", (req, res) => {
   );
 });
 
+app.get("/api/public/stats", async (req, res) => {
+  try {
+    const [totalProjects, totalUsers, cities] = await Promise.all([
+      Project.countDocuments({ status: { $in: ["published", "active"] } }),
+      User.countDocuments({}),
+      Project.distinct("city", { city: { $nin: ["", null] } }),
+    ]);
+    res.json({
+      totalProjects: totalProjects || 0,
+      totalUsers: totalUsers || 0,
+      totalCities: Array.isArray(cities) ? cities.filter(Boolean).length : 0,
+    });
+  } catch (error) {
+    console.error("public stats error:", error.message);
+    res.status(500).json({ totalProjects: 0, totalUsers: 0, totalCities: 0 });
+  }
+});
+
 // ==================== USERS ====================
 
 app.post("/api/users/upsert", async (req, res) => {

@@ -10,6 +10,7 @@ interface PostsTabProps {
   userContact?: string;
   onOpenDashboard: () => void;
   onProjectSynced: (project: ProjectData) => void;
+  onBrowseProjects?: () => void;
 }
 
 export function PostsTab({
@@ -17,6 +18,7 @@ export function PostsTab({
   userContact,
   onOpenDashboard,
   onProjectSynced,
+  onBrowseProjects,
 }: PostsTabProps) {
   const isOwner = currentProject?.mode === 'create';
   const canPost = Boolean(userContact && currentProject?.id);
@@ -29,8 +31,11 @@ export function PostsTab({
       onProjectSynced={onProjectSynced}
       noProject={{
         icon: '📝',
-        title: 'Project posts',
-        description: 'Create or join a team to share updates and photos with your project.',
+        title: 'Share your progress',
+        description: 'Join a project to post updates for your team',
+        actions: onBrowseProjects
+          ? [{ label: 'Browse projects', onClick: onBrowseProjects }]
+          : undefined,
       }}
       needsSync={{
         icon: '📝',

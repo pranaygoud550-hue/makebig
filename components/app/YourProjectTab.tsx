@@ -6,6 +6,7 @@ import { ProjectData } from '@/lib/types';
 import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { LeaveProjectModal } from '@/components/app/LeaveProjectModal';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { apiLeaveProject } from '@/lib/api';
 import type { LeaveReasonOption } from '@/lib/projectLeave';
 import type { DashboardNavTab } from '@/components/DashboardNew';
@@ -151,26 +152,14 @@ export function YourProjectTab({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-10 text-center">
-      <p className="text-2xl mb-2">📁</p>
-      <p className="font-semibold text-[#1d2226]">No active project</p>
-      <p className="text-sm text-[#666] mt-1">Start something new or join an existing team.</p>
-      <div className="flex flex-wrap justify-center gap-2 mt-5">
-        <button
-          type="button"
-          onClick={onStartProject}
-          className="px-4 py-2 bg-[#0A66C2] text-white text-sm font-semibold rounded-full hover:bg-[#004182]"
-        >
-          Start a project
-        </button>
-        <button
-          type="button"
-          onClick={onJoinProject}
-          className="px-4 py-2 border border-[#0A66C2] text-[#0A66C2] text-sm font-semibold rounded-full hover:bg-[#EEF3FB]"
-        >
-          Join a project
-        </button>
-      </div>
-    </div>
+    <EmptyState
+      icon="🚀"
+      title="Ready to build something?"
+      description="Start a project or join an existing team"
+      actions={[
+        { label: 'Start a project', onClick: onStartProject },
+        { label: 'Browse projects', onClick: onJoinProject, variant: 'secondary' },
+      ]}
+    />
   );
 }

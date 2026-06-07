@@ -59,7 +59,7 @@ describe('PostsTab', () => {
 
   it('renders empty state when no project', () => {
     renderPosts();
-    expect(screen.getByText('Project posts')).toBeInTheDocument();
+    expect(screen.getByText('Share your progress')).toBeInTheDocument();
   });
 
   it('renders feed when project is linked', async () => {

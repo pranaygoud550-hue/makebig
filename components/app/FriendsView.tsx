@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   apiAcceptFriendRequest,
   apiDeclineFriendRequest,
@@ -11,6 +11,8 @@ import {
 } from '@/lib/api';
 import { ProjectData } from '@/lib/types';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { FriendRequestButton } from '@/components/app/FriendRequestButton';
 
 interface FriendsViewProps {
@@ -29,6 +31,7 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { openProfile } = useProfileView();
 
   useEffect(() => {
@@ -137,9 +140,16 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
       {loading ? (
         <div className="space-y-3">
           {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-[#e0e0e0] p-4 h-20 animate-pulse" />
+            <Skeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
+      ) : friends.length === 0 && incoming.length === 0 && outgoing.length === 0 ? (
+        <EmptyState
+          icon="👥"
+          title="Find your people"
+          description="Connect with builders, designers and founders"
+          actions={[{ label: 'Find people', onClick: () => searchInputRef.current?.focus() }]}
+        />
       ) : (
         <>
           {incoming.length > 0 && (
@@ -203,11 +213,9 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
           )}
 
           <section className="space-y-2">
-            <h2 className="text-sm font-bold text-[#1d2226]">Your friends</h2>
+            <h2 className="text-sm font-bold text-[#1d2226] dark:text-white">Your friends</h2>
             {friends.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-8 text-center">
-                <p className="text-sm text-[#666]">No friends yet — search below and send a request.</p>
-              </div>
+              <p className="text-sm text-[#666] dark:text-gray-400 px-1">No friends yet — search below to connect.</p>
             ) : (
               friends.map((p) => (
                 <button
@@ -233,6 +241,7 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666] text-sm">🔍</span>
           <input
+            ref={searchInputRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

@@ -24,9 +24,9 @@ export async function generateMetadata({
   params: { slug: string };
 }): Promise<Metadata> {
   const data = await getStartup(params.slug);
-  if (!data) return { title: 'Startup | Make Big' };
+  if (!data) return { title: 'Startup' };
   return {
-    title: `${data.startup.name} — Startup Profile | Make Big`,
+    title: data.startup.name,
     description: data.startup.desc || `${data.startup.name} on Make Big`,
     alternates: { canonical: `${SITE_URL}/startup/${params.slug}` },
     openGraph: {

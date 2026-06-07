@@ -16,9 +16,11 @@ import {
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { useToast } from '@/lib/context/ToastContext';
 
 export default function LearnPage() {
   const auth = useAuth();
+  const { showToast } = useToast();
   const [showAuth, setShowAuth] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardInitialEntry] = useState<'create'>('create');
@@ -111,7 +113,7 @@ export default function LearnPage() {
       });
       window.location.href = '/';
     } catch (e) {
-      alert(e instanceof PlanLimitError ? e.message : getErrorMessage(e, 'project'));
+      showToast(e instanceof PlanLimitError ? e.message : getErrorMessage(e, 'project'), 'error');
     }
   };
 

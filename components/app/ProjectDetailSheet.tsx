@@ -6,6 +6,7 @@ import { formatSalaryBand, getInitials } from '@/lib/utils';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { getErrorMessage } from '@/lib/userErrors';
 import { useSheetHistory } from '@/lib/useSheetHistory';
+import { ProjectCardSkeleton } from '@/components/ui/Skeleton';
 
 export interface SearchProjectHit {
   id: string;
@@ -130,12 +131,12 @@ export function ProjectDetailSheet({
     <div className="fixed inset-0 z-50 flex justify-end">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/40 md:bg-black/40"
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative w-full md:max-w-lg bg-white h-[100dvh] md:h-full shadow-2xl overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-[#e0e0e0] px-4 py-3 flex items-center gap-3 z-10 h-14">
+      <div className="relative w-full md:max-w-lg bg-white dark:bg-gray-900 h-[100dvh] md:h-full shadow-2xl overflow-y-auto animate-sheetUp md:animate-none">
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-[#e0e0e0] dark:border-gray-700 px-4 py-3 flex items-center gap-3 z-10 h-14">
           <button
             type="button"
             onClick={onClose}
@@ -158,7 +159,9 @@ export function ProjectDetailSheet({
 
         <div className="p-4 space-y-5 pb-24 md:pb-8 text-sm md:text-base">
           {loading && (
-            <p className="text-sm text-[#666] text-center py-12">Loading…</p>
+            <div className="py-4">
+              <ProjectCardSkeleton />
+            </div>
           )}
           {error && (
             <p className="text-sm text-red-600 text-center py-12">{error}</p>
