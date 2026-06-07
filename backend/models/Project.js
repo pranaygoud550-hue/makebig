@@ -110,6 +110,7 @@ const projectSchema = new mongoose.Schema(
       computedAt: Date,
     },
     logoUrl: { type: String, default: '' },
+    githubUrl: { type: String, default: '', trim: true },
     gallery: [String],
     journey: {
       currentStage: {

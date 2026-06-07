@@ -65,6 +65,21 @@ import Invite from "./backend/models/Invite.js";
 import StartupFollow from "./backend/models/StartupFollow.js";
 import StartupBookmark from "./backend/models/StartupBookmark.js";
 import IdeaValidation from "./backend/models/IdeaValidation.js";
+import StandupLog from "./backend/models/StandupLog.js";
+import ProjectNote from "./backend/models/ProjectNote.js";
+import {
+  getISTDateString,
+  getISTDateLabel,
+  getActiveMemberContacts,
+  formatStandupMessage,
+  formatStandupSummaryText,
+  generateStandupSummaryAI,
+  buildSmartTasksPrompt,
+  buildExtractTasksPrompt,
+  parseJsonTasks,
+  DEV_SMART_TASKS,
+  parseGithubRepo,
+} from "./backend/ai/projectManager.js";
 import { validateIdeaWithAI, reportToMarkdown } from "./backend/ai/ideaValidator.js";
 import {
   computeProjectHealth,
@@ -2237,6 +2252,523 @@ app.post("/api/projects/:projectId/messages", authMiddleware, async (req, res) =
     });
 
     res.json(formatResponse(true, { message: clientMessage }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// ==================== AI PROJECT MANAGER ====================
+
+async function maybePostStandupSummary(project, standupLog, io) {
+  if (standupLog.summary) return standupLog;
+
+  const activeContacts = getActiveMemberContacts(project);
+  const respondedContacts = new Set(
+    (standupLog.responses || []).map((r) => r.contact?.toLowerCase()).filter(Boolean)
+  );
+  const allResponded =
+    activeContacts.length > 0 &&
+    activeContacts.every((c) => respondedContacts.has(c));
+
+  const firstAt =
+    standupLog.responses?.[0]?.submittedAt || standupLog.createdAt || new Date();
+  const twoHoursPassed = Date.now() - new Date(firstAt).getTime() >= 2 * 60 * 60 * 1000;
+
+  if (!allResponded && !twoHoursPassed) return standupLog;
+  if (!(standupLog.responses || []).length) return standupLog;
+
+  const dateLabel = getISTDateLabel();
+  const summary = await generateStandupSummaryAI(
+    groq,
+    GROQ_MODEL,
+    standupLog.responses,
+    project.name
+  );
+
+  standupLog.summary = summary || formatStandupSummaryText(dateLabel, standupLog.responses);
+  standupLog.summaryPostedAt = new Date();
+  await standupLog.save();
+
+  const message = await Message.create({
+    projectId: project._id,
+    senderId: "standup-bot",
+    senderName: "🤖 Standup Bot",
+    content: standupLog.summary,
+    type: "system",
+  });
+
+  const roomName = `project_${project._id}`;
+  io.to(roomName).emit("new_message", {
+    _id: message._id,
+    id: message._id.toString(),
+    projectId: project._id.toString(),
+    senderId: "standup-bot",
+    senderName: "🤖 Standup Bot",
+    content: standupLog.summary,
+    type: "system",
+    createdAt: message.createdAt,
+  });
+
+  return standupLog;
+}
+
+app.get("/api/projects/:projectId/standup/today", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const date = getISTDateString();
+    let standupLog = await StandupLog.findOne({ projectId: project._id, date });
+    if (!standupLog) {
+      standupLog = await StandupLog.create({ projectId: project._id, date, responses: [] });
+    }
+
+    const userResponse = (standupLog.responses || []).find(
+      (r) => r.contact === authContact
+    );
+
+    res.json(
+      formatResponse(true, {
+        standup: {
+          date,
+          dateLabel: getISTDateLabel(),
+          responses: standupLog.responses || [],
+          summary: standupLog.summary || "",
+          summaryPostedAt: standupLog.summaryPostedAt,
+          userSubmitted: Boolean(userResponse && !userResponse.skipped),
+          userSkipped: Boolean(userResponse?.skipped),
+        },
+        activeMemberCount: getActiveMemberContacts(project).length,
+      })
+    );
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/projects/:projectId/standup", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const profile = await User.findOne({ contact: authContact }).lean();
+    const senderName = profile?.name || authContact;
+    const date = getISTDateString();
+    const skip = Boolean(req.body?.skip);
+
+    let standupLog = await StandupLog.findOne({ projectId: project._id, date });
+    if (!standupLog) {
+      standupLog = new StandupLog({ projectId: project._id, date, responses: [] });
+    }
+
+    const existingIdx = (standupLog.responses || []).findIndex(
+      (r) => r.contact === authContact
+    );
+    const entry = {
+      contact: authContact,
+      name: senderName,
+      yesterday: clampString(req.body?.yesterday, 1000),
+      today: clampString(req.body?.today, 1000),
+      blockers: clampString(req.body?.blockers, 500),
+      skipped: skip,
+      submittedAt: new Date(),
+    };
+
+    if (existingIdx >= 0) standupLog.responses[existingIdx] = entry;
+    else standupLog.responses.push(entry);
+
+    await standupLog.save();
+
+    let chatMessage = null;
+    if (!skip) {
+      const content = formatStandupMessage(
+        senderName,
+        entry.yesterday,
+        entry.today,
+        entry.blockers
+      );
+      chatMessage = await Message.create({
+        projectId: project._id,
+        senderId: authContact,
+        senderName,
+        content,
+        type: "text",
+      });
+
+      io.to(`project_${project._id}`).emit("new_message", {
+        _id: chatMessage._id,
+        id: chatMessage._id.toString(),
+        projectId: project._id.toString(),
+        senderId: authContact,
+        senderName,
+        content,
+        type: "text",
+        createdAt: chatMessage.createdAt,
+      });
+    }
+
+    standupLog = await maybePostStandupSummary(project, standupLog, io);
+
+    res.json(
+      formatResponse(true, {
+        standup: toClient(standupLog),
+        message: chatMessage ? toClient(chatMessage) : null,
+      })
+    );
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/projects/:projectId/notes", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    let note = await ProjectNote.findOne({ projectId: project._id }).lean();
+    if (!note) {
+      note = { projectId: project._id, content: "", updatedBy: "", updatedByName: "" };
+    }
+
+    res.json(
+      formatResponse(true, {
+        note: {
+          content: note.content || "",
+          updatedBy: note.updatedBy || "",
+          updatedByName: note.updatedByName || "",
+          updatedAt: note.updatedAt || note.createdAt || null,
+        },
+      })
+    );
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.put("/api/projects/:projectId/notes", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const profile = await User.findOne({ contact: authContact }).lean();
+    const updatedByName = profile?.name || authContact;
+    const content = clampString(req.body?.content, 50000) || "";
+
+    const note = await ProjectNote.findOneAndUpdate(
+      { projectId: project._id },
+      {
+        $set: {
+          content,
+          updatedBy: authContact,
+          updatedByName,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    const payload = {
+      content: note.content,
+      updatedBy: note.updatedBy,
+      updatedByName: note.updatedByName,
+      updatedAt: note.updatedAt,
+    };
+
+    io.to(`project_${project._id}`).emit("notes_updated", {
+      projectId: project._id.toString(),
+      ...payload,
+    });
+
+    res.json(formatResponse(true, { note: payload }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.patch("/api/projects/:projectId/github", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const rawUrl = clampString(req.body?.github_url || req.body?.githubUrl, 500);
+    if (rawUrl && !parseGithubRepo(rawUrl)) {
+      return res.status(400).json(formatResponse(false, null, "Invalid GitHub repository URL"));
+    }
+
+    project.githubUrl = rawUrl;
+    await project.save();
+
+    res.json(formatResponse(true, { githubUrl: project.githubUrl }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/projects/:projectId/github/commits", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const repo = parseGithubRepo(project.githubUrl);
+    if (!repo) {
+      return res.json(formatResponse(true, { connected: false, commits: [] }));
+    }
+
+    const ghRes = await fetch(
+      `https://api.github.com/repos/${repo.owner}/${repo.repo}/commits?per_page=5`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "MakeBig-App",
+        },
+      }
+    );
+
+    if (!ghRes.ok) {
+      return res.json(formatResponse(true, { connected: true, commits: [], error: "Could not fetch commits" }));
+    }
+
+    const data = await ghRes.json();
+    const commits = (Array.isArray(data) ? data : []).map((c) => ({
+      sha: c.sha?.slice(0, 7),
+      message: (c.commit?.message || "").split("\n")[0],
+      author: c.commit?.author?.name || c.author?.login || "Unknown",
+      date: c.commit?.author?.date,
+      url: c.html_url,
+    }));
+
+    res.json(formatResponse(true, { connected: true, repo, commits }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/smart-tasks", authMiddleware, async (req, res) => {
+  try {
+    const { projectId, context = {} } = req.body;
+    if (!projectId) {
+      return res.status(400).json(formatResponse(false, null, "projectId required"));
+    }
+
+    const project = await Project.findById(projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+
+    const members = await User.find({
+      contact: {
+        $in: [
+          project.ownerContact,
+          ...(project.teamMembers || [])
+            .filter((m) => m.status === "joined")
+            .map((m) => m.contact),
+        ].filter(Boolean),
+      },
+    }).lean();
+
+    const teamSkills = members.map((m) => m.skills || []).flat();
+    const enrichedContext = {
+      projectName: context.projectName || project.name,
+      description: context.description || project.desc,
+      teamSkills: context.teamSkills || teamSkills,
+      currentStage: context.currentStage || project.journey?.currentStage || "idea",
+      completionPercent:
+        context.completionPercent ?? project.journey?.completionPercent ?? 0,
+      openTaskCount:
+        context.openTaskCount ??
+        (project.tasks || []).filter((t) => t.status !== "done").length,
+    };
+
+    if (!groq) {
+      const tasks = DEV_SMART_TASKS.map((t, i) => ({
+        ...t,
+        suggestedAssignee:
+          members[i % members.length]?.name ||
+          members[i % members.length]?.contact ||
+          t.suggestedAssignee,
+      }));
+      return res.json(formatResponse(true, { tasks, devMode: true }));
+    }
+
+    const prompt = buildSmartTasksPrompt(enrichedContext);
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "system",
+          content: "You are a startup project manager. Return only valid JSON.",
+        },
+        { role: "user", content: prompt },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content || "";
+    let tasks = parseJsonTasks(raw, "tasks").slice(0, 5);
+    if (!tasks.length) tasks = DEV_SMART_TASKS;
+
+    res.json(formatResponse(true, { tasks, devMode: false }));
+  } catch (error) {
+    if (error.code === "PLAN_LIMIT") {
+      return res.status(403).json({ success: false, error: error.message, code: "PLAN_LIMIT" });
+    }
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/extract-tasks", authMiddleware, async (req, res) => {
+  try {
+    const { projectId, content } = req.body;
+    if (!projectId || !content?.trim()) {
+      return res.status(400).json(formatResponse(false, null, "projectId and content required"));
+    }
+
+    const project = await Project.findById(projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+
+    if (!groq) {
+      return res.json(
+        formatResponse(true, {
+          tasks: [
+            { task: "Fix login bug", assignee: "Rahul", dueDate: "Friday", priority: "high" },
+            { task: "Design mobile view", assignee: "Priya", dueDate: "Sunday", priority: "medium" },
+          ],
+          devMode: true,
+        })
+      );
+    }
+
+    const prompt = buildExtractTasksPrompt(content.trim());
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "system",
+          content: "Extract action items from meeting notes. Return only valid JSON.",
+        },
+        { role: "user", content: prompt },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content || "";
+    const tasks = parseJsonTasks(raw, "tasks");
+
+    res.json(formatResponse(true, { tasks, devMode: false }));
+  } catch (error) {
+    if (error.code === "PLAN_LIMIT") {
+      return res.status(403).json({ success: false, error: error.message, code: "PLAN_LIMIT" });
+    }
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/startup/:slug/progress", async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      slug: req.params.slug,
+      status: { $in: ["published", "in-progress"] },
+    }).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Startup not found"));
+
+    const owner = await User.findOne({ contact: project.ownerContact }).lean();
+    const joined = (project.teamMembers || []).filter((m) => m.status === "joined");
+    const contacts = [project.ownerContact, ...joined.map((m) => m.contact)].filter(Boolean);
+    const users = await User.find({ contact: { $in: contacts } }).lean();
+    const userMap = Object.fromEntries(users.map((u) => [u.contact, u]));
+
+    const weekAgo = new Date(Date.now() - 7 * 86400000);
+    const standupLogs = await StandupLog.find({
+      projectId: project._id,
+      summary: { $ne: "" },
+      createdAt: { $gte: weekAgo },
+    })
+      .sort({ date: -1 })
+      .limit(7)
+      .lean();
+
+    let commits = [];
+    const repo = parseGithubRepo(project.githubUrl);
+    if (repo) {
+      try {
+        const ghRes = await fetch(
+          `https://api.github.com/repos/${repo.owner}/${repo.repo}/commits?per_page=5`,
+          {
+            headers: {
+              Accept: "application/vnd.github+json",
+              "User-Agent": "MakeBig-App",
+            },
+          }
+        );
+        if (ghRes.ok) {
+          const data = await ghRes.json();
+          commits = (Array.isArray(data) ? data : []).map((c) => ({
+            sha: c.sha?.slice(0, 7),
+            message: (c.commit?.message || "").split("\n")[0],
+            author: c.commit?.author?.name || c.author?.login || "Unknown",
+            date: c.commit?.author?.date,
+            url: c.html_url,
+          }));
+        }
+      } catch {
+        /* ignore github errors for public page */
+      }
+    }
+
+    const journeyPayload = sanitizeJourneyForApi(project.journey);
+    const healthScore = project.health?.score ?? 0;
+
+    res.json(
+      formatResponse(true, {
+        startup: {
+          id: project._id.toString(),
+          name: project.name,
+          desc: project.desc,
+          slug: project.slug,
+          logoUrl: project.logoUrl,
+          githubUrl: project.githubUrl || "",
+        },
+        team: [
+          {
+            contact: project.ownerContact,
+            name: owner?.name || "Owner",
+            role: "Founder",
+            skills: owner?.skills || [],
+          },
+          ...joined.map((m) => ({
+            contact: m.contact,
+            name: userMap[m.contact]?.name || m.contact,
+            role: m.role || "Member",
+            skills: userMap[m.contact]?.skills || [],
+          })),
+        ],
+        journey: journeyPayload.configured ? journeyPayload.journey : null,
+        timeline: journeyPayload.configured
+          ? journeyTimeline(journeyPayload.journey?.currentStage || "idea")
+          : [],
+        health: {
+          score: healthScore,
+          ...project.health,
+        },
+        shippedThisWeek: standupLogs.map((s) => ({
+          date: s.date,
+          summary: s.summary,
+        })),
+        commits,
+      })
+    );
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

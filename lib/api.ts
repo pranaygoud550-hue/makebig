@@ -1527,3 +1527,150 @@ export async function apiCompleteLesson(
   if (!data.success || !data.data) return null;
   return mapCourse(data.data);
 }
+
+/* ── AI Project Manager ── */
+
+export interface StandupToday {
+  date: string;
+  dateLabel: string;
+  responses: Array<{
+    contact: string;
+    name: string;
+    yesterday?: string;
+    today?: string;
+    blockers?: string;
+    skipped?: boolean;
+  }>;
+  summary: string;
+  userSubmitted: boolean;
+  userSkipped: boolean;
+}
+
+export async function apiGetStandupToday(projectId: string): Promise<StandupToday | null> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/standup/today`, {
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success) return null;
+  return data.data?.standup ?? null;
+}
+
+export async function apiSubmitStandup(
+  projectId: string,
+  payload: { yesterday?: string; today?: string; blockers?: string; skip?: boolean }
+) {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/standup`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'standup'));
+  return data.data;
+}
+
+export interface ProjectNotePayload {
+  content: string;
+  updatedBy: string;
+  updatedByName: string;
+  updatedAt: string | null;
+}
+
+export async function apiGetProjectNotes(projectId: string): Promise<ProjectNotePayload | null> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/notes`, {
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success) return null;
+  return data.data?.note ?? null;
+}
+
+export async function apiSaveProjectNotes(
+  projectId: string,
+  content: string
+): Promise<ProjectNotePayload | null> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/notes`, {
+    method: 'PUT',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify({ content }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'notes'));
+  return data.data?.note ?? null;
+}
+
+export interface SmartTaskSuggestion {
+  title: string;
+  description: string;
+  suggestedAssignee?: string;
+  priority?: 'high' | 'medium' | 'low';
+}
+
+export async function apiGetSmartTasks(
+  projectId: string,
+  context: Record<string, unknown>
+): Promise<{ tasks: SmartTaskSuggestion[]; devMode: boolean }> {
+  const res = await fetch(`${API_BASE}/ai/smart-tasks`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify({ projectId, context }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'ai'));
+  return { tasks: data.data?.tasks || [], devMode: !!data.data?.devMode };
+}
+
+export interface ExtractedTaskItem {
+  task: string;
+  assignee?: string;
+  dueDate?: string;
+  priority?: string;
+}
+
+export async function apiExtractTasksFromNotes(
+  projectId: string,
+  content: string
+): Promise<{ tasks: ExtractedTaskItem[]; devMode: boolean }> {
+  const res = await fetch(`${API_BASE}/ai/extract-tasks`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify({ projectId, content }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'ai'));
+  return { tasks: data.data?.tasks || [], devMode: !!data.data?.devMode };
+}
+
+export async function apiUpdateProjectGithub(projectId: string, githubUrl: string) {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/github`, {
+    method: 'PATCH',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify({ github_url: githubUrl }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'project'));
+  return data.data;
+}
+
+export interface GithubCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  url: string;
+}
+
+export async function apiGetGithubCommits(
+  projectId: string
+): Promise<{ connected: boolean; commits: GithubCommit[]; repo?: { owner: string; repo: string } }> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/github/commits`, {
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success) return { connected: false, commits: [] };
+  return {
+    connected: !!data.data?.connected,
+    commits: data.data?.commits || [],
+    repo: data.data?.repo,
+  };
+}

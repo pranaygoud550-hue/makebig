@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
-import { apiGetProjectMessages, apiSendProjectMessage } from '@/lib/api';
+import { apiGetProjectMessages, apiSendProjectMessage, apiGetStandupToday, apiSubmitStandup } from '@/lib/api';
 import { socketManager } from '@/lib/realtime';
 import { getInitials } from '@/lib/utils';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
@@ -62,6 +62,18 @@ function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessag
   );
 }
 
+function isAfter9amIST() {
+  const hour = parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: 'Asia/Kolkata',
+    }).format(new Date()),
+    10
+  );
+  return hour >= 9;
+}
+
 export function MessagesView({ projectId, userId, userName, userContact }: MessagesViewProps) {
   const { openProfile } = useProfileView();
   const socketRef = useRef<Socket | null>(null);
@@ -73,6 +85,13 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [showStandup, setShowStandup] = useState(false);
+  const [standupDateLabel, setStandupDateLabel] = useState('');
+  const [standupFormOpen, setStandupFormOpen] = useState(false);
+  const [standupYesterday, setStandupYesterday] = useState('');
+  const [standupToday, setStandupToday] = useState('');
+  const [standupBlockers, setStandupBlockers] = useState('');
+  const [standupSubmitting, setStandupSubmitting] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -85,6 +104,44 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
     const stored = await apiGetProjectMessages(projectId);
     return stored.map((m: Record<string, string>) => normalizeMessage(m));
   }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !isAfter9amIST()) return;
+    let cancelled = false;
+    (async () => {
+      const standup = await apiGetStandupToday(projectId);
+      if (cancelled || !standup) return;
+      if (!standup.userSubmitted && !standup.userSkipped) {
+        setStandupDateLabel(standup.dateLabel);
+        setShowStandup(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const submitStandup = async (skip: boolean) => {
+    setStandupSubmitting(true);
+    try {
+      const result = await apiSubmitStandup(projectId, skip
+        ? { skip: true }
+        : {
+            yesterday: standupYesterday.trim(),
+            today: standupToday.trim(),
+            blockers: standupBlockers.trim() || 'None',
+          });
+      if (result?.message) {
+        appendMessages([normalizeMessage(result.message as Record<string, string>)]);
+      }
+      setShowStandup(false);
+      setStandupFormOpen(false);
+    } catch {
+      setSendError('Could not submit standup');
+    } finally {
+      setStandupSubmitting(false);
+    }
+  };
 
   /* Connect → join room → then load messages */
   useEffect(() => {
@@ -298,6 +355,71 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
       </div>
 
       <div className="flex-1 overflow-y-auto bg-[#f8f9fa] border-x border-[#e0e0e0] p-4 md:p-5 space-y-3 pb-24 md:pb-4">
+        {showStandup && (
+          <div className="sticky top-0 z-10 bg-gradient-to-r from-[#EEF3FB] to-white border border-[#0A66C2]/20 rounded-xl p-4 shadow-sm">
+            <p className="text-sm font-bold text-[#1d2226]">
+              🤖 Daily Standup — {standupDateLabel}
+            </p>
+            <ul className="text-xs text-[#666] mt-2 space-y-1 list-disc list-inside">
+              <li>What did you work on yesterday?</li>
+              <li>What will you do today?</li>
+              <li>Any blockers?</li>
+            </ul>
+
+            {standupFormOpen && (
+              <div className="mt-3 space-y-2">
+                <input
+                  value={standupYesterday}
+                  onChange={(e) => setStandupYesterday(e.target.value)}
+                  placeholder="Yesterday…"
+                  className="w-full px-3 py-2 border border-[#d9d9d9] rounded-lg text-sm"
+                />
+                <input
+                  value={standupToday}
+                  onChange={(e) => setStandupToday(e.target.value)}
+                  placeholder="Today…"
+                  className="w-full px-3 py-2 border border-[#d9d9d9] rounded-lg text-sm"
+                />
+                <input
+                  value={standupBlockers}
+                  onChange={(e) => setStandupBlockers(e.target.value)}
+                  placeholder="Blockers (optional)"
+                  className="w-full px-3 py-2 border border-[#d9d9d9] rounded-lg text-sm"
+                />
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 mt-3">
+              {!standupFormOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setStandupFormOpen(true)}
+                  className="px-4 py-1.5 bg-[#0A66C2] text-white text-xs font-semibold rounded-full hover:bg-[#004182]"
+                >
+                  Submit Update
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void submitStandup(false)}
+                  disabled={standupSubmitting || !standupToday.trim()}
+                  className="px-4 py-1.5 bg-[#0A66C2] text-white text-xs font-semibold rounded-full hover:bg-[#004182] disabled:opacity-40"
+                >
+                  {standupSubmitting ? 'Sending…' : 'Send standup'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void submitStandup(true)}
+                disabled={standupSubmitting}
+                className="px-4 py-1.5 border border-[#d9d9d9] text-[#666] text-xs font-semibold rounded-full hover:bg-[#f3f2ef]"
+              >
+                Skip Today
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-4 border-[#0A66C2] border-t-transparent rounded-full animate-spin" />

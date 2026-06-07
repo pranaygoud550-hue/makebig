@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ProjectData, User } from '@/lib/types';
-import { apiCheckHealth, getAuthHeadersAsync } from '@/lib/api';
+import { apiCheckHealth, getAuthHeadersAsync, apiGetSmartTasks, apiGetGithubCommits, apiUpdateProjectGithub, type SmartTaskSuggestion, type GithubCommit } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
 import { isValidMongoId } from '@/lib/projectMappers';
@@ -219,6 +219,15 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
   const [activeId, setActiveId]         = useState<string | null>(null);
   const [overColId, setOverColId]       = useState<string | null>(null);
   const [taskError, setTaskError]       = useState<string | null>(null);
+  const [smartTasks, setSmartTasks]     = useState<SmartTaskSuggestion[]>([]);
+  const [loadingSmartTasks, setLoadingSmartTasks] = useState(false);
+  const [addingSmartId, setAddingSmartId] = useState<number | null>(null);
+  const [githubUrl, setGithubUrl]       = useState('');
+  const [githubInput, setGithubInput]   = useState('');
+  const [githubCommits, setGithubCommits] = useState<GithubCommit[]>([]);
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [savingGithub, setSavingGithub] = useState(false);
+  const [loadingGithub, setLoadingGithub] = useState(false);
 
   /* ── Open from external FAB ── */
   useEffect(() => {
@@ -263,6 +272,93 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
   }, [project.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!project.id || isSupabaseConfigured) return;
+    let cancelled = false;
+    setLoadingGithub(true);
+    apiGetGithubCommits(project.id).then((data) => {
+      if (cancelled) return;
+      setGithubConnected(data.connected);
+      setGithubCommits(data.commits || []);
+      if (data.repo) {
+        setGithubUrl(`https://github.com/${data.repo.owner}/${data.repo.repo}`);
+      }
+    }).finally(() => {
+      if (!cancelled) setLoadingGithub(false);
+    });
+    return () => { cancelled = true; };
+  }, [project.id]);
+
+  const fetchSmartTasks = async () => {
+    if (!project.id) return;
+    setLoadingSmartTasks(true);
+    try {
+      const openCount = tasks.filter((t) => t.status !== 'done').length;
+      const doneCount = tasks.filter((t) => t.status === 'done').length;
+      const completionPercent = tasks.length
+        ? Math.round((doneCount / tasks.length) * 100)
+        : 0;
+      const { tasks: suggestions } = await apiGetSmartTasks(project.id, {
+        projectName: project.name,
+        description: project.description,
+        teamSkills: members.map((m) => m.role),
+        currentStage: 'idea',
+        completionPercent,
+        openTaskCount: openCount,
+      });
+      setSmartTasks(suggestions.slice(0, 5));
+    } catch (e) {
+      setTaskError(getErrorMessage(e, 'ai'));
+    } finally {
+      setLoadingSmartTasks(false);
+    }
+  };
+
+  const addSmartTask = async (suggestion: SmartTaskSuggestion, index: number) => {
+    if (!project.id) return;
+    setAddingSmartId(index);
+    try {
+      const headers = await getAuthHeadersAsync();
+      const res = await fetch(`${API}/api/projects/${project.id}/tasks`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: suggestion.title,
+          description: suggestion.description,
+          priority: suggestion.priority || 'medium',
+          assignee: suggestion.suggestedAssignee || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data?.error || 'Failed');
+      if (data.data?.task) {
+        setTasks((p) => [...p, normalizeTask(data.data.task)]);
+      }
+      setSmartTasks((p) => p.filter((_, i) => i !== index));
+    } catch (e) {
+      setTaskError(getErrorMessage(e, 'tasks'));
+    } finally {
+      setAddingSmartId(null);
+    }
+  };
+
+  const connectGithub = async () => {
+    if (!project.id || !githubInput.trim()) return;
+    setSavingGithub(true);
+    try {
+      await apiUpdateProjectGithub(project.id, githubInput.trim());
+      setGithubUrl(githubInput.trim());
+      setGithubInput('');
+      const data = await apiGetGithubCommits(project.id);
+      setGithubConnected(data.connected);
+      setGithubCommits(data.commits || []);
+    } catch (e) {
+      setTaskError(getErrorMessage(e, 'project'));
+    } finally {
+      setSavingGithub(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.contact || isValidMongoId(project.id)) return;
@@ -597,6 +693,95 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
           ))}
         </div>
       </div>
+
+      {tasks.filter((t) => t.status !== 'done').length < 3 && project.id && (
+        <div className="bg-gradient-to-r from-[#EEF3FB] to-white rounded-2xl border border-[#0A66C2]/20 p-5">
+          <p className="font-bold text-[#1d2226]">🤖 Your task list looks light. Want AI suggestions?</p>
+          <p className="text-xs text-[#666] mt-1">Get 5 specific next steps tailored to your project and team.</p>
+          {smartTasks.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => void fetchSmartTasks()}
+              disabled={loadingSmartTasks}
+              className="mt-3 px-5 py-2 bg-[#0A66C2] text-white text-sm font-semibold rounded-full hover:bg-[#004182] disabled:opacity-50"
+            >
+              {loadingSmartTasks ? 'Thinking…' : 'Get suggestions'}
+            </button>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {smartTasks.map((s, i) => (
+                <div key={`${s.title}-${i}`} className="bg-white rounded-xl border border-[#e0e0e0] p-4">
+                  <p className="text-sm font-semibold text-[#1d2226]">{s.title}</p>
+                  <p className="text-xs text-[#666] mt-1 line-clamp-3">{s.description}</p>
+                  {s.suggestedAssignee && (
+                    <p className="text-[10px] text-[#0A66C2] mt-2">Suggested: {s.suggestedAssignee}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void addSmartTask(s, i)}
+                    disabled={addingSmartId === i}
+                    className="mt-3 text-xs font-semibold text-[#0A66C2] hover:underline disabled:opacity-50"
+                  >
+                    {addingSmartId === i ? 'Adding…' : 'Add this task +'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {project.id && !isSupabaseConfigured && (
+        <div className="bg-white rounded-2xl border border-[#e0e0e0] p-5">
+          <h3 className="font-bold text-[#1d2226]">GitHub</h3>
+          {!githubConnected && isOwner ? (
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <input
+                value={githubInput}
+                onChange={(e) => setGithubInput(e.target.value)}
+                placeholder="🔗 Connect GitHub repo — paste URL"
+                className={iCls}
+              />
+              <button
+                type="button"
+                onClick={() => void connectGithub()}
+                disabled={savingGithub || !githubInput.trim()}
+                className="px-4 py-2 bg-[#1d2226] text-white text-sm font-semibold rounded-lg hover:bg-black disabled:opacity-50 shrink-0"
+              >
+                {savingGithub ? 'Saving…' : 'Connect'}
+              </button>
+            </div>
+          ) : !githubConnected ? (
+            <p className="text-xs text-[#666] mt-2">Owner can connect a GitHub repo to show recent commits.</p>
+          ) : (
+            <>
+              {githubUrl && (
+                <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#0A66C2] hover:underline mt-1 inline-block">
+                  {githubUrl}
+                </a>
+              )}
+              {loadingGithub ? (
+                <p className="text-xs text-[#666] mt-3">Loading commits…</p>
+              ) : githubCommits.length === 0 ? (
+                <p className="text-xs text-[#666] mt-3">No recent commits found.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {githubCommits.map((c) => (
+                    <li key={c.sha} className="text-xs border border-[#f0f0f0] rounded-lg p-3">
+                      <a href={c.url} target="_blank" rel="noopener noreferrer" className="font-medium text-[#1d2226] hover:text-[#0A66C2]">
+                        {c.message}
+                      </a>
+                      <p className="text-[#999] mt-1">
+                        {c.author} · {c.date ? new Date(c.date).toLocaleDateString('en-IN') : ''} · {c.sha}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Kanban Board with DnD ── */}
       <div className="bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">

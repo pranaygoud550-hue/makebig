@@ -8,6 +8,7 @@ import { DashboardOverview } from './DashboardOverview';
 import { ProjectsView } from './ProjectsView';
 import { TeamMembersView } from './TeamMembersView';
 import { MessagesView } from './MessagesView';
+import { NotesView } from './NotesView';
 import { ActivityFeed } from './ActivityFeed';
 import { InvitePeopleView } from './InvitePeopleView';
 import { RequestsView } from './RequestsView';
@@ -42,6 +43,7 @@ export type DashboardNavTab =
   | 'invite'
   | 'requests'
   | 'messages'
+  | 'notes'
   | 'activity';
 
 type NavTab = DashboardNavTab;
@@ -55,6 +57,7 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'invite',    label: 'Invite People',    icon: '✉️' },
   { id: 'requests',  label: 'Requests',         icon: '📬' },
   { id: 'messages',  label: 'Messages',         icon: '💬' },
+  { id: 'notes',     label: 'Notes',            icon: '📝' },
   { id: 'activity',  label: 'Activity',         icon: '⚡' },
 ];
 
@@ -521,6 +524,22 @@ export function DashboardNew({
                 <div className="bg-white rounded-xl border border-[#e0e0e0] p-8 text-center">
                   <p className="text-2xl mb-2">💬</p>
                   <p className="text-[#666] text-sm">Save your project first to enable live chat.</p>
+                </div>
+              )
+            )}
+
+            {activeNav === 'notes' && (
+              project.id ? (
+                <NotesView
+                  projectId={project.id}
+                  userId={user.id || user.contact}
+                  userName={user.name}
+                  userContact={user.contact}
+                />
+              ) : (
+                <div className="bg-white rounded-xl border border-[#e0e0e0] p-8 text-center">
+                  <p className="text-2xl mb-2">📝</p>
+                  <p className="text-[#666] text-sm">Save your project first to enable shared notes.</p>
                 </div>
               )
             )}
