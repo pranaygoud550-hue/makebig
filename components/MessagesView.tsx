@@ -7,7 +7,8 @@ import { socketManager } from '@/lib/realtime';
 import { getInitials } from '@/lib/utils';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { useToast } from '@/lib/context/ToastContext';
-import { MessageSkeleton } from '@/components/ui/Skeleton';
+import { extractUrls } from '@/lib/linkReaderUtils';
+import { queueAILink } from '@/lib/aiLinkPending';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '✅', '👀', '🎉', '💪', '🤔', '😅', '🙏', '💡'];
 
@@ -16,6 +17,7 @@ interface MessagesViewProps {
   userId: string;
   userName: string;
   userContact: string;
+  onAskAIAboutLink?: (url: string) => void;
 }
 
 interface ChatMessage {
@@ -78,7 +80,13 @@ function isAfter9amIST() {
   return hour >= 9;
 }
 
-export function MessagesView({ projectId, userId, userName, userContact }: MessagesViewProps) {
+export function MessagesView({
+  projectId,
+  userId,
+  userName,
+  userContact,
+  onAskAIAboutLink,
+}: MessagesViewProps) {
   const { openProfile } = useProfileView();
   const socketRef = useRef<Socket | null>(null);
 
@@ -552,6 +560,22 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
                 >
                   {searchQuery.trim() ? highlightContent(msg.content) : msg.content}
                 </div>
+                {extractUrls(msg.content).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = extractUrls(msg.content)[0];
+                      if (onAskAIAboutLink) {
+                        onAskAIAboutLink(url);
+                      } else {
+                        queueAILink({ url, projectId });
+                      }
+                    }}
+                    className="mt-1 text-[10px] font-semibold text-[#0A66C2] hover:underline self-start"
+                  >
+                    🤖 Ask AI about this link
+                  </button>
+                )}
                 {isOwn && (
                   <span className="text-[10px] text-[#999] mt-0.5 px-1 self-end">
                     {seenByAll ? '✓✓' : '✓'}

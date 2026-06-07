@@ -9,10 +9,32 @@ import {
   AI_CONTEXT_WINDOW,
   type StreamUsage,
 } from '@/lib/aiCofounderStream';
+import {
+  streamLinkReader,
+  fetchProjectLinkHistory,
+  type LinkReadUsage,
+  type GitHubMeta,
+  type LinkHistoryEntry,
+} from '@/lib/aiLinkReaderStream';
+import {
+  consumePendingAILink,
+  AI_LINK_EVENT,
+  type PendingAILink,
+} from '@/lib/aiLinkPending';
+import {
+  getDomain,
+  truncateUrl,
+  faviconUrl,
+  COMPETITOR_QUESTION,
+} from '@/lib/linkReaderUtils';
 import { getAICofounderStatusUrl } from '@/lib/aiCofounderUrls';
 import { getApiOrigin } from '@/lib/apiBase';
 import { useToast } from '@/lib/context/ToastContext';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 import { ProjectData, User } from '@/lib/types';
+import { GitHubLinkCard } from '@/components/GitHubLinkCard';
+import { AILinkHistoryPanel } from '@/components/AILinkHistoryPanel';
+import { markOnboardingAiLink } from '@/components/app/OnboardingChecklist';
 
 interface AICofounderProps {
   project: ProjectData;
@@ -39,7 +61,12 @@ interface ChatMessage {
   devMode?: boolean;
   streaming?: boolean;
   ts: number;
+  linkMeta?: { url: string; title: string; domain: string };
+  github?: GitHubMeta | null;
+  isLinkRead?: boolean;
 }
+
+type PanelTab = 'chat' | 'links';
 
 const QUICK_PROMPTS: { id: ActionId | 'pitch-deck'; label: string; icon: string }[] = [
   { id: 'pitch-deck', label: 'Generate pitch deck outline', icon: '📊' },
@@ -251,17 +278,26 @@ function DMContextModal({
   );
 }
 
-export function AICofounder({ project, user }: AICofounderProps) {
+export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [showDMModal, setShowDMModal] = useState(false);
   const [provider, setProvider] = useState<'anthropic' | 'groq' | 'demo' | null>(null);
   const [usage, setUsage] = useState<StreamUsage | null>(null);
+  const [panelTab, setPanelTab] = useState<PanelTab>('chat');
+  const [showLinkPanel, setShowLinkPanel] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkQuestion, setLinkQuestion] = useState('');
+  const [linkLoadingLabel, setLinkLoadingLabel] = useState<string | null>(null);
+  const [linkUsage, setLinkUsage] = useState<LinkReadUsage | null>(null);
+  const [linkHistory, setLinkHistory] = useState<LinkHistoryEntry[]>([]);
+  const [linksLoading, setLinksLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { showToast } = useToast();
+  const { isPro } = useSubscription(ownerContact);
 
   const runPitchDeck = useCallback(async () => {
     if (!project.id || streaming) return;
@@ -303,9 +339,190 @@ export function AICofounder({ project, user }: AICofounderProps) {
     }
   }, [project.id, streaming]);
 
+  const loadLinkHistory = useCallback(async () => {
+    if (!project.id) return;
+    setLinksLoading(true);
+    try {
+      const data = await fetchProjectLinkHistory(project.id);
+      setLinkHistory(data.links);
+      setLinkUsage(data.usage);
+    } catch {
+      /* ignore */
+    } finally {
+      setLinksLoading(false);
+    }
+  }, [project.id]);
+
+  useEffect(() => {
+    if (!project.id) return;
+    void loadLinkHistory();
+  }, [project.id, loadLinkHistory]);
+
+  useEffect(() => {
+    if (project.id && panelTab === 'links') {
+      void loadLinkHistory();
+    }
+  }, [project.id, panelTab, loadLinkHistory]);
+
+  const openLinkPanel = useCallback((url = '', question = '') => {
+    setPanelTab('chat');
+    setShowLinkPanel(true);
+    setLinkUrl(url);
+    setLinkQuestion(question);
+  }, []);
+
+  const applyPendingLink = useCallback(
+    (pending: PendingAILink) => {
+      if (pending.projectId && pending.projectId !== project.id) return;
+      const question =
+        pending.mode === 'competitor' ? COMPETITOR_QUESTION : pending.question || '';
+      openLinkPanel(pending.url, question);
+    },
+    [project.id, openLinkPanel]
+  );
+
+  useEffect(() => {
+    const pending = consumePendingAILink();
+    if (pending?.url) applyPendingLink(pending);
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<PendingAILink>).detail;
+      if (detail?.url) applyPendingLink(detail);
+    };
+    window.addEventListener(AI_LINK_EVENT, handler);
+    return () => window.removeEventListener(AI_LINK_EVENT, handler);
+  }, [applyPendingLink]);
+
+  const runLinkRead = useCallback(
+    async (url: string, question?: string) => {
+      if (!project.id || streaming || !url.trim()) return;
+
+      const trimmedUrl = url.trim();
+      const domain = getDomain(trimmedUrl);
+      setShowLinkPanel(false);
+      setPanelTab('chat');
+      setStreaming(true);
+      setLinkLoadingLabel(`Reading ${domain}…`);
+
+      const userMsg: ChatMessage = {
+        id: `u-link-${Date.now()}`,
+        role: 'user',
+        content: question?.trim() || 'Read this link and advise our team',
+        linkMeta: { url: trimmedUrl, title: domain, domain },
+        ts: Date.now(),
+      };
+      const assistantId = `a-link-${Date.now()}`;
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          streaming: true,
+          isLinkRead: true,
+          ts: Date.now(),
+        },
+      ]);
+
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+
+      let pageMeta: { title: string; url: string; github: GitHubMeta | null } | null = null;
+
+      try {
+        await streamLinkReader({
+          projectId: project.id,
+          url: trimmedUrl,
+          question: question?.trim(),
+          signal: abortRef.current.signal,
+          onFetching: () => setLinkLoadingLabel(`Reading ${domain}…`),
+          onPage: (meta) => {
+            pageMeta = meta;
+            setLinkLoadingLabel(null);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === userMsg.id
+                  ? {
+                      ...m,
+                      linkMeta: {
+                        url: meta.url,
+                        title: meta.title,
+                        domain: getDomain(meta.url),
+                      },
+                    }
+                  : m
+              )
+            );
+          },
+          onDelta: (text) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: m.content + text } : m
+              )
+            );
+          },
+          onDone: (payload) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      streaming: false,
+                      devMode: payload.devMode,
+                      github: pageMeta?.github ?? null,
+                      linkMeta: pageMeta
+                        ? {
+                            url: pageMeta.url,
+                            title: pageMeta.title,
+                            domain: getDomain(pageMeta.url),
+                          }
+                        : m.linkMeta,
+                    }
+                  : m.id === userMsg.id && pageMeta
+                    ? {
+                        ...m,
+                        linkMeta: {
+                          url: pageMeta.url,
+                          title: pageMeta.title,
+                          domain: getDomain(pageMeta.url),
+                        },
+                      }
+                    : m
+              )
+            );
+            if (payload.usage) setLinkUsage(payload.usage);
+            if (user?.contact) markOnboardingAiLink(user.contact);
+            setStreaming(false);
+            setLinkLoadingLabel(null);
+            void loadLinkHistory();
+          },
+          onError: (message, usage) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: message, streaming: false }
+                  : m
+              )
+            );
+            if (usage) setLinkUsage(usage);
+            showToast(message, 'error');
+            setStreaming(false);
+            setLinkLoadingLabel(null);
+          },
+        });
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return;
+        setStreaming(false);
+        setLinkLoadingLabel(null);
+      }
+    },
+    [project.id, streaming, user?.contact, loadLinkHistory, showToast]
+  );
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streaming]);
+  }, [messages, streaming, linkLoadingLabel]);
 
   useEffect(() => {
     if (!project.id) return;
@@ -550,9 +767,63 @@ export function AICofounder({ project, user }: AICofounderProps) {
               {t.icon} {t.label}
             </button>
           ))}
+          <button
+            type="button"
+            disabled={streaming}
+            onClick={() => openLinkPanel('', COMPETITOR_QUESTION)}
+            className="text-[10px] font-medium px-2.5 py-1 rounded-full border border-[#30363d] text-[#8b949e] hover:text-[#58a6ff] hover:border-[#58a6ff]/40 disabled:opacity-40"
+          >
+            🔍 Analyze a competitor
+          </button>
+        </div>
+
+        <div className="flex gap-2 mt-3 border-t border-[#30363d] pt-3">
+          <button
+            type="button"
+            onClick={() => setPanelTab('chat')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg ${
+              panelTab === 'chat'
+                ? 'bg-[#21262d] text-[#e6edf3] border border-[#58a6ff]/40'
+                : 'text-[#8b949e] hover:text-[#e6edf3]'
+            }`}
+          >
+            💬 Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab('links')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg ${
+              panelTab === 'links'
+                ? 'bg-[#21262d] text-[#e6edf3] border border-[#58a6ff]/40'
+                : 'text-[#8b949e] hover:text-[#e6edf3]'
+            }`}
+          >
+            🔗 Links
+          </button>
+          {linkUsage && !linkUsage.isPro && linkUsage.limit != null && (
+            <span className="ml-auto text-[10px] text-[#8b949e] self-center">
+              {linkUsage.used}/{linkUsage.limit} link reads today
+            </span>
+          )}
+          {linkUsage?.isPro && (
+            <span className="ml-auto text-[10px] text-emerald-400 self-center">Pro · unlimited reads</span>
+          )}
         </div>
       </div>
 
+      {panelTab === 'links' ? (
+        <div className="flex-1 overflow-y-auto px-4 min-h-0">
+          <AILinkHistoryPanel
+            links={linkHistory}
+            loading={linksLoading}
+            onReread={(entry) => {
+              setPanelTab('chat');
+              void runLinkRead(entry.url, entry.question || undefined);
+            }}
+          />
+        </div>
+      ) : (
+      <>
       {/* Chat */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
         {messages.length === 0 && !streaming && (
@@ -585,11 +856,30 @@ export function AICofounder({ project, user }: AICofounderProps) {
               }`}
             >
               {msg.role === 'user' ? (
-                <div className="bg-[#1f6feb] text-white px-4 py-2.5 rounded-2xl rounded-br-md text-sm font-medium shadow-sm">
-                  {msg.content}
+                <div className="space-y-1.5 items-end flex flex-col">
+                  {msg.linkMeta && (
+                    <div className="bg-[#161b22] border border-[#30363d] rounded-xl px-3 py-2 text-left max-w-full">
+                      <div className="flex items-center gap-2 text-xs text-[#e6edf3]">
+                        <span>📎</span>
+                        <img
+                          src={faviconUrl(msg.linkMeta.url)}
+                          alt=""
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="font-semibold truncate">{msg.linkMeta.title}</span>
+                      </div>
+                      <p className="text-[10px] text-[#6e7681] mt-0.5 truncate">
+                        {truncateUrl(msg.linkMeta.url)}
+                      </p>
+                    </div>
+                  )}
+                  <div className="bg-[#1f6feb] text-white px-4 py-2.5 rounded-2xl rounded-br-md text-sm font-medium shadow-sm">
+                    {msg.content}
+                  </div>
                 </div>
               ) : (
                 <div className="bg-[#21262d] border border-[#30363d] rounded-2xl rounded-tl-md px-4 py-3 shadow-sm w-full">
+                  {msg.github && <GitHubLinkCard github={msg.github} />}
                   {msg.content ? (
                     <RenderMarkdown text={msg.content} dark />
                   ) : msg.streaming ? (
@@ -632,14 +922,79 @@ export function AICofounder({ project, user }: AICofounderProps) {
           </div>
         ))}
 
+        {linkLoadingLabel && (
+          <p className="text-xs text-[#58a6ff] text-center animate-pulse">{linkLoadingLabel}</p>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       <TokenMeter usage={displayUsage} />
 
+      {showLinkPanel && (
+        <div className="bg-[#161b22] border-t border-[#30363d] px-4 py-3 shrink-0 space-y-2">
+          <p className="text-xs font-semibold text-[#e6edf3]">📎 Paste any link for AI to read</p>
+          <input
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder={
+              linkQuestion === COMPETITOR_QUESTION
+                ? "Paste your competitor's website URL"
+                : 'https://...'
+            }
+            className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#6e7681] focus:outline-none focus:border-[#58a6ff]"
+          />
+          <input
+            type="text"
+            value={linkQuestion}
+            onChange={(e) => setLinkQuestion(e.target.value)}
+            placeholder="Ask about this link… (optional)"
+            className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] placeholder-[#6e7681] focus:outline-none focus:border-[#58a6ff]"
+          />
+          <p className="text-[10px] text-[#6e7681] leading-relaxed">
+            Works with: GitHub repos · Figma (public) · competitor websites · news articles · job
+            postings · documentation · any public URL
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!linkUrl.trim() || streaming}
+              onClick={() => void runLinkRead(linkUrl, linkQuestion)}
+              className="flex-1 py-2 bg-[#1f6feb] text-white rounded-full text-sm font-bold hover:bg-[#388bfd] disabled:opacity-40"
+            >
+              Read &amp; Advise
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowLinkPanel(false);
+                setLinkUrl('');
+                setLinkQuestion('');
+              }}
+              className="px-4 py-2 border border-[#30363d] text-[#8b949e] rounded-full text-sm font-semibold hover:bg-[#21262d]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="bg-[#161b22] border-t border-[#30363d] px-4 py-3 shrink-0">
         <div className="flex gap-2 items-end">
+          <button
+            type="button"
+            disabled={streaming}
+            onClick={() => {
+              setShowLinkPanel((v) => !v);
+              if (!showLinkPanel) setLinkQuestion('');
+            }}
+            className="p-2.5 border border-[#30363d] text-[#8b949e] rounded-xl hover:text-[#58a6ff] hover:border-[#58a6ff]/40 disabled:opacity-40 shrink-0"
+            title="Read a link"
+          >
+            📎
+          </button>
           <textarea
             ref={inputRef}
             value={input}
@@ -679,8 +1034,11 @@ export function AICofounder({ project, user }: AICofounderProps) {
         </div>
         <p className="text-[10px] text-[#6e7681] mt-1.5 text-center">
           AI can make mistakes · last 10 messages kept in context
+          {!isPro && linkUsage?.limit != null ? ` · ${linkUsage.used}/${linkUsage.limit} link reads today` : ''}
         </p>
       </div>
+      </>
+      )}
 
       {showDMModal && (
         <DMContextModal

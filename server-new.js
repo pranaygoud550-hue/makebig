@@ -115,6 +115,17 @@ import {
   isGroqConfigured,
   CONTEXT_WINDOW,
 } from "./backend/ai/cofounder.js";
+import {
+  validateLinkUrl,
+  fetchLinkContent,
+  getProjectLinkContext,
+  buildLinkReaderPrompt,
+  streamLinkReaderAdvice,
+  assertLinkReadQuota,
+  getLinkReadUsage,
+  saveLinkHistory,
+  getProjectLinkHistory,
+} from "./backend/ai/linkReader.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -1807,6 +1818,130 @@ app.post("/api/ai/pitch-deck", authMiddleware, async (req, res) => {
     const slides = await generatePitchDeckOutline(project, teamMembers);
     const text = pitchDeckToText(slides);
     res.json(formatResponse(true, { slides, text }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/read-link", authMiddleware, async (req, res) => {
+  try {
+    const { url, projectId, question } = req.body || {};
+    if (!url || !projectId) {
+      return res.status(400).json(formatResponse(false, null, "url and projectId required"));
+    }
+
+    const urlCheck = validateLinkUrl(url);
+    if (!urlCheck.ok) {
+      return res.status(400).json(formatResponse(false, null, urlCheck.error));
+    }
+
+    const project = await Project.findById(projectId).lean();
+    if (!project) {
+      return res.status(404).json(formatResponse(false, null, "Project not found"));
+    }
+    if (!assertProjectMember(req, res, project)) return;
+
+    try {
+      await assertLinkReadQuota(project);
+    } catch (quotaErr) {
+      return res.status(429).json(
+        formatResponse(false, { usage: quotaErr.usage }, quotaErr.message)
+      );
+    }
+  } catch (error) {
+    return res.status(500).json(formatResponse(false, null, error.message));
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const send = (obj) => {
+    res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  };
+
+  try {
+    const { url, projectId, question } = req.body || {};
+    const urlCheck = validateLinkUrl(url);
+    const project = await Project.findById(projectId).lean();
+
+    send({ type: "meta", status: "fetching" });
+
+    let pageData;
+    try {
+      pageData = await fetchLinkContent(urlCheck.url);
+    } catch (fetchErr) {
+      send({
+        type: "error",
+        message: fetchErr.message || "I couldn't access that link. It might be private or blocked.",
+      });
+      return res.end();
+    }
+
+    send({
+      type: "page",
+      title: pageData.title,
+      url: pageData.url,
+      github: pageData.github || null,
+    });
+
+    const ctx = await getProjectLinkContext(project);
+    const prompt = buildLinkReaderPrompt({
+      ...ctx,
+      url: pageData.url,
+      title: pageData.title,
+      pageContent: pageData.content,
+      question,
+    });
+
+    let fullText = "";
+    const result = await streamLinkReaderAdvice({
+      prompt,
+      onDelta: (text) => {
+        fullText += text;
+        send({ type: "delta", text });
+      },
+    });
+
+    const readBy = req.user?.contact || "";
+    await saveLinkHistory({
+      projectId: project._id,
+      url: pageData.url,
+      title: pageData.title,
+      question: question || "",
+      response: fullText,
+      readBy,
+      github: pageData.github,
+    });
+
+    const updatedUsage = await getLinkReadUsage(project);
+
+    send({
+      type: "done",
+      devMode: result.devMode,
+      provider: result.provider,
+      usage: updatedUsage,
+    });
+  } catch (error) {
+    send({
+      type: "error",
+      message: error?.message || "Link read failed",
+    });
+  } finally {
+    res.end();
+  }
+});
+
+app.get("/api/projects/:projectId/links", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const usage = await getLinkReadUsage(project);
+    const links = await getProjectLinkHistory(project._id, 20);
+    res.json(formatResponse(true, { links, usage }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

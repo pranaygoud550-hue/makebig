@@ -52,6 +52,7 @@ interface HomeTabProps {
   onOpenDashboard?: (section?: DashboardNavTab) => void;
   onOpenExplore?: () => void;
   onOpenProfile?: () => void;
+  onOpenAI?: () => void;
 }
 
 export function HomeTab({
@@ -61,6 +62,7 @@ export function HomeTab({
   onOpenDashboard,
   onOpenExplore,
   onOpenProfile,
+  onOpenAI,
 }: HomeTabProps) {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<SearchProjectHit[]>([]);
@@ -159,6 +161,7 @@ export function HomeTab({
           profileComplete={profileComplete}
           onOpenExplore={onOpenExplore}
           onOpenProfile={onOpenProfile ?? (() => onOpenDashboard?.('dashboard'))}
+          onOpenAI={onOpenAI}
         />
       )}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0A66C2] via-[#004182] to-[#1d2226] p-6 text-white shadow-lg">

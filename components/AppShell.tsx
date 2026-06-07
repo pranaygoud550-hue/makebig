@@ -6,6 +6,7 @@ import { AppBottomNav, AppTab } from '@/components/AppBottomNav';
 import { HomeTab } from '@/components/app/HomeTab';
 import { ExploreTab } from '@/components/app/ExploreTab';
 import { markOnboardingBrowse } from '@/components/app/OnboardingChecklist';
+import { AI_LINK_EVENT } from '@/lib/aiLinkPending';
 import { PostsTab } from '@/components/app/PostsTab';
 import { AICoderTab } from '@/components/app/AICoderTab';
 import { NotificationsView } from '@/components/app/NotificationsView';
@@ -93,6 +94,13 @@ export function AppShell({
     },
     [onProjectUpdate]
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const goToAi = () => handleTabChange('ai');
+    window.addEventListener(AI_LINK_EVENT, goToAi);
+    return () => window.removeEventListener(AI_LINK_EVENT, goToAi);
+  }, [handleTabChange]);
 
   useEffect(() => {
     apiCheckHealth().then(setApiOnline);
@@ -191,6 +199,7 @@ export function AppShell({
               if (user.contact) markOnboardingBrowse(user.contact);
               setActiveTab('explore');
             }}
+            onOpenAI={() => handleTabChange('ai')}
           />
         )}
         {activeTab === 'explore' && (

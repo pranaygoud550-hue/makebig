@@ -6,7 +6,8 @@ export type OnboardingStepId =
   | 'profile'
   | 'browse'
   | 'join_request'
-  | 'project';
+  | 'project'
+  | 'ai_link';
 
 export interface OnboardingState {
   account: boolean;
@@ -14,6 +15,7 @@ export interface OnboardingState {
   browse: boolean;
   join_request: boolean;
   project: boolean;
+  ai_link: boolean;
   dismissed: boolean;
 }
 
@@ -23,6 +25,7 @@ const DEFAULT: Omit<OnboardingState, 'dismissed'> = {
   browse: false,
   join_request: false,
   project: false,
+  ai_link: false,
 };
 
 export function loadOnboardingState(contact: string): OnboardingState {
@@ -40,6 +43,7 @@ export function loadOnboardingState(contact: string): OnboardingState {
       browse: Boolean(parsed.browse),
       join_request: Boolean(parsed.join_request),
       project: Boolean(parsed.project),
+      ai_link: Boolean(parsed.ai_link),
       dismissed,
     };
   } catch {
@@ -58,5 +62,11 @@ export function dismissOnboarding(contact: string) {
 }
 
 export function isOnboardingComplete(state: OnboardingState) {
-  return state.profile && state.browse && state.join_request && state.project;
+  return (
+    state.profile &&
+    state.browse &&
+    state.join_request &&
+    state.project &&
+    state.ai_link
+  );
 }

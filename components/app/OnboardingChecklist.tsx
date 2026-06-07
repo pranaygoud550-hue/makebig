@@ -16,6 +16,7 @@ interface OnboardingChecklistProps {
   profileComplete?: boolean;
   onOpenExplore?: () => void;
   onOpenProfile?: () => void;
+  onOpenAI?: () => void;
 }
 
 export function OnboardingChecklist({
@@ -24,6 +25,7 @@ export function OnboardingChecklist({
   profileComplete,
   onOpenExplore,
   onOpenProfile,
+  onOpenAI,
 }: OnboardingChecklistProps) {
   const [state, setState] = useState<OnboardingState | null>(null);
   const [visible, setVisible] = useState(false);
@@ -51,6 +53,8 @@ export function OnboardingChecklist({
     if (hasProject) next.project = true;
     const browsed = sessionStorage.getItem(`makebig_browsed_${userContact}`) === '1';
     if (browsed) next.browse = true;
+    const aiLink = localStorage.getItem(`makebig_ai_link_${userContact}`) === '1';
+    if (aiLink) next.ai_link = true;
     saveOnboardingState(userContact, next);
     setState({ ...next, dismissed: state.dismissed });
     if (isOnboardingComplete(next)) setVisible(false);
@@ -64,6 +68,14 @@ export function OnboardingChecklist({
     { id: 'browse' as const, label: 'Browse projects', done: state.browse, action: onOpenExplore },
     { id: 'join_request' as const, label: 'Send your first join request', done: state.join_request, action: onOpenExplore },
     { id: 'project' as const, label: 'Start or join a project', done: state.project, action: null },
+    {
+      id: 'ai_link' as const,
+      label: 'Share a link with your AI co-founder',
+      done: state.ai_link,
+      action: onOpenAI,
+      helper:
+        'Paste your GitHub repo, a competitor site, or any relevant link and get instant advice',
+    },
   ];
 
   return (
@@ -82,15 +94,20 @@ export function OnboardingChecklist({
       <h3 className="font-bold text-[#1d2226]">Welcome to Make Big! Get started 🚀</h3>
       <ul className="mt-3 space-y-2 text-sm">
         {items.map((item) => (
-          <li key={item.id} className="flex items-center gap-2">
-            <span>{item.done ? '✅' : '⬜'}</span>
-            {item.action && !item.done ? (
-              <button type="button" onClick={item.action} className="text-[#0A66C2] hover:underline text-left">
-                {item.label} →
-              </button>
-            ) : (
-              <span className={item.done ? 'text-[#666]' : 'text-[#1d2226]'}>{item.label}</span>
-            )}
+          <li key={item.id} className="flex items-start gap-2">
+            <span className="mt-0.5">{item.done ? '✅' : '⬜'}</span>
+            <div>
+              {item.action && !item.done ? (
+                <button type="button" onClick={item.action} className="text-[#0A66C2] hover:underline text-left">
+                  {item.label} →
+                </button>
+              ) : (
+                <span className={item.done ? 'text-[#666]' : 'text-[#1d2226]'}>{item.label}</span>
+              )}
+              {'helper' in item && item.helper && !item.done && (
+                <p className="text-xs text-[#666] mt-0.5">{item.helper}</p>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -108,4 +125,8 @@ export function markOnboardingJoin(contact: string) {
 
 export function markOnboardingProject(contact: string) {
   localStorage.setItem(`makebig_has_project_${contact}`, '1');
+}
+
+export function markOnboardingAiLink(contact: string) {
+  localStorage.setItem(`makebig_ai_link_${contact}`, '1');
 }

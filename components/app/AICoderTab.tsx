@@ -95,13 +95,11 @@ export function AICoderTab({
           </header>
           {!isPro && owner && (
             <div className="bg-[#EEF3FB] border border-[#0A66C2]/20 rounded-xl px-4 py-3 text-sm text-[#1d2226]">
-              <strong>Free plan</strong> — AI works when <code className="text-xs bg-white px-1 rounded">GROQ_API_KEY</code> or{' '}
-              <code className="text-xs bg-white px-1 rounded">ANTHROPIC_API_KEY</code> is set in{' '}
-              <code className="text-xs bg-white px-1 rounded">.env</code>.{' '}
+              <strong>Free plan</strong> — 10 AI link reads per project per day.{' '}
               <Link href="/pricing" className="text-[#0A66C2] font-semibold hover:underline">
-                Pro
+                Upgrade to Pro
               </Link>{' '}
-              adds unlimited projects and priority matching.
+              for unlimited link reads, unlimited projects, and priority matching.
             </div>
           )}
           <div className="min-h-[60vh] flex flex-col bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">
