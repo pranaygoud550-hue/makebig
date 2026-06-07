@@ -1171,6 +1171,56 @@ export async function apiSendProjectMessage(
   }
 }
 
+export async function apiLeaveProject(
+  projectId: string,
+  payload?: { reason?: string; reasonText?: string }
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const origin = getApiOrigin();
+    const res = await fetch(`${origin}/api/projects/${projectId}/leave`, {
+      method: 'POST',
+      headers: await getAuthHeadersAsync(),
+      body: JSON.stringify({
+        reason: payload?.reason || '',
+        reasonText: payload?.reasonText || '',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { ok: false, error: data.error || 'Could not leave project' };
+    }
+    return { ok: true, message: data.data?.message || 'You have left the project' };
+  } catch (e) {
+    console.error('Error leaving project:', e);
+    return { ok: false, error: getErrorMessage(e, 'leave') };
+  }
+}
+
+export async function apiRemoveProjectMember(
+  projectId: string,
+  memberContact: string
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const origin = getApiOrigin();
+    const encoded = encodeURIComponent(memberContact);
+    const res = await fetch(`${origin}/api/projects/${projectId}/members/${encoded}`, {
+      method: 'DELETE',
+      headers: await getAuthHeadersAsync(),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { ok: false, error: data.error || 'Could not remove member' };
+    }
+    return {
+      ok: true,
+      message: data.data?.message || 'Member removed',
+    };
+  } catch (e) {
+    console.error('Error removing member:', e);
+    return { ok: false, error: getErrorMessage(e, 'remove') };
+  }
+}
+
 export async function apiGetUserNotifications(userId: string): Promise<any[]> {
   try {
     if (isSupabaseConfigured) {

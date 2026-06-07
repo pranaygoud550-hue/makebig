@@ -28,6 +28,8 @@ import {
   assertProjectOwner,
   assertProjectMember,
   assertProjectAccess,
+  isProjectOwner,
+  isProjectMember,
   sanitizeProjectUpdate,
   allowDevOtp,
   otpDeliveryConfigured,
@@ -1867,6 +1869,177 @@ app.get("/api/projects/:projectId/members", async (req, res) => {
     };
 
     res.json(formatResponse(true, { members: [ownerEntry, ...members] }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+function formatLeaveReasonLabel(reason, reasonText) {
+  const r = String(reason || "").trim();
+  if (!r) return null;
+  if (r === "Other") {
+    const text = clampString(reasonText, 200);
+    return text || null;
+  }
+  return r;
+}
+
+function leaveActivityLogLine(userName, reason, reasonText) {
+  const label = formatLeaveReasonLabel(reason, reasonText);
+  if (!label) return `${userName} left the project`;
+  return `${userName} left the project — Reason: ${label}`;
+}
+
+// Member leaves a project they joined (not available to owner)
+app.post("/api/projects/:projectId/leave", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const project = await Project.findById(req.params.projectId);
+    if (!project) {
+      return res.status(404).json(formatResponse(false, null, "Project not found"));
+    }
+
+    if (isProjectOwner(project, authContact)) {
+      return res.status(400).json(
+        formatResponse(
+          false,
+          null,
+          "Project owners cannot leave. Transfer ownership or delete the project instead."
+        )
+      );
+    }
+
+    const isJoined = (project.teamMembers || []).some(
+      (m) => normalizeContact(m.contact) === authContact && m.status === "joined"
+    );
+    if (!isJoined) {
+      return res.status(403).json(formatResponse(false, null, "You are not a member of this project"));
+    }
+
+    const reason = clampString(req.body?.reason, 120);
+    const reasonText = reason === "Other" ? clampString(req.body?.reasonText, 200) : "";
+
+    const profile = await User.findOne({ contact: authContact }).lean();
+    const userName = profile?.name || authContact;
+
+    project.teamMembers = (project.teamMembers || []).filter(
+      (m) => normalizeContact(m.contact) !== authContact
+    );
+
+    if (!project.leaveReasons) project.leaveReasons = [];
+    project.leaveReasons.push({
+      contact: authContact,
+      name: userName,
+      reason: reason || "",
+      reasonText,
+      leftAt: new Date(),
+    });
+
+    await project.save();
+
+    const reasonLabel = formatLeaveReasonLabel(reason, reasonText);
+    const activity = await Activity.create({
+      projectId: project._id,
+      userId: authContact,
+      type: "member_left",
+      description: `${userName} left the project`,
+      metadata: {
+        reason: reasonLabel,
+        reasonSubtitle: reasonLabel,
+        logLine: leaveActivityLogLine(userName, reason, reasonText),
+      },
+    });
+
+    io.to(`project_${project._id}`).emit("activity_created", toClient(activity));
+    io.to(`project_${project._id}`).emit("member_status_changed", {
+      projectId: project._id.toString(),
+      memberContact: authContact,
+      memberName: userName,
+      status: "left",
+      timestamp: new Date(),
+    });
+
+    res.json(formatResponse(true, { message: "You have left the project" }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+// Owner removes a joined member
+app.delete("/api/projects/:projectId/members/:contact", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+
+    const project = await Project.findById(req.params.projectId);
+    if (!project) {
+      return res.status(404).json(formatResponse(false, null, "Project not found"));
+    }
+    if (!assertProjectOwner(req, res, project)) return;
+
+    const memberContact = normalizeContact(req.params.contact);
+    if (!memberContact) {
+      return res.status(400).json(formatResponse(false, null, "Invalid member contact"));
+    }
+    if (memberContact === authContact) {
+      return res.status(400).json(formatResponse(false, null, "You cannot remove yourself as owner"));
+    }
+    if (isProjectOwner(project, memberContact)) {
+      return res.status(400).json(formatResponse(false, null, "Cannot remove the project owner"));
+    }
+
+    const memberRow = (project.teamMembers || []).find(
+      (m) => normalizeContact(m.contact) === memberContact && m.status === "joined"
+    );
+    if (!memberRow) {
+      return res.status(404).json(formatResponse(false, null, "Member not found on this project"));
+    }
+
+    const memberProfile = await User.findOne({ contact: memberContact }).lean();
+    const memberName = memberProfile?.name || memberContact;
+    const ownerProfile = await User.findOne({ contact: authContact }).lean();
+    const ownerName = ownerProfile?.name || authContact;
+
+    project.teamMembers = (project.teamMembers || []).filter(
+      (m) => !(normalizeContact(m.contact) === memberContact && m.status === "joined")
+    );
+    await project.save();
+
+    const removalMessage = `You have been removed from ${project.name} by the project owner`;
+
+    const activity = await Activity.create({
+      projectId: project._id,
+      userId: authContact,
+      type: "member_removed",
+      description: `${ownerName} removed ${memberName} from the project`,
+    });
+
+    io.to(`project_${project._id}`).emit("activity_created", toClient(activity));
+    io.to(`project_${project._id}`).emit("member_status_changed", {
+      projectId: project._id.toString(),
+      memberContact,
+      memberName,
+      status: "removed",
+      timestamp: new Date(),
+    });
+
+    io.to(`contact_${memberContact}`).emit("removed-from-project", {
+      projectId: project._id.toString(),
+      projectName: project.name,
+      message: removalMessage,
+    });
+
+    await pushNotification({
+      contact: memberContact,
+      projectId: project._id,
+      type: "project_update",
+      title: "Removed from project",
+      message: removalMessage,
+    });
+
+    res.json(formatResponse(true, { message: `${memberName} has been removed from the project` }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

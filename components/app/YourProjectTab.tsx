@@ -1,16 +1,23 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { ProjectData } from '@/lib/types';
 import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
+import { LeaveProjectModal } from '@/components/app/LeaveProjectModal';
+import { apiLeaveProject } from '@/lib/api';
+import type { LeaveReasonOption } from '@/lib/projectLeave';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
 interface YourProjectTabProps {
   currentProject: ProjectData | null;
+  userContact?: string;
   onStartProject: () => void;
   onJoinProject: () => void;
   onOpenDashboard: (section?: DashboardNavTab) => void;
+  onLeaveSuccess?: () => void;
+  onShowToast?: (message: string, variant?: 'success' | 'error') => void;
 }
 
 const DASHBOARD_SHORTCUTS: { id: DashboardNavTab; label: string; icon: string }[] = [
@@ -24,11 +31,37 @@ const DASHBOARD_SHORTCUTS: { id: DashboardNavTab; label: string; icon: string }[
 
 export function YourProjectTab({
   currentProject,
+  userContact,
   onStartProject,
   onJoinProject,
   onOpenDashboard,
+  onLeaveSuccess,
+  onShowToast,
 }: YourProjectTabProps) {
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const hasWorkspace = hasActiveWorkspace(currentProject);
+  const isMember = currentProject?.mode === 'member';
+  const canLeave = isMember && Boolean(currentProject?.id) && Boolean(userContact);
+
+  const handleLeaveConfirm = async (payload: {
+    reason?: LeaveReasonOption;
+    reasonText?: string;
+  }) => {
+    if (!currentProject?.id) return;
+    setLeaving(true);
+    const result = await apiLeaveProject(currentProject.id, payload);
+    setLeaving(false);
+
+    if (!result.ok) {
+      onShowToast?.(result.error || 'Could not leave project', 'error');
+      return;
+    }
+
+    setShowLeaveModal(false);
+    onShowToast?.(`You have left ${currentProject.name}`, 'success');
+    onLeaveSuccess?.();
+  };
 
   if (hasWorkspace) {
     const city = currentProject!.city;
@@ -62,9 +95,19 @@ export function YourProjectTab({
           >
             Open project dashboard
           </button>
+
+          {canLeave && (
+            <button
+              type="button"
+              onClick={() => setShowLeaveModal(true)}
+              className="mt-3 w-full py-2.5 text-sm font-semibold rounded-full border border-red-600 text-red-600 bg-white hover:bg-red-50 transition-colors"
+            >
+              Leave project
+            </button>
+          )}
         </section>
 
-        {currentProject!.id && (
+        {currentProject!.id && currentProject!.mode === 'create' && (
           <section>
             <p className="text-xs font-semibold text-[#999] uppercase tracking-wide mb-2 px-1">
               Journey · Health · Readiness
@@ -95,6 +138,14 @@ export function YourProjectTab({
         <p className="text-xs text-center text-[#999] px-2">
           Use <strong>Home</strong>, <strong>Explore</strong>, and <strong>Posts</strong> in the bar below to browse the app. Open the dashboard anytime from here.
         </p>
+
+        <LeaveProjectModal
+          projectName={currentProject!.name}
+          isOpen={showLeaveModal}
+          loading={leaving}
+          onCancel={() => setShowLeaveModal(false)}
+          onConfirm={(payload) => void handleLeaveConfirm(payload)}
+        />
       </div>
     );
   }

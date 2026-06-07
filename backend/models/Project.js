@@ -160,6 +160,15 @@ const projectSchema = new mongoose.Schema(
       viewCount: { type: Number, default: 0 },
       profileViews: { type: Number, default: 0 },
     },
+    leaveReasons: [
+      {
+        contact: String,
+        name: String,
+        reason: String,
+        reasonText: String,
+        leftAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -20,6 +20,8 @@ import { useSubscription } from '@/lib/hooks/useSubscription';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { useToast } from '@/lib/context/ToastContext';
+import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
 
 interface DashboardNewProps {
   project: ProjectData;
@@ -27,6 +29,7 @@ interface DashboardNewProps {
   onClose: () => void;
   onLogout: () => void;
   onProjectUpdate?: (project: ProjectData) => void;
+  onClearProject?: () => void;
   initialNav?: DashboardNavTab;
 }
 
@@ -55,7 +58,15 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'activity',  label: 'Activity',         icon: '⚡' },
 ];
 
-export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate, initialNav }: DashboardNewProps) {
+export function DashboardNew({
+  project,
+  user,
+  onClose,
+  onLogout,
+  onProjectUpdate,
+  onClearProject,
+  initialNav,
+}: DashboardNewProps) {
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [activeNav, setActiveNav]       = useState<NavTab>(initialNav ?? 'dashboard');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -64,8 +75,9 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
   const [matchCount, setMatchCount]           = useState<number | null>(null);
   const [showFloatingTask, setShowFloatingTask] = useState(false);
   const isOwner = project.mode === 'create';
-  const ownerContact = isOwner ? user?.contact : undefined;
+  const ownerContact = project.ownerContact || (isOwner ? user?.contact : undefined);
   const { plan } = useSubscription(ownerContact);
+  const { showToast } = useToast();
   const notifUserKey = user?.id || user?.contact;
   const {
     notifications,
@@ -104,6 +116,19 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
       if (result) setMatchCount(result.meta.total);
     });
   }, [project.id, ownerContact]);
+
+  useRemovedFromProject({
+    userContact: user?.contact,
+    activeProjectId: project.id,
+    onRemoved: (payload) => {
+      showToast(
+        payload.message || `You have been removed from ${payload.projectName || project.name}`,
+        'error'
+      );
+      onClearProject?.();
+      onClose();
+    },
+  });
 
   /* ── Close dropdowns on outside click ── */
   useEffect(() => {
@@ -438,10 +463,13 @@ export function DashboardNew({ project, user, onClose, onLogout, onProjectUpdate
             {activeNav === 'team' && (
               <TeamMembersView
                 projectId={project.id}
+                isOwner={isOwner}
+                ownerContact={ownerContact}
                 userId={user.id || user.contact}
                 userName={user.name}
                 userContact={user.contact}
                 onInvite={() => setActiveNav('invite')}
+                onShowToast={showToast}
               />
             )}
 

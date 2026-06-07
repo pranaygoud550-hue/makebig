@@ -56,3 +56,17 @@ export function clearSessionActiveProject() {
   localStorage.removeItem(LEGACY_KEY);
   localStorage.removeItem(LAST_CONTACT_KEY);
 }
+
+/** Remove saved active project for this account (leave / removed from team). */
+export function clearActiveProject(contact: string) {
+  if (typeof window === 'undefined') return;
+  const norm = normalizeContact(contact);
+  const map = loadMap();
+  delete map[norm];
+  localStorage.setItem(BY_CONTACT_KEY, JSON.stringify(map));
+  const last = localStorage.getItem(LAST_CONTACT_KEY);
+  if (last === norm || !last) {
+    localStorage.removeItem(LEGACY_KEY);
+    localStorage.removeItem(LAST_CONTACT_KEY);
+  }
+}

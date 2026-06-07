@@ -16,6 +16,7 @@ interface ActivityItem {
   type: string;
   description: string;
   createdAt: string;
+  reasonSubtitle?: string | null;
 }
 
 function timeAgo(dateStr: string) {
@@ -32,6 +33,7 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
   message:         { icon: '💬', color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200' },
   member_joined:   { icon: '🙋', color: 'text-blue-600',   bg: 'bg-blue-50 border-blue-200' },
   member_left:     { icon: '👋', color: 'text-slate-500',  bg: 'bg-slate-50 border-slate-200' },
+  member_removed:  { icon: '🚫', color: 'text-red-600',    bg: 'bg-red-50 border-red-200' },
   task_created:    { icon: '✅', color: 'text-green-600',  bg: 'bg-green-50 border-green-200' },
   task_updated:    { icon: '🔄', color: 'text-amber-600',  bg: 'bg-amber-50 border-amber-200' },
   task_deleted:    { icon: '🗑️', color: 'text-red-500',    bg: 'bg-red-50 border-red-200' },
@@ -66,11 +68,17 @@ export function ActivityFeed({
     (async () => {
       const acts = await apiGetProjectActivities(projectId as string);
       if (!cancelled) {
-        setActivities(acts.map((a: Record<string, string>) => ({
-          id: a.id || a._id,
-          type: a.type,
-          description: a.description || a.type,
-          createdAt: a.createdAt,
+        setActivities(acts.map((a: Record<string, unknown>) => ({
+          id: String(a.id || a._id || ''),
+          type: String(a.type || ''),
+          description: String(a.description || a.type || ''),
+          createdAt: String(a.createdAt || ''),
+          reasonSubtitle:
+            (a.metadata as Record<string, unknown> | undefined)?.reasonSubtitle != null
+              ? String((a.metadata as Record<string, unknown>).reasonSubtitle)
+              : (a.metadata as Record<string, unknown> | undefined)?.reason != null
+                ? String((a.metadata as Record<string, unknown>).reason)
+                : null,
         })));
         setLoading(false);
       }
@@ -86,7 +94,19 @@ export function ActivityFeed({
     const id = latest.id || latest._id;
     setActivities(prev => {
       if (prev.some(a => a.id === id)) return prev;
-      return [{ id, type: latest.type, description: latest.description, createdAt: latest.createdAt }, ...prev];
+      const meta = latest.metadata as Record<string, unknown> | undefined;
+      return [{
+        id,
+        type: latest.type,
+        description: latest.description,
+        createdAt: latest.createdAt,
+        reasonSubtitle:
+          meta?.reasonSubtitle != null
+            ? String(meta.reasonSubtitle)
+            : meta?.reason != null
+              ? String(meta.reason)
+              : null,
+      }, ...prev];
     });
   }, [socket.activities]);
 
@@ -131,6 +151,9 @@ export function ActivityFeed({
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[#1d2226] leading-snug">{a.description}</p>
+                {a.reasonSubtitle && (
+                  <p className="text-xs text-[#999] mt-0.5">{a.reasonSubtitle}</p>
+                )}
                 <p className="text-[10px] text-[#999] mt-1">{timeAgo(a.createdAt)}</p>
               </div>
             </div>

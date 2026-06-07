@@ -2,21 +2,26 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Socket } from 'socket.io-client';
-import { getInitials } from '@/lib/utils';
+import { getInitials, normalizeContact } from '@/lib/utils';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { connectProjectRoom } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { apiRemoveProjectMember } from '@/lib/api';
 
 interface TeamMember {
   contact: string;
   role: string;
   status?: string;
   joinedAt?: string;
+  name?: string;
 }
 
 interface TeamMembersViewProps {
   projectId?: string;
+  isOwner?: boolean;
+  ownerContact?: string;
   onInvite?: () => void;
+  onShowToast?: (message: string, variant?: 'success' | 'error') => void;
   userId?: string;
   userName?: string;
   userContact?: string;
@@ -33,17 +38,23 @@ const API =
 
 export function TeamMembersView({
   projectId,
+  isOwner = false,
+  ownerContact,
   onInvite,
+  onShowToast,
   userId,
   userName,
   userContact,
 }: TeamMembersViewProps) {
-  const [team, setTeam]       = useState<TeamMember[]>([]);
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
+  const [removing, setRemoving] = useState(false);
   const { openProfile } = useProfileView();
   const socketRef = useRef<Socket | null>(null);
 
-  /* ── Load from MongoDB ── */
+  const ownerNorm = ownerContact ? normalizeContact(ownerContact) : '';
+
   useEffect(() => {
     if (!projectId) { setLoading(false); return; }
     let cancelled = false;
@@ -57,7 +68,7 @@ export function TeamMembersView({
             .eq('project_id', projectId)
             .eq('status', 'joined');
           if (!cancelled && !error) {
-            setTeam((data || []).map((m: any) => ({
+            setTeam((data || []).map((m: Record<string, string>) => ({
               contact: m.contact,
               role: m.role,
               status: m.status,
@@ -65,18 +76,17 @@ export function TeamMembersView({
             })));
           }
         } else {
-          const res  = await fetch(`${API}/api/projects/${projectId}/members`);
+          const res = await fetch(`${API}/api/projects/${projectId}/members`);
           const json = await res.json();
           if (!cancelled && json.success) setTeam(json.data.members || []);
         }
       } catch { /* API offline */ }
-      finally   { if (!cancelled) setLoading(false); }
+      finally { if (!cancelled) setLoading(false); }
     })();
 
     return () => { cancelled = true; };
   }, [projectId]);
 
-  /* ── Live socket: add new member instantly ── */
   useEffect(() => {
     if (!projectId) return;
     if (isSupabaseConfigured) {
@@ -122,21 +132,29 @@ export function TeamMembersView({
       socketRef.current = s;
 
       s.on('member_status_changed', (payload) => {
-        if (payload.projectId !== projectId || payload.status !== 'joined') return;
+        if (payload.projectId !== projectId) return;
         const contact = payload.memberContact || payload.memberId;
         if (!contact) return;
-        setTeam((prev) => {
-          if (prev.some((m) => m.contact === contact)) return prev;
-          return [
-            ...prev,
-            {
-              contact,
-              role: payload.role || 'member',
-              status: 'active',
-              joinedAt: new Date().toISOString(),
-            },
-          ];
-        });
+
+        if (payload.status === 'joined') {
+          setTeam((prev) => {
+            if (prev.some((m) => m.contact === contact)) return prev;
+            return [
+              ...prev,
+              {
+                contact,
+                role: payload.role || 'member',
+                status: 'active',
+                joinedAt: new Date().toISOString(),
+              },
+            ];
+          });
+          return;
+        }
+
+        if (payload.status === 'left' || payload.status === 'removed') {
+          setTeam((prev) => prev.filter((m) => normalizeContact(m.contact) !== normalizeContact(contact)));
+        }
       });
     });
 
@@ -146,6 +164,25 @@ export function TeamMembersView({
       socketRef.current = null;
     };
   }, [projectId, userId, userName, userContact]);
+
+  const handleRemoveConfirm = async () => {
+    if (!projectId || !removeTarget) return;
+    setRemoving(true);
+    const result = await apiRemoveProjectMember(projectId, removeTarget.contact);
+    setRemoving(false);
+
+    if (!result.ok) {
+      onShowToast?.(result.error || 'Could not remove member', 'error');
+      return;
+    }
+
+    const displayName = removeTarget.name || removeTarget.contact.split('@')[0] || removeTarget.contact;
+    setTeam((prev) =>
+      prev.filter((m) => normalizeContact(m.contact) !== normalizeContact(removeTarget.contact))
+    );
+    setRemoveTarget(null);
+    onShowToast?.(`${displayName} has been removed from the project`, 'success');
+  };
 
   if (!projectId) {
     return (
@@ -158,7 +195,6 @@ export function TeamMembersView({
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="bg-white rounded-xl border border-[#e0e0e0] px-6 py-4 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#1d2226]">Team Members</h2>
@@ -190,7 +226,6 @@ export function TeamMembersView({
         )}
       </div>
 
-      {/* Loading */}
       {loading && (
         <div className="bg-white rounded-xl border border-[#e0e0e0] p-8 text-center">
           <div className="w-8 h-8 border-4 border-[#0A66C2] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -198,7 +233,6 @@ export function TeamMembersView({
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && team.length === 0 && (
         <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-12 text-center">
           <div className="flex justify-center gap-1 mb-4 text-4xl">
@@ -229,33 +263,85 @@ export function TeamMembersView({
         </div>
       )}
 
-      {/* Member list */}
       {!loading && team.length > 0 && (
         <div className="space-y-3">
-          {team.map((m, i) => (
-            <button
-              key={m.contact}
-              type="button"
-              onClick={() => openProfile(m.contact, m.contact)}
-              className="w-full text-left bg-white border border-[#e0e0e0] rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0A66C2]/40"
-            >
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
-                  {getInitials(m.contact)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#1d2226] truncate">{m.contact}</p>
-                  <p className="text-xs text-[#666] capitalize mt-0.5">{m.role}</p>
-                  {m.joinedAt && (
-                    <p className="text-xs text-[#999] mt-0.5">
-                      Joined {new Date(m.joinedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
+          {team.map((m, i) => {
+            const memberNorm = normalizeContact(m.contact);
+            const isOwnerRow = memberNorm === ownerNorm || m.role === 'owner';
+            const showRemove = isOwner && !isOwnerRow;
+
+            return (
+              <div
+                key={m.contact}
+                className="bg-white border border-[#e0e0e0] rounded-xl p-4 transition-all hover:shadow-sm hover:border-[#0A66C2]/40"
+              >
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => openProfile(m.contact, m.contact)}
+                    className={`w-12 h-12 rounded-full ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0 hover:ring-2 hover:ring-[#0A66C2]/30`}
+                  >
+                    {getInitials(m.contact)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openProfile(m.contact, m.contact)}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <p className="text-sm font-semibold text-[#1d2226] truncate">{m.contact}</p>
+                    <p className="text-xs text-[#666] capitalize mt-0.5">{m.role}</p>
+                    {m.joinedAt && (
+                      <p className="text-xs text-[#999] mt-0.5">
+                        Joined {new Date(m.joinedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    )}
+                  </button>
+                  {showRemove ? (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveTarget(m)}
+                      className="shrink-0 px-2.5 py-1 text-xs font-semibold text-red-600 border border-red-200 rounded-full hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <span className="text-xs font-semibold text-[#0A66C2] shrink-0">View profile →</span>
                   )}
                 </div>
-                <span className="text-xs font-semibold text-[#0A66C2] shrink-0">View profile →</span>
               </div>
-            </button>
-          ))}
+            );
+          })}
+        </div>
+      )}
+
+      {removeTarget && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl border border-[#e0e0e0] p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-[#1d2226]">
+              Remove {removeTarget.contact.split('@')[0] || removeTarget.contact} from project?
+            </h3>
+            <p className="text-sm text-[#666] mt-2">
+              They will lose access to the team workspace, messages, and tasks.
+            </p>
+            <div className="flex gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setRemoveTarget(null)}
+                disabled={removing}
+                className="flex-1 py-2.5 rounded-full border border-[#d9d9d9] text-[#666] text-sm font-semibold hover:bg-[#f3f2ef]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRemoveConfirm()}
+                disabled={removing}
+                className="flex-1 py-2.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {removing ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

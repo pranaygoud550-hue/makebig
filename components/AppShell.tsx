@@ -17,6 +17,8 @@ import { UserProfilePanel } from '@/components/app/UserProfilePanel';
 import { projectNeedsSync } from '@/lib/projectWorkspace';
 import { apiCheckHealth } from '@/lib/api';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
+import { useToast } from '@/lib/context/ToastContext';
+import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
 const TAB_STORAGE_KEY = 'makeBigActiveTab';
@@ -39,6 +41,7 @@ interface AppShellProps {
   onLogout: () => void;
   onPublicJoinClick: (project: BrowseProject) => void;
   onProjectUpdate: (project: ProjectData) => void;
+  onClearProject?: () => void;
   onProfileSaved?: () => void | Promise<void>;
 }
 
@@ -52,6 +55,7 @@ export function AppShell({
   onLogout,
   onPublicJoinClick,
   onProjectUpdate,
+  onClearProject,
   onProfileSaved,
 }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<AppTab>(() => readStoredTab());
@@ -63,6 +67,7 @@ export function AppShell({
   const notifUserKey = user.id || user.contact;
   const notificationsState = useNotifications(notifUserKey);
   const { unreadCount, markAllRead } = notificationsState;
+  const { showToast } = useToast();
 
   const handleTabChange = useCallback((tab: AppTab) => {
     setActiveTab(tab);
@@ -103,6 +108,29 @@ export function AppShell({
       cancelled = true;
     };
   }, [user.contact, currentProject?.name, currentProject?.id, onProjectUpdate]);
+
+  const handleLeaveSuccess = useCallback(() => {
+    onClearProject?.();
+    handleTabChange('home');
+  }, [onClearProject, handleTabChange]);
+
+  const handleRemovedFromProject = useCallback(
+    (payload: { projectName?: string; message?: string }) => {
+      showToast(
+        payload.message || `You have been removed from ${payload.projectName || 'the project'}`,
+        'error'
+      );
+      onClearProject?.();
+      handleTabChange('home');
+    },
+    [showToast, onClearProject, handleTabChange]
+  );
+
+  useRemovedFromProject({
+    userContact: user.contact,
+    activeProjectId: currentProject?.id,
+    onRemoved: handleRemovedFromProject,
+  });
 
   return (
     <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
@@ -192,9 +220,12 @@ export function AppShell({
         {activeTab === 'project' && (
           <YourProjectTab
             currentProject={currentProject}
+            userContact={user.contact}
             onStartProject={onStartProject}
             onJoinProject={onJoinProject}
             onOpenDashboard={onOpenYourProject}
+            onLeaveSuccess={handleLeaveSuccess}
+            onShowToast={showToast}
           />
         )}
       </main>
