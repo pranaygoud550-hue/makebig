@@ -199,6 +199,10 @@ export function AppShell({
               if (user.contact) markOnboardingBrowse(user.contact);
               setActiveTab('explore');
             }}
+            onOpenProfile={() => {
+              window.location.href = '/profile';
+            }}
+            onOpenProject={() => onOpenYourProject('dashboard')}
             onOpenAI={() => handleTabChange('ai')}
           />
         )}

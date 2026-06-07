@@ -41,6 +41,7 @@ import {
   computeProjectReadiness,
 } from "./backend/utils/startupReadiness.js";
 import { filterAllowedProjects, isAllowedPublicProject } from "./backend/utils/projectAllowlist.js";
+import { demoProjectExcludeFilter, demoUserExcludeFilter, isDemoProject, DEMO_PROJECT_SLUGS, DEMO_CONTACT_PATTERN } from "./backend/utils/demoData.js";
 import { dedupeProjectsForDisplay } from "./backend/utils/dedupeProjects.js";
 import {
   assertCanCreateProject,
@@ -452,10 +453,14 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/public/stats", async (req, res) => {
   try {
+    const projectFilter = {
+      status: { $in: ["published", "active"] },
+      ...demoProjectExcludeFilter(),
+    };
     const [totalProjects, totalUsers, cities] = await Promise.all([
-      Project.countDocuments({ status: { $in: ["published", "active"] } }),
-      User.countDocuments({}),
-      Project.distinct("city", { city: { $nin: ["", null] } }),
+      Project.countDocuments(projectFilter),
+      User.countDocuments(demoUserExcludeFilter()),
+      Project.distinct("city", { city: { $nin: ["", null] }, ...demoProjectExcludeFilter() }),
     ]);
     res.json({
       totalProjects: totalProjects || 0,
@@ -1174,6 +1179,7 @@ app.get("/api/projects/browse", async (req, res) => {
     const filter = {
       status: { $in: ["published", "in-progress"] },
       visibility: { $in: ["public", "invite-only"] },
+      ...demoProjectExcludeFilter(),
     };
 
     if (categoryId && categoryId !== "all") {
@@ -2181,12 +2187,20 @@ app.get("/api/public/showcase-feed", async (req, res) => {
   try {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const [newProjects, verifiedUsers, activities] = await Promise.all([
-      Project.find({ status: { $in: ["published", "in-progress"] }, createdAt: { $gte: weekAgo } })
+      Project.find({
+        status: { $in: ["published", "in-progress"] },
+        createdAt: { $gte: weekAgo },
+        ...demoProjectExcludeFilter(),
+      })
         .sort({ createdAt: -1 })
         .limit(8)
-        .select("name slug categoryId city createdAt")
+        .select("name slug categoryId city createdAt ownerContact")
         .lean(),
-      User.find({ "verifiedSkills.0": { $exists: true }, updatedAt: { $gte: weekAgo } })
+      User.find({
+        "verifiedSkills.0": { $exists: true },
+        updatedAt: { $gte: weekAgo },
+        ...demoUserExcludeFilter(),
+      })
         .sort({ updatedAt: -1 })
         .limit(6)
         .select("name contact verifiedSkills college")
@@ -2199,10 +2213,22 @@ app.get("/api/public/showcase-feed", async (req, res) => {
     const milestoneProjects = await Project.find({
       "journey.completionPercent": { $gte: 25 },
       updatedAt: { $gte: weekAgo },
+      ...demoProjectExcludeFilter(),
     })
       .limit(5)
-      .select("name slug journey.completionPercent")
+      .select("name slug journey.completionPercent ownerContact")
       .lean();
+
+    const demoProjectIds = new Set(
+      (
+        await Project.find({
+          $or: [{ slug: { $in: DEMO_PROJECT_SLUGS } }, { ownerContact: DEMO_CONTACT_PATTERN }],
+        })
+          .select("_id")
+          .lean()
+      ).map((p) => String(p._id))
+    );
+    const filteredActivities = activities.filter((a) => !demoProjectIds.has(String(a.projectId)));
 
     const items = [
       ...newProjects.map((p) => ({
@@ -2224,7 +2250,7 @@ app.get("/api/public/showcase-feed", async (req, res) => {
           at: vs.verifiedAt || u.updatedAt,
         }))
       ),
-      ...activities.map((a) => ({
+      ...filteredActivities.map((a) => ({
         type: "activity",
         text: a.description || a.type,
         at: a.createdAt,
@@ -2250,12 +2276,14 @@ app.get("/api/public/smart-search", async (req, res) => {
       Project.find({
         status: { $in: ["published", "in-progress"] },
         $or: [{ name: regex }, { desc: regex }, { tags: regex }, { roles: regex }],
+        ...demoProjectExcludeFilter(),
       })
         .limit(12)
-        .select("name desc slug tags roles categoryId")
+        .select("name desc slug tags roles categoryId ownerContact")
         .lean(),
       User.find({
         $or: [{ name: regex }, { skills: regex }, { college: regex }],
+        ...demoUserExcludeFilter(),
       })
         .limit(12)
         .select("name contact skills college city")
@@ -2267,7 +2295,7 @@ app.get("/api/public/smart-search", async (req, res) => {
         .lean(),
     ]);
     res.json({
-      projects: projects.map((p) => ({
+      projects: filterAllowedProjects(projects).map((p) => ({
         id: p._id.toString(),
         name: p.name,
         desc: p.desc,

@@ -9,6 +9,7 @@ import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { useToast } from '@/lib/context/ToastContext';
 import { extractUrls } from '@/lib/linkReaderUtils';
 import { queueAILink } from '@/lib/aiLinkPending';
+import { markOnboardingStandup } from '@/components/app/OnboardingChecklist';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '✅', '👀', '🎉', '💪', '🤔', '😅', '🙏', '💡'];
 
@@ -172,6 +173,7 @@ export function MessagesView({
       if (result?.message) {
         appendMessages([normalizeMessage(result.message as Record<string, string>)]);
       }
+      if (!skip && userContact) markOnboardingStandup(userContact);
       setShowStandup(false);
       setStandupFormOpen(false);
     } catch {

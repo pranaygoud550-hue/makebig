@@ -52,6 +52,7 @@ interface HomeTabProps {
   onOpenDashboard?: (section?: DashboardNavTab) => void;
   onOpenExplore?: () => void;
   onOpenProfile?: () => void;
+  onOpenProject?: () => void;
   onOpenAI?: () => void;
 }
 
@@ -62,6 +63,7 @@ export function HomeTab({
   onOpenDashboard,
   onOpenExplore,
   onOpenProfile,
+  onOpenProject,
   onOpenAI,
 }: HomeTabProps) {
   const [loading, setLoading] = useState(false);
@@ -157,11 +159,10 @@ export function HomeTab({
         <OnboardingChecklist
           userContact={userContact}
           userCreatedAt={userCreatedAt}
-          userName={userName}
           profileComplete={profileComplete}
           onOpenExplore={onOpenExplore}
           onOpenProfile={onOpenProfile ?? (() => onOpenDashboard?.('dashboard'))}
-          onOpenAI={onOpenAI}
+          onOpenProject={() => onOpenDashboard?.('dashboard')}
         />
       )}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0A66C2] via-[#004182] to-[#1d2226] p-6 text-white shadow-lg">

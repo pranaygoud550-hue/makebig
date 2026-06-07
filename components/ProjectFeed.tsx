@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/lib/userErrors';
 import { connectProjectRoom, createApiSocket } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { getApiOrigin } from '@/lib/apiBase';
+import { markOnboardingPost } from '@/components/app/OnboardingChecklist';
 
 const API = getApiOrigin();
 
@@ -378,6 +379,7 @@ function PostComposer({
       }
       setBody('');
       clearImage();
+      if (userContact) markOnboardingPost(userContact);
       onPosted();
     } catch (err) {
       setError(getErrorMessage(err, 'post'));

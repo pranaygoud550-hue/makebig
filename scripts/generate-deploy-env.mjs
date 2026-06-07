@@ -61,9 +61,14 @@ const render = {
   ALLOW_DEV_OTP: 'false',
   ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY || '',
   GROQ_API_KEY: env.GROQ_API_KEY || '',
+  RESEND_API_KEY: env.RESEND_API_KEY || '',
+  RESEND_ACCOUNT_EMAIL: env.RESEND_ACCOUNT_EMAIL || '',
   EMAIL_FROM: env.EMAIL_FROM || '',
   EMAIL_PASS: env.EMAIL_PASS || '',
   FAST2SMS_API_KEY: env.FAST2SMS_API_KEY || '',
+  VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY || '',
+  VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY || '',
+  VAPID_SUBJECT: env.VAPID_SUBJECT || 'mailto:support@makebig.co',
 };
 
 const vercel = {
@@ -72,6 +77,7 @@ const vercel = {
   NEXT_PUBLIC_APP_URL: vercelAppUrl,
   NEXT_PUBLIC_SITE_URL: vercelAppUrl,
   JWT_SECRET: jwt,
+  RESEND_API_KEY: env.RESEND_API_KEY || '',
   EMAIL_FROM: env.EMAIL_FROM || '',
   EMAIL_PASS: env.EMAIL_PASS || '',
   STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY || '',

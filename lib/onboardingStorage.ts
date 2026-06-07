@@ -4,28 +4,28 @@ const STEPS_KEY = (contact: string) => `makebig_onboarding_${contact}`;
 export type OnboardingStepId =
   | 'account'
   | 'profile'
-  | 'browse'
-  | 'join_request'
   | 'project'
-  | 'ai_link';
+  | 'tasks'
+  | 'post'
+  | 'standup';
 
 export interface OnboardingState {
   account: boolean;
   profile: boolean;
-  browse: boolean;
-  join_request: boolean;
   project: boolean;
-  ai_link: boolean;
+  tasks: boolean;
+  post: boolean;
+  standup: boolean;
   dismissed: boolean;
 }
 
 const DEFAULT: Omit<OnboardingState, 'dismissed'> = {
   account: true,
   profile: false,
-  browse: false,
-  join_request: false,
   project: false,
-  ai_link: false,
+  tasks: false,
+  post: false,
+  standup: false,
 };
 
 export function loadOnboardingState(contact: string): OnboardingState {
@@ -40,10 +40,10 @@ export function loadOnboardingState(contact: string): OnboardingState {
     return {
       account: parsed.account ?? true,
       profile: Boolean(parsed.profile),
-      browse: Boolean(parsed.browse),
-      join_request: Boolean(parsed.join_request),
       project: Boolean(parsed.project),
-      ai_link: Boolean(parsed.ai_link),
+      tasks: Boolean(parsed.tasks),
+      post: Boolean(parsed.post),
+      standup: Boolean(parsed.standup),
       dismissed,
     };
   } catch {
@@ -62,11 +62,5 @@ export function dismissOnboarding(contact: string) {
 }
 
 export function isOnboardingComplete(state: OnboardingState) {
-  return (
-    state.profile &&
-    state.browse &&
-    state.join_request &&
-    state.project &&
-    state.ai_link
-  );
+  return state.profile && state.project && state.tasks && state.post && state.standup;
 }

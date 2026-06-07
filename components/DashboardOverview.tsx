@@ -31,6 +31,7 @@ import Link from 'next/link';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import { ConnectGitHubCard } from '@/components/ConnectGitHubCard';
+import { markOnboardingTasks } from '@/components/app/OnboardingChecklist';
 
 interface DashboardOverviewProps {
   project: ProjectData;
@@ -429,7 +430,11 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
           .select()
           .single();
         if (error) throw new Error(error.message);
-        setTasks((p) => [...p, normalizeTask(data as Record<string, unknown>)]);
+        setTasks((p) => {
+          const next = [...p, normalizeTask(data as Record<string, unknown>)];
+          if (user?.contact && next.length >= 3) markOnboardingTasks(user.contact);
+          return next;
+        });
       } else {
         const headers = await getAuthHeadersAsync();
         if (!headers.Authorization) {
@@ -451,7 +456,11 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
           throw new Error(getErrorMessage(data?.error || data?.message, 'task'));
         }
         const createdTask = normalizeTask(data.data.task as Record<string, unknown>);
-        setTasks((p) => (p.some((t) => t.id === createdTask.id) ? p : [...p, createdTask]));
+        setTasks((p) => {
+          const next = p.some((t) => t.id === createdTask.id) ? p : [...p, createdTask];
+          if (user?.contact && next.length >= 3) markOnboardingTasks(user.contact);
+          return next;
+        });
       }
       setNewTask({ title: '', description: '', priority: 'medium', assignee: '' });
       setShowNewTask(false);
