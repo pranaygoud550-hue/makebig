@@ -218,6 +218,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
   /* ── Shared ── */
   const [error, setError] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [autoSetupWithAI, setAutoSetupWithAI] = useState(false);
 
   const isJoin = state.entry === 'join';
   const stepLabels = isJoin ? JOIN_STEP_LABELS : CREATE_STEP_LABELS;
@@ -399,6 +400,9 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
         teamSize: null,
         promptedAt: new Date().toISOString(),
       }));
+      if (autoSetupWithAI) {
+        sessionStorage.setItem('makebig_auto_setup_pending', '1');
+      }
     }
 
     const paidRole = showsSalaryForPurpose(projectPurpose);
@@ -848,6 +852,24 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
                     </div>
                   ) : null}
                 </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-[#EEF3FB] to-white border border-[#0A66C2]/25 rounded-xl p-5 space-y-3">
+                <p className="font-bold text-[#1d2226]">Let AI set up the rest?</p>
+                <p className="text-sm text-[#666]">
+                  Skip manual setup — our agent will write your description, roles, tasks, journey stage, and pitch in ~30 seconds.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAutoSetupWithAI(true)}
+                  className={`w-full py-3 rounded-full text-sm font-bold transition-all ${
+                    autoSetupWithAI
+                      ? 'bg-[#0A66C2] text-white ring-4 ring-[#0A66C2]/20'
+                      : 'bg-white border-2 border-[#0A66C2] text-[#0A66C2] hover:bg-[#EEF3FB]'
+                  }`}
+                >
+                  🤖 Auto-setup with AI {autoSetupWithAI ? '✓' : ''}
+                </button>
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">

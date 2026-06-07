@@ -178,6 +178,14 @@ const projectSchema = new mongoose.Schema(
     inactivePromptAt: { type: Date },
     inactiveConfirmedAt: { type: Date },
     aiValidated: { type: Boolean, default: false },
+    pitch: { type: String, default: "", trim: true },
+    milestones: [
+      {
+        title: { type: String, trim: true },
+        date: Date,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -428,6 +428,8 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
         setTasks((p) => p.filter((t) => t.id !== taskId))
       );
       socket.on('member_status_changed', () => load());
+      socket.on('project_changed', () => load());
+      socket.on('agent_complete', () => load());
     });
 
     return () => {

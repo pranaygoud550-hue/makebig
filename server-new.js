@@ -126,6 +126,14 @@ import {
   saveLinkHistory,
   getProjectLinkHistory,
 } from "./backend/ai/linkReader.js";
+import AgentRun from "./backend/models/AgentRun.js";
+import Build from "./backend/models/Build.js";
+import {
+  runAgent,
+  cancelAgentRun,
+  undoAgentRun,
+  getAgentRuns,
+} from "./backend/ai/agent.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -1942,6 +1950,129 @@ app.get("/api/projects/:projectId/links", authMiddleware, async (req, res) => {
     const usage = await getLinkReadUsage(project);
     const links = await getProjectLinkHistory(project._id, 20);
     res.json(formatResponse(true, { links, usage }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/agent", authMiddleware, async (req, res) => {
+  try {
+    const { projectId, goal, agentType } = req.body || {};
+    if (!projectId || !goal?.trim() || !agentType) {
+      return res.status(400).json(formatResponse(false, null, "projectId, goal, and agentType required"));
+    }
+    const validTypes = ["setup", "build", "plan", "analyze"];
+    if (!validTypes.includes(agentType)) {
+      return res.status(400).json(formatResponse(false, null, "Invalid agentType"));
+    }
+
+    const project = await Project.findById(projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    const running = await AgentRun.findOne({ projectId, status: "running" }).lean();
+    if (running) {
+      return res.status(409).json(formatResponse(false, null, "An agent is already running for this project"));
+    }
+
+    const run = await AgentRun.create({
+      projectId,
+      goal: goal.trim().slice(0, 500),
+      agentType,
+      status: "running",
+      runBy: req.user?.contact || "",
+      steps: [],
+    });
+
+    res.json(formatResponse(true, { runId: run._id.toString(), agentType, goal: run.goal }));
+
+    setImmediate(() => {
+      runAgent({
+        io,
+        projectId: project._id.toString(),
+        goal: run.goal,
+        agentType,
+        runId: run._id,
+        userContact: req.user?.contact || "",
+        pushNotification,
+      }).catch((err) => console.error("[agent]", err));
+    });
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/agent/:runId/cancel", authMiddleware, async (req, res) => {
+  try {
+    const run = await AgentRun.findById(req.params.runId);
+    if (!run) return res.status(404).json(formatResponse(false, null, "Run not found"));
+    const project = await Project.findById(run.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+
+    cancelAgentRun(run._id);
+    run.status = "cancelled";
+    run.completedAt = new Date();
+    await run.save();
+    io.to(`project_${run.projectId}`).emit("agent_complete", {
+      runId: run._id.toString(),
+      summary: "Agent stopped",
+      cancelled: true,
+    });
+    res.json(formatResponse(true, { cancelled: true }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/projects/:projectId/agent-runs", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+    const runs = await getAgentRuns(project._id, 20);
+    res.json(formatResponse(true, { runs }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/projects/:projectId/builds/latest", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectMember(req, res, project)) return;
+    const BuildModel = Build;
+    const build = await BuildModel.findOne({ projectId: project._id }).sort({ createdAt: -1 }).lean();
+    if (!build) return res.json(formatResponse(true, { build: null }));
+    res.json(
+      formatResponse(true, {
+        build: {
+          id: build._id.toString(),
+          title: build.title,
+          html: build.html,
+          css: build.css,
+          js: build.js,
+          createdAt: build.createdAt,
+        },
+      })
+    );
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/projects/:projectId/agent-runs/:runId/undo", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    if (!assertProjectOwner(req, res, project)) return;
+    const result = await undoAgentRun(req.params.runId);
+    io.to(`project_${project._id}`).emit("project_changed", {
+      projectId: project._id.toString(),
+      reason: "agent_undo",
+    });
+    res.json(formatResponse(true, result));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

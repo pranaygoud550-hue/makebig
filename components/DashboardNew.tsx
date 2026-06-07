@@ -24,6 +24,11 @@ import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { useToast } from '@/lib/context/ToastContext';
 import { AvailabilityView } from './AvailabilityView';
 import { ProjectHealthBanner } from './ProjectHealthBanner';
+import { AgentHistoryView } from './AgentHistoryView';
+import { useAgentSocket } from '@/lib/useAgentSocket';
+import type { AgentCompleteEvent, AgentStepEvent } from '@/lib/agentTypes';
+import { queueAgentRun } from '@/lib/agentPending';
+import type { AgentType } from '@/lib/agentTypes';
 
 interface DashboardNewProps {
   project: ProjectData;
@@ -46,7 +51,8 @@ export type DashboardNavTab =
   | 'messages'
   | 'notes'
   | 'activity'
-  | 'availability';
+  | 'availability'
+  | 'agent';
 
 type NavTab = DashboardNavTab;
 
@@ -62,6 +68,7 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'notes',     label: 'Notes',            icon: '📝' },
   { id: 'activity',  label: 'Activity',         icon: '⚡' },
   { id: 'availability', label: 'Schedule',     icon: '📅' },
+  { id: 'agent',        label: 'Agent',          icon: '🤖' },
 ];
 
 export function DashboardNew({
@@ -80,6 +87,7 @@ export function DashboardNew({
   const [searchQuery, setSearchQuery]         = useState('');
   const [matchCount, setMatchCount]           = useState<number | null>(null);
   const [showFloatingTask, setShowFloatingTask] = useState(false);
+  const [agentHistoryRefresh, setAgentHistoryRefresh] = useState(0);
   const isOwner = project.mode === 'create';
   const ownerContact = project.ownerContact || (isOwner ? user?.contact : undefined);
   const { plan } = useSubscription(ownerContact);
@@ -114,6 +122,44 @@ export function DashboardNew({
   useEffect(() => {
     if (initialNav) setActiveNav(initialNav);
   }, [initialNav]);
+
+  useAgentSocket({
+    projectId: project.id,
+    userId: user?.id || user?.contact,
+    userName: user?.name,
+    userContact: user?.contact,
+    enabled: Boolean(project.id && user),
+    onStep: (data: AgentStepEvent) => {
+      if (data.action === 'tasks_created' && data.data?.tasks) {
+        const count = Number(data.data.count) || (data.data.tasks as unknown[]).length;
+        showToast(`✅ ${count} tasks created`, 'success');
+      }
+      if (data.action === 'description_written' && data.data?.description) {
+        onProjectUpdate?.({
+          ...project,
+          description: String(data.data.description),
+        });
+      }
+      if (data.action === 'roles_created' && Array.isArray(data.data?.roles)) {
+        onProjectUpdate?.({
+          ...project,
+          skills: data.data.roles as string[],
+        });
+      }
+      if (data.action === 'journey_set' && data.data) {
+        showToast(`Journey set to ${data.data.stage}`, 'info');
+      }
+      if (data.action === 'health_updated') {
+        showToast('Health score updated', 'success');
+      }
+    },
+    onComplete: (data: AgentCompleteEvent) => {
+      if (!data.failed && !data.cancelled) {
+        showToast(`🤖 Agent done! ${data.summary}`, 'success');
+      }
+      setAgentHistoryRefresh((v) => v + 1);
+    },
+  });
 
   /* ── Silently probe match count for sidebar badge ── */
   useEffect(() => {
@@ -562,6 +608,23 @@ export function DashboardNew({
             {activeNav === 'availability' && user && (
               <div className="bg-white rounded-xl border border-[#e0e0e0] p-5">
                 <AvailabilityView projectId={project.id} user={user} />
+              </div>
+            )}
+
+            {activeNav === 'agent' && project.id && user && (
+              <div className="bg-white rounded-xl border border-[#e0e0e0] p-5">
+                <h2 className="text-lg font-bold text-[#1d2226] mb-1">Agent history</h2>
+                <p className="text-sm text-[#666] mb-4">
+                  Past agent runs for {project.name}. Re-run or undo changes.
+                </p>
+                <AgentHistoryView
+                  projectId={project.id}
+                  refreshKey={agentHistoryRefresh}
+                  onRerun={(type: AgentType, goal: string) => {
+                    queueAgentRun({ projectId: project.id!, agentType: type, goal });
+                    showToast('Agent started — open AI tab to watch progress', 'info');
+                  }}
+                />
               </div>
             )}
 

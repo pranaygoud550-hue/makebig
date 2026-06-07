@@ -35,6 +35,7 @@ import { ProjectData, User } from '@/lib/types';
 import { GitHubLinkCard } from '@/components/GitHubLinkCard';
 import { AILinkHistoryPanel } from '@/components/AILinkHistoryPanel';
 import { markOnboardingAiLink } from '@/components/app/OnboardingChecklist';
+import { AgentPanel, BuildPanel } from '@/components/AgentPanel';
 
 interface AICofounderProps {
   project: ProjectData;
@@ -66,7 +67,7 @@ interface ChatMessage {
   isLinkRead?: boolean;
 }
 
-type PanelTab = 'chat' | 'links';
+type PanelTab = 'chat' | 'links' | 'build' | 'agent';
 
 const QUICK_PROMPTS: { id: ActionId | 'pitch-deck'; label: string; icon: string }[] = [
   { id: 'pitch-deck', label: 'Generate pitch deck outline', icon: '📊' },
@@ -800,6 +801,28 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
           >
             🔗 Links
           </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab('build')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg ${
+              panelTab === 'build'
+                ? 'bg-[#21262d] text-[#e6edf3] border border-[#58a6ff]/40'
+                : 'text-[#8b949e] hover:text-[#e6edf3]'
+            }`}
+          >
+            🏗 Build
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab('agent')}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg ${
+              panelTab === 'agent'
+                ? 'bg-[#21262d] text-[#e6edf3] border border-[#58a6ff]/40'
+                : 'text-[#8b949e] hover:text-[#e6edf3]'
+            }`}
+          >
+            🤖 Agent
+          </button>
           {linkUsage && !linkUsage.isPro && linkUsage.limit != null && (
             <span className="ml-auto text-[10px] text-[#8b949e] self-center">
               {linkUsage.used}/{linkUsage.limit} link reads today
@@ -821,6 +844,22 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
               void runLinkRead(entry.url, entry.question || undefined);
             }}
           />
+        </div>
+      ) : panelTab === 'build' ? (
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {project.id && <BuildPanel projectId={project.id} />}
+        </div>
+      ) : panelTab === 'agent' ? (
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {project.id && (
+            <AgentPanel
+              projectId={project.id}
+              projectName={project.name}
+              userId={user?.id}
+              userName={user?.name}
+              userContact={user?.contact}
+            />
+          )}
         </div>
       ) : (
       <>

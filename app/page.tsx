@@ -9,6 +9,7 @@ import { DashboardNew, type DashboardNavTab } from '@/components/DashboardNew';
 import { saveActiveProject, clearSessionActiveProject, clearActiveProject } from '@/lib/activeProjectStorage';
 import { restoreUserProject } from '@/lib/restoreUserProject';
 import { ensureProjectOnline } from '@/lib/ensureProjectOnline';
+import { queueAgentRun } from '@/lib/agentPending';
 import { projectNeedsSync, hasActiveWorkspace } from '@/lib/projectWorkspace';
 import { AppShell } from '@/components/AppShell';
 import { UserProfilePanel } from '@/components/app/UserProfilePanel';
@@ -335,6 +336,20 @@ export default function Home() {
     if (auth.user?.contact && projectNeedsSync(savedProject)) {
       const result = await ensureProjectOnline(savedProject, auth.user.contact);
       if (result.ok && result.project) persistProject(result.project);
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      sessionStorage.getItem('makebig_auto_setup_pending') === '1' &&
+      savedProject.id
+    ) {
+      sessionStorage.removeItem('makebig_auto_setup_pending');
+      queueAgentRun({
+        projectId: savedProject.id,
+        agentType: 'setup',
+        goal: `Set up ${savedProject.name}`,
+      });
+      sessionStorage.setItem('makeBigActiveTab', 'ai');
     }
 
     setShowDashboard(false);
