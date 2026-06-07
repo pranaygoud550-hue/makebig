@@ -10,6 +10,7 @@ import { useToast } from '@/lib/context/ToastContext';
 import { extractUrls } from '@/lib/linkReaderUtils';
 import { queueAILink } from '@/lib/aiLinkPending';
 import { markOnboardingStandup } from '@/components/app/OnboardingChecklist';
+import { MessageSkeleton } from '@/components/ui/Skeleton';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '✅', '👀', '🎉', '💪', '🤔', '😅', '🙏', '💡'];
 

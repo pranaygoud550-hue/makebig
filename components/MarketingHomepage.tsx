@@ -8,6 +8,7 @@ import { VerifiedSkillsLeaderboard } from '@/components/skillVerification/Verifi
 import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
 import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
 import { ShowcaseFeed } from '@/components/ShowcaseFeed';
+import { MarketingFooter } from '@/components/MarketingFooter';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { BrowseProject } from '@/lib/api';
 

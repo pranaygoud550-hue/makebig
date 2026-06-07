@@ -43,3 +43,6 @@ export async function verifyAuthFromRequest(request: Request): Promise<AuthConta
     return null;
   }
 }
+
+/** Alias used by some Next.js API proxy routes */
+export const verifyAuthToken = verifyAuthFromRequest;

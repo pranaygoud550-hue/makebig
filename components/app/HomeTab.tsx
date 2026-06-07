@@ -306,9 +306,9 @@ export function HomeTab({
               </ul>
             )}
 
-            {!loading && !projects.length && debounced && (
+            {!loading && !projects.length && (
               <p className="text-sm text-[#666] text-center py-8 bg-white rounded-xl border border-dashed border-[#d9d9d9]">
-                No projects found — try another name, skill, or category.
+                No projects yet — explore open roles or start your own project.
               </p>
             )}
           </div>

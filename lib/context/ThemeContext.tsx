@@ -92,7 +92,5 @@ export function useTheme() {
   return ctx;
 }
 
-/** Inline script to prevent flash of wrong theme */
-export function themeInitScript() {
-  return `(function(){try{var t=localStorage.getItem('${STORAGE_KEY}');var d=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
-}
+/** @deprecated import from @/lib/themeInitScript in server components */
+export { themeInitScript } from '@/lib/themeInitScript';

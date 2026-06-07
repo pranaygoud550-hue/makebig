@@ -90,16 +90,16 @@ export function ActivityFeed({
   /* ── Real-time: push new activity to top ── */
   useEffect(() => {
     if (!socket.activities?.length) return;
-    const latest = socket.activities[0] as Record<string, string>;
-    const id = latest.id || latest._id;
+    const latest = socket.activities[0] as Record<string, unknown>;
+    const id = String(latest.id || latest._id || '');
     setActivities(prev => {
       if (prev.some(a => a.id === id)) return prev;
       const meta = latest.metadata as Record<string, unknown> | undefined;
       return [{
         id,
-        type: latest.type,
-        description: latest.description,
-        createdAt: latest.createdAt,
+        type: String(latest.type || ''),
+        description: String(latest.description || ''),
+        createdAt: String(latest.createdAt || ''),
         reasonSubtitle:
           meta?.reasonSubtitle != null
             ? String(meta.reasonSubtitle)

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppProviders } from './providers';
-import { themeInitScript } from '@/lib/context/ThemeContext';
+import { themeInitScript } from '@/lib/themeInitScript';
 import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {

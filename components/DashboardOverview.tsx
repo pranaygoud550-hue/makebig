@@ -708,7 +708,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
       {project.id && (
         <ConnectGitHubCard
           projectId={project.id}
-          isOwner={isProjectOwner(project, user?.contact)}
+          isOwner={isProjectOwner(user?.contact, project.ownerContact)}
           onError={setTaskError}
         />
       )}

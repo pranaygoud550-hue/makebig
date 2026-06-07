@@ -32,6 +32,7 @@ export interface PublicProfilePayload {
     verifiedSkills?: VerifiedSkill[];
     hobbies?: string[];
     plan?: string;
+    notificationPreferences?: Record<string, boolean>;
   };
   profile: {
     tagline?: string;

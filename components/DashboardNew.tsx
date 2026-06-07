@@ -26,6 +26,7 @@ import { AvailabilityView } from './AvailabilityView';
 import { ProjectHealthBanner } from './ProjectHealthBanner';
 import { AgentHistoryView } from './AgentHistoryView';
 import { useAgentSocket } from '@/lib/useAgentSocket';
+import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
 import type { AgentCompleteEvent, AgentStepEvent } from '@/lib/agentTypes';
 import { queueAgentRun } from '@/lib/agentPending';
 import type { AgentType } from '@/lib/agentTypes';
