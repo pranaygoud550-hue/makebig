@@ -32,37 +32,41 @@ interface MarketingHomepageProps {
   onCloseDebug?: () => void;
 }
 
-const FEATURES = [
-  {
-    icon: '🚀',
-    title: 'Create Projects',
-    desc: 'Turn your idea into a published project with roles, timeline, and a clear pitch for teammates.',
-  },
-  {
-    icon: '👥',
-    title: 'Find Team Members',
-    desc: 'Match by skills, college, and interests. Build the team your project actually needs.',
-  },
+const PILLARS = [
   {
     icon: '🤝',
-    title: 'Collaborate',
-    desc: 'Tasks, posts, chat, and live updates in one workspace for your whole team.',
+    title: 'Find your co-founder first',
+    tagline: 'Before you find your repo.',
+    desc: 'Match by skills, college, city, and compatibility — built for Indian student startups, not open-source maintainers.',
+    highlights: ['Co-founder compatibility score', 'Verified skills leaderboard', 'Join requests & team roles'],
   },
   {
-    icon: '💼',
-    title: 'Build Startups',
-    desc: 'Ship real products with co-founders — not just classroom assignments.',
+    icon: '🤖',
+    title: 'AI co-founder that knows your project',
+    tagline: 'Not generic ChatGPT.',
+    desc: 'Auto-setup, sprint plans, competitor link analysis, and weekly reports — all tied to your actual team and tasks.',
+    highlights: ['AI agent sets up in 30 seconds', 'Read any link (GitHub, competitors)', 'Health alerts when teams go quiet'],
   },
   {
-    icon: '💡',
-    title: 'Share Ideas',
-    desc: 'Post updates, get feedback, and grow visibility across the Make Big community.',
+    icon: '📈',
+    title: 'Momentum when teams usually quit',
+    tagline: 'Week 3 is when projects die.',
+    desc: 'Standups, health scores, milestones, and live feeds keep amateur teams accountable — the stuff GitHub never tracks.',
+    highlights: ['Project health score', 'Team chat & task board', 'Showcase feed for real activity'],
   },
-  {
-    icon: '🌍',
-    title: 'Discover Opportunities',
-    desc: 'Browse open roles, join teams, and find paid or portfolio-building projects.',
-  },
+];
+
+const GITHUB_FLOW = [
+  { step: '1', label: 'Team up on Make Big', detail: 'Find co-founders, validate your idea, run the setup agent.' },
+  { step: '2', label: 'Plan your sprint here', detail: 'Tasks, standups, AI advice — no repo required yet.' },
+  { step: '3', label: 'Connect GitHub when ready', detail: 'Paste your repo URL — we show commits & AI reads your README.' },
+  { step: '4', label: 'Code on GitHub, lead on Make Big', detail: 'Push code there. Track progress, health, and pitch here.' },
+];
+
+const SUPPORTING = [
+  { icon: '💡', title: 'Idea validator', desc: 'AI scores your startup idea before you write a line of code.' },
+  { icon: '📚', title: 'Learn → build', desc: 'Pick up skills, then spin up a project with your team.' },
+  { icon: '🌍', title: 'Explore & join', desc: 'Browse live projects and open roles across India.' },
 ];
 
 const DEFAULT_STATS = [
@@ -176,16 +180,17 @@ export function MarketingHomepage({
         <div className="relative w-full px-4 sm:px-6 lg:px-8 py-16 md:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <div className="animate-rise-in text-center lg:text-left">
             <span className="inline-flex items-center gap-2 px-3 py-1 bg-white text-[#0A66C2] text-xs font-bold rounded-full uppercase tracking-wider mb-5 border border-[#0A66C2]/20 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#0A66C2] animate-pulse" />
-              No unemployment in India — after graduation
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+              Built for Indian student startups
             </span>
             <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-black text-[#1d2226] leading-[1.08] tracking-tight">
-              Build Projects.{' '}
-              <span className="text-[#0A66C2]">Find Teams.</span>{' '}
-              Get Opportunities.
+              Find your co-founder.{' '}
+              <span className="text-[#0A66C2]">Ship your first sprint.</span>{' '}
+              Code on GitHub.
             </h1>
             <p className="text-[#666] text-base md:text-lg mt-5 leading-relaxed max-w-xl mx-auto lg:mx-0">
-              A collaboration platform where creators, developers, filmmakers, marketers and innovators build together.
+              GitHub stores your code. Make Big forms your team, validates your idea, and tells you
+              what to do next — until you&apos;re ready to push your first repo.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-center lg:justify-start">
@@ -212,7 +217,7 @@ export function MarketingHomepage({
             </div>
 
             <p className="text-xs text-[#999] mt-5">
-              Free for students · OTP sign-in · Ship with tasks, posts &amp; team tools
+              Free for students · Works with GitHub · AI setup in ~30 seconds
             </p>
           </div>
 
@@ -262,35 +267,96 @@ export function MarketingHomepage({
         </div>
       </section>
 
-      {/* ── Feature preview cards ── */}
+      {/* ── Three pillars ── */}
       <section className="bg-white py-16 md:py-20 px-4 border-b border-[#e0e0e0]">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">
-              Everything you need to go from idea to shipped
+              What Make Big does that GitHub doesn&apos;t
             </h2>
             <p className="text-[#666] text-sm md:text-base mt-2">
-              One platform for finding people, organizing work, and showing what you build.
+              We don&apos;t replace your dev tools — we get your team from zero to first repo.
             </p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f) => (
+          <div className="grid lg:grid-cols-3 gap-6">
+            {PILLARS.map((p) => (
               <div
-                key={f.title}
-                className="group bg-[#f8f9fa] hover:bg-white border border-[#e0e0e0] hover:border-[#0A66C2]/30 rounded-2xl p-6 transition-all hover:shadow-md hover:-translate-y-0.5"
+                key={p.title}
+                className="rounded-2xl border border-[#e0e0e0] bg-[#f8f9fa] hover:bg-white hover:border-[#0A66C2]/30 p-6 transition-all hover:shadow-lg"
               >
-                <span className="text-3xl block mb-3" aria-hidden>
-                  {f.icon}
+                <span className="text-3xl" aria-hidden>
+                  {p.icon}
                 </span>
-                <h3 className="font-bold text-[#1d2226] text-lg group-hover:text-[#0A66C2] transition-colors">
-                  {f.title}
-                </h3>
-                <p className="text-sm text-[#666] mt-2 leading-relaxed">{f.desc}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[#0A66C2] mt-3">
+                  {p.tagline}
+                </p>
+                <h3 className="font-bold text-[#1d2226] text-xl mt-1">{p.title}</h3>
+                <p className="text-sm text-[#666] mt-2 leading-relaxed">{p.desc}</p>
+                <ul className="mt-4 space-y-1.5">
+                  {p.highlights.map((h) => (
+                    <li key={h} className="text-xs text-[#1d2226] flex items-start gap-2">
+                      <span className="text-[#22c55e] shrink-0">✓</span>
+                      {h}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* ── GitHub workflow ── */}
+      <section className="bg-[#1d2226] py-14 px-4 text-white">
+        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2">
+            Works with GitHub
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold">
+            Connect your repo when you&apos;re ready — not on day one
+          </h2>
+          <p className="text-white/75 text-sm mt-3 leading-relaxed">
+            Paste a GitHub URL on your dashboard. We show recent commits, and your AI co-founder
+            reads your README to give project-specific advice.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4 mt-10 text-left">
+            {GITHUB_FLOW.map((item) => (
+              <div
+                key={item.step}
+                className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-3"
+              >
+                <span className="w-8 h-8 rounded-full bg-[#0A66C2] text-white font-bold text-sm flex items-center justify-center shrink-0">
+                  {item.step}
+                </span>
+                <div>
+                  <p className="font-semibold text-white">{item.label}</p>
+                  <p className="text-xs text-white/65 mt-1 leading-relaxed">{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Supporting features ── */}
+      <section className="bg-[#f3f2ef] py-12 px-4 border-b border-[#e0e0e0]">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="grid sm:grid-cols-3 gap-4">
+            {SUPPORTING.map((f) => (
+              <div
+                key={f.title}
+                className="bg-white border border-[#e0e0e0] rounded-xl p-5"
+              >
+                <span className="text-2xl">{f.icon}</span>
+                <h3 className="font-bold text-[#1d2226] mt-2">{f.title}</h3>
+                <p className="text-sm text-[#666] mt-1">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* removed old 6-card feature grid */}
 
       <div id="discover">
         <PublicProjectFeed
@@ -340,10 +406,26 @@ export function MarketingHomepage({
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { n: '1', t: 'Create Project', d: 'Define your idea, roles, and goals — publish it for the community to discover.' },
-              { n: '2', t: 'Find Talent', d: 'Search by skills and college, send join requests, and build your dream team.' },
-              { n: '3', t: 'Build Together', d: 'Use tasks, posts, chat, and AI tools to ship milestones as a team.' },
-              { n: '4', t: 'Launch', d: 'Showcase what you built — portfolio, startup, or campus impact project.' },
+              {
+                n: '1',
+                t: 'Form your team',
+                d: 'Find co-founders, validate your idea, and publish your startup on Make Big.',
+              },
+              {
+                n: '2',
+                t: 'AI sets you up',
+                d: 'Our agent writes your pitch, roles, tasks, and journey stage in ~30 seconds.',
+              },
+              {
+                n: '3',
+                t: 'Connect GitHub',
+                d: 'Link your repo when you start coding — commits & AI advice sync automatically.',
+              },
+              {
+                n: '4',
+                t: 'Stay moving',
+                d: 'Health scores, standups, and weekly AI reports keep your team from going quiet.',
+              },
             ].map((s) => (
               <div key={s.n} className="bg-white border border-[#e0e0e0] rounded-2xl p-6">
                 <div className="w-9 h-9 rounded-full bg-[#0A66C2] text-white font-bold flex items-center justify-center text-sm mb-3">
@@ -360,9 +442,9 @@ export function MarketingHomepage({
       {!isSignedIn && (
         <section className="bg-[#0A66C2] py-14 px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-white">Ready to build something big?</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-white">Ready to find your co-founder?</h2>
             <p className="text-white/80 text-sm md:text-base mt-2">
-              Join creators on Make Big — verify your email, post your first project, and find your team this week.
+              Start on Make Big. Connect GitHub when you&apos;re ready to code. Free for students.
             </p>
             <button
               type="button"
