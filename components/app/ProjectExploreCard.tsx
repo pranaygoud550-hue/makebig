@@ -32,6 +32,7 @@ export interface ProjectCardData {
   ownerContact?: string;
   createdAt?: string;
   projectPurpose?: string;
+  tags?: string[];
 }
 
 function formatSalary(max?: number, currency = 'INR') {
@@ -109,6 +110,15 @@ export function ProjectExploreCard({
         <p className="text-sm text-[#666] mt-1 line-clamp-2 min-h-[2.5rem]">
           {p.desc || 'No description yet.'}
         </p>
+        {p.tags && p.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {p.tags.slice(0, 4).map((t) => (
+              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-[#f3f2ef] text-[#666] border border-[#e8e8e8]">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-[#999] mt-2">
           {p.city && `📍 ${p.city} · `}
           {timeAgo(p.createdAt)}

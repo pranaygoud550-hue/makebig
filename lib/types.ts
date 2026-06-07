@@ -31,6 +31,10 @@ export interface User {
   graduationYear?: string;
   city?: string;
   state?: string;
+  createdAt?: string;
+  badges?: string[];
+  referralCount?: number;
+  notificationPreferences?: Record<string, boolean>;
 }
 
 export interface Profile {
@@ -121,6 +125,7 @@ export interface ProjectData {
   slug?: string;
   mode: 'create' | 'join' | 'member';
   ownerContact?: string;
+  tags?: string[];
 }
 
 export interface InvitePerson {

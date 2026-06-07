@@ -92,9 +92,33 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
   const [standupToday, setStandupToday] = useState('');
   const [standupBlockers, setStandupBlockers] = useState('');
   const [standupSubmitting, setStandupSubmitting] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [readerIds, setReaderIds] = useState<string[]>([]);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const filteredMessages = searchQuery.trim()
+    ? chatMessages.filter((m) =>
+        m.content.toLowerCase().includes(searchQuery.trim().toLowerCase())
+      )
+    : chatMessages;
+
+  const highlightContent = (text: string) => {
+    const q = searchQuery.trim();
+    if (!q) return text;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx < 0) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="bg-yellow-200 rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
+        {text.slice(idx + q.length)}
+      </>
+    );
+  };
 
   const appendMessages = useCallback((incoming: ChatMessage[]) => {
     setChatMessages((prev) => mergeMessages(prev, incoming));
@@ -179,6 +203,10 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
       }
     };
 
+    const onMessagesSeen = (data: { readerIds?: string[] }) => {
+      setReaderIds(Array.isArray(data.readerIds) ? data.readerIds : []);
+    };
+
     (async () => {
       setLoading(true);
       setChatMessages([]);
@@ -210,6 +238,8 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
       socket.on('newMessage', onNewMessage);
       socket.on('active_users', onActiveUsers);
       socket.on('user_typing', onUserTyping);
+      socket.on('messages_seen', onMessagesSeen);
+      socket.emit('messages_read', { projectId });
 
       /* Wait briefly for join_project to complete before loading history */
       await new Promise((r) => setTimeout(r, socket.connected ? 150 : 400));
@@ -231,6 +261,7 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
         socket.off('newMessage', onNewMessage);
         socket.off('active_users', onActiveUsers);
         socket.off('user_typing', onUserTyping);
+        socket.off('messages_seen', onMessagesSeen);
       }
       socketRef.current = null;
       socketManager.releaseProjectRoom(projectId, userId, userName);
@@ -327,8 +358,8 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
   return (
     <div className="flex flex-col h-[calc(100dvh-10rem)] md:h-full min-h-[70vh] max-h-[85dvh] md:max-h-none">
       <div className="bg-white rounded-t-xl border border-b-0 border-[#e0e0e0] px-4 md:px-5 py-3 md:py-4 shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <h2 className="text-base md:text-lg font-bold text-[#1d2226]">Project Chat</h2>
             <p className="text-xs mt-0.5">
               {isConnected ? (
@@ -338,6 +369,7 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
               )}
             </p>
           </div>
+          <div className="flex items-center gap-2 shrink-0">
           {activeUsers.length > 0 && (
             <div className="flex -space-x-2">
               {activeUsers.slice(0, 4).map((u) => (
@@ -351,7 +383,29 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
               ))}
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setSearchOpen((v) => !v)}
+            className="ml-2 w-9 h-9 rounded-full border border-[#d9d9d9] text-[#666] hover:border-[#0A66C2] shrink-0"
+            title="Search messages"
+          >
+            🔍
+          </button>
+          </div>
         </div>
+        {searchOpen && (
+          <div className="mt-3">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages…"
+              className="w-full px-3 py-2 border border-[#d9d9d9] rounded-lg text-sm"
+            />
+            {searchQuery.trim() && (
+              <p className="text-[10px] text-[#999] mt-1">{filteredMessages.length} result{filteredMessages.length !== 1 ? 's' : ''}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto bg-[#f8f9fa] border-x border-[#e0e0e0] p-4 md:p-5 space-y-3 pb-24 md:pb-4">
@@ -439,7 +493,13 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
         )}
 
         {chatMessages.map((msg) => {
+          if (searchQuery.trim() && !filteredMessages.some((f) => f.id === msg.id)) return null;
           const isOwn = msg.senderId === userId || msg.senderName === userName;
+          const otherActive = activeUsers.filter((u) => u.userId !== userId).length;
+          const otherReaders = readerIds.filter(
+            (id) => id !== userId && id !== userContact
+          ).length;
+          const seenByAll = isOwn && otherActive > 0 && otherReaders >= otherActive;
           const profileContact =
             msg.senderId?.includes('@') ||
             /^\d{10}$/.test(String(msg.senderId || '').replace(/\D/g, '').slice(-10))
@@ -448,7 +508,16 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
                 ? msg.senderName
                 : null;
           return (
-            <div key={msg.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
+            <div
+              key={msg.id}
+              ref={(el) => { messageRefs.current[msg.id] = el; }}
+              className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}
+              onClick={() => {
+                if (searchQuery.trim()) {
+                  messageRefs.current[msg.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
+            >
               {!isOwn && (
                 <button
                   type="button"
@@ -479,8 +548,13 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
                       : 'bg-white border border-[#e0e0e0] text-[#1d2226] rounded-bl-sm'
                   }`}
                 >
-                  {msg.content}
+                  {searchQuery.trim() ? highlightContent(msg.content) : msg.content}
                 </div>
+                {isOwn && (
+                  <span className="text-[10px] text-[#999] mt-0.5 px-1 self-end">
+                    {seenByAll ? '✓✓' : '✓'}
+                  </span>
+                )}
               </div>
             </div>
           );

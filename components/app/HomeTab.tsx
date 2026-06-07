@@ -10,6 +10,9 @@ import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { dedupeById } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import type { DashboardNavTab } from '@/components/DashboardNew';
+import { OnboardingChecklist } from '@/components/app/OnboardingChecklist';
+import { computeProfileStrength } from '@/lib/profileStrength';
+import { apiGetUser } from '@/lib/api';
 
 const STARTUP_TOOLS = [
   {
@@ -46,6 +49,8 @@ interface HomeTabProps {
   userContact?: string;
   onJoinProject?: (project: BrowseProject) => void;
   onOpenDashboard?: (section?: DashboardNavTab) => void;
+  onOpenExplore?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export function HomeTab({
@@ -53,6 +58,8 @@ export function HomeTab({
   userContact,
   onJoinProject,
   onOpenDashboard,
+  onOpenExplore,
+  onOpenProfile,
 }: HomeTabProps) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -65,6 +72,24 @@ export function HomeTab({
     openRoles: 0,
     teamsHiring: 0,
   });
+  const [userCreatedAt, setUserCreatedAt] = useState<string | undefined>();
+  const [profileComplete, setProfileComplete] = useState(false);
+
+  useEffect(() => {
+    if (!userContact) return;
+    apiGetUser(userContact).then((u) => {
+      if (!u) return;
+      setUserCreatedAt(u.createdAt);
+      setProfileComplete(
+        computeProfileStrength({
+          name: u.name,
+          bio: '',
+          skills: u.skills,
+          college: u.college,
+        }).score >= 80
+      );
+    });
+  }, [userContact]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 300);
@@ -132,6 +157,16 @@ export function HomeTab({
 
   return (
     <div className="space-y-6">
+      {userContact && (
+        <OnboardingChecklist
+          userContact={userContact}
+          userCreatedAt={userCreatedAt}
+          userName={userName}
+          profileComplete={profileComplete}
+          onOpenExplore={onOpenExplore}
+          onOpenProfile={onOpenProfile ?? (() => onOpenDashboard?.('dashboard'))}
+        />
+      )}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0A66C2] via-[#004182] to-[#1d2226] p-6 text-white shadow-lg">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-[#22c55e]/20 rounded-full blur-2xl pointer-events-none" />

@@ -193,6 +193,8 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
   /* ── Create flow local state ── */
   const [projectName, setProjectName]   = useState('');
   const [projectDesc, setProjectDesc]   = useState('');
+  const [projectTags, setProjectTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [deadline, setDeadline]         = useState('');
   const [createSalaryMin, setCreateSalaryMin] = useState('');
   const [createSalaryMax, setCreateSalaryMax] = useState('');
@@ -415,6 +417,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
       city: projectCity || undefined,
       state: projectState || undefined,
       mode: 'create',
+      tags: projectTags,
     };
 
     onComplete(projectData);
@@ -533,6 +536,35 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
                     placeholder="e.g. Connect hostel students to local restaurants for same-day delivery"
                     className={iCls}
                   />
+                </Field>
+                <Field label="Tags" optional>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const t = tagInput.trim().toLowerCase();
+                          if (t && !projectTags.includes(t) && projectTags.length < 5) {
+                            setProjectTags([...projectTags, t]);
+                            setTagInput('');
+                          }
+                        }
+                      }}
+                      placeholder="e.g. edtech — press Enter"
+                      className={iCls}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {projectTags.map((t) => (
+                      <span key={t} className="text-xs px-2 py-1 rounded-full bg-[#EEF3FB] text-[#0A66C2]">
+                        {t}
+                        <button type="button" className="ml-1" onClick={() => setProjectTags(projectTags.filter((x) => x !== t))}>×</button>
+                      </span>
+                    ))}
+                  </div>
                 </Field>
                 <Field label="City" optional>
                   <div ref={cityRef} className="relative">

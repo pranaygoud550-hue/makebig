@@ -5,6 +5,7 @@ import { AppTopBar } from '@/components/AppTopBar';
 import { AppBottomNav, AppTab } from '@/components/AppBottomNav';
 import { HomeTab } from '@/components/app/HomeTab';
 import { ExploreTab } from '@/components/app/ExploreTab';
+import { markOnboardingBrowse } from '@/components/app/OnboardingChecklist';
 import { PostsTab } from '@/components/app/PostsTab';
 import { AICoderTab } from '@/components/app/AICoderTab';
 import { NotificationsView } from '@/components/app/NotificationsView';
@@ -182,6 +183,10 @@ export function AppShell({
             userContact={user.contact}
             onJoinProject={onPublicJoinClick}
             onOpenDashboard={onOpenYourProject}
+            onOpenExplore={() => {
+              if (user.contact) markOnboardingBrowse(user.contact);
+              setActiveTab('explore');
+            }}
           />
         )}
         {activeTab === 'explore' && (

@@ -22,6 +22,7 @@ const projectSchema = new mongoose.Schema(
       trim: true,
     },
     roles: [String],
+    tags: [{ type: String, lowercase: true, trim: true }],
     salaryMin: Number,
     salaryMax: Number,
     currency: {
@@ -66,6 +67,8 @@ const projectSchema = new mongoose.Schema(
         },
         assignee: { type: String, default: '' },
         createdBy: { type: String, default: '' },
+        dueDate: { type: Date },
+        reminderSent: { type: Boolean, default: false },
         createdAt: { type: Date, default: Date.now },
       },
     ],

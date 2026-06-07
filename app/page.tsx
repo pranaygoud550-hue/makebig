@@ -23,6 +23,8 @@ import { joinRequestNotice, isJoinApproved } from '@/lib/joinFlow';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
+import { captureReferralFromUrl } from '@/lib/referral';
+import { markOnboardingJoin, markOnboardingProject } from '@/components/app/OnboardingChecklist';
 
 export default function Home() {
   const auth = useAuth();
@@ -48,9 +50,10 @@ export default function Home() {
   const [restoringProject, setRestoringProject] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem('makeBigSplashSeen')) {
-      setShowSplash(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('makeBigSplashSeen', '1');
     }
+    captureReferralFromUrl();
   }, []);
 
   const openAuth = useCallback((mode: 'signin' | 'signup' = 'signin') => {
@@ -69,6 +72,7 @@ export default function Home() {
     setCurrentProject(parsed);
     setShowWizard(false);
     saveActiveProject(contact, parsed);
+    markOnboardingProject(contact);
     if (projectNeedsSync(parsed)) {
       ensureProjectOnline(parsed, contact).then((result) => {
         if (result.ok && result.project) {
@@ -381,6 +385,7 @@ export default function Home() {
         auth.user.name,
         auth.user.skills?.[0] || 'member'
       );
+      if (auth.user.contact) markOnboardingJoin(auth.user.contact);
       if (!result?.project) {
         setJoinError('Could not send join request — try again');
         return;

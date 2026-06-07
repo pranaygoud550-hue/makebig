@@ -155,9 +155,11 @@ export interface ExploreParams {
   city?: string;
   categoryId?: string;
   skills?: string;
+  tags?: string;
   q?: string;
   page?: number;
   limit?: number;
+  viewerContact?: string;
 }
 
 export interface ExploreResult {

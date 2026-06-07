@@ -78,6 +78,18 @@ const userSchema = new mongoose.Schema(
         verifiedAt: { type: Date, default: Date.now },
       },
     ],
+    badges: [String],
+    blockedUsers: [{ type: String, lowercase: true, trim: true }],
+    referredBy: { type: String, lowercase: true, trim: true, default: '' },
+    referralCount: { type: Number, default: 0 },
+    notificationPreferences: {
+      projectChat: { type: Boolean, default: true },
+      joinApproved: { type: Boolean, default: true },
+      profileView: { type: Boolean, default: true },
+      standupReminder: { type: Boolean, default: true },
+      weeklyReport: { type: Boolean, default: true },
+      friendRequest: { type: Boolean, default: true },
+    },
     reputation: {
       score: { type: Number, default: 0 },
       level: { type: String, default: 'explorer' },

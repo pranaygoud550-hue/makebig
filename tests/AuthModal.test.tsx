@@ -102,7 +102,7 @@ describe('AuthModal', () => {
     await user.type(screen.getByPlaceholderText(/Enter your full name/i), 'A');
     await user.type(screen.getByPlaceholderText(/you@college.edu/i), 'new@example.com');
     await user.type(screen.getByPlaceholderText(/At least 6 characters/i), 'password1');
-    await user.click(screen.getByRole('button', { name: /Continue/i }));
+    await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
 
     expect(screen.getByRole('heading', { name: 'Personal details' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Education' })).not.toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('AuthModal', () => {
     await user.type(screen.getByPlaceholderText(/Enter your full name/i), 'Jane Doe');
     await user.type(screen.getByPlaceholderText(/you@college.edu/i), 'bad-email');
     await user.type(screen.getByPlaceholderText(/At least 6 characters/i), 'password1');
-    await user.click(screen.getByRole('button', { name: /Continue/i }));
+    await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
 
     expect(screen.getByRole('heading', { name: 'Personal details' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Education' })).not.toBeInTheDocument();

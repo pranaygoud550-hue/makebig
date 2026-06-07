@@ -11,9 +11,11 @@ export async function GET(request: Request) {
     city: searchParams.get('city') || undefined,
     categoryId: searchParams.get('categoryId') || undefined,
     skills: searchParams.get('skills') || undefined,
+    tags: searchParams.get('tags') || undefined,
     q: searchParams.get('q') || undefined,
     page: parseInt(searchParams.get('page') || '1', 10),
     limit: parseInt(searchParams.get('limit') || '12', 10),
+    viewerContact: searchParams.get('viewerContact') || undefined,
   };
 
   if (isMongoConfigured()) {

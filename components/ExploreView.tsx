@@ -27,7 +27,13 @@ export interface ExploreProject {
   createdAt?: string;
   joinedCount?: number;
   projectPurpose?: string;
+  tags?: string[];
 }
+
+const SKILL_CHIPS = [
+  'React', 'Node.js', 'Python', 'UI/UX', 'ML', 'Flutter',
+  'Java', 'DevOps', 'Marketing', 'Content',
+];
 
 const CAT_ICONS: Record<string, string> = {
   tech: '💻',
@@ -71,6 +77,13 @@ export function ExploreView({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+
+  const toggleSkill = (skill: string) => {
+    setSelectedSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+    );
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -79,7 +92,7 @@ export function ExploreView({
 
   useEffect(() => {
     setPage(1);
-  }, [city, category, debouncedSearch]);
+  }, [city, category, debouncedSearch, selectedSkills]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +104,8 @@ export function ExploreView({
       if (city) params.set('city', city);
       if (category) params.set('categoryId', category);
       if (debouncedSearch) params.set('q', debouncedSearch);
+      if (selectedSkills.length) params.set('skills', selectedSkills.join(','));
+      if (userContact) params.set('viewerContact', userContact);
       params.set('page', String(page));
       params.set('limit', '12');
 
@@ -99,13 +114,21 @@ export function ExploreView({
         const data = await res.json();
         if (cancelled || !data.success) return;
 
-        const incoming = dedupeById((data.data.projects || []) as ExploreProject[]);
+        let incoming = dedupeById((data.data.projects || []) as ExploreProject[]);
+        if (selectedSkills.length) {
+          incoming = incoming.filter((p) =>
+            selectedSkills.some((skill) =>
+              (p.roles || []).some((r) => r.toLowerCase().includes(skill.toLowerCase())) ||
+              (p.tags || []).some((t) => t.toLowerCase().includes(skill.toLowerCase()))
+            )
+          );
+        }
 
         setProjects((prev) =>
           page === 1 ? incoming : dedupeById([...prev, ...incoming])
         );
         setHasMore(Boolean(data.data.hasMore));
-        setTotal(data.data.total ?? incoming.length);
+        setTotal(selectedSkills.length ? incoming.length : (data.data.total ?? incoming.length));
       } catch (e) {
         if ((e as Error).name === 'AbortError') return;
         if (page === 1) setProjects([]);
@@ -119,7 +142,7 @@ export function ExploreView({
       cancelled = true;
       controller.abort();
     };
-  }, [city, category, debouncedSearch, page]);
+  }, [city, category, debouncedSearch, page, selectedSkills, userContact]);
 
   const searchInput = (
     <input
@@ -213,6 +236,26 @@ export function ExploreView({
                   >
                     <span className="shrink-0 mt-0.5">{CAT_ICONS[cat.id] || '🚀'}</span>
                     <span className="leading-snug break-words">{cat.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-[#e0e0e0] p-4">
+              <p className="text-xs font-bold text-[#1d2226] uppercase tracking-wide mb-2">Skills</p>
+              <div className="flex flex-wrap gap-2">
+                {SKILL_CHIPS.map((skill) => (
+                  <button
+                    key={skill}
+                    type="button"
+                    onClick={() => toggleSkill(skill)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                      selectedSkills.includes(skill)
+                        ? 'bg-[#0A66C2] text-white border-[#0A66C2]'
+                        : 'bg-[#f3f2ef] text-[#666] border-[#e0e0e0] hover:border-[#0A66C2]'
+                    }`}
+                  >
+                    {skill}
                   </button>
                 ))}
               </div>

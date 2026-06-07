@@ -9,6 +9,7 @@ interface MongoProjectDoc {
   desc?: string;
   categoryId?: string;
   roles?: string[];
+  tags?: string[];
   city?: string;
   state?: string;
   slug?: string;
@@ -18,6 +19,21 @@ interface MongoProjectDoc {
   ownerContact?: string;
   createdAt?: Date | string;
   teamMembers?: { status?: string }[];
+}
+
+async function getBlockedSet(viewerContact?: string) {
+  const blocked = new Set<string>();
+  if (!viewerContact) return blocked;
+  const connected = await connectMongoServer();
+  if (!connected) return blocked;
+  const User = (await import('@/backend/models/User.js')).default;
+  const viewer = await User.findOne({ contact: viewerContact.toLowerCase() }).lean();
+  for (const c of viewer?.blockedUsers || []) blocked.add(c.toLowerCase());
+  const blockers = await User.find({ blockedUsers: viewerContact.toLowerCase() })
+    .select('contact')
+    .lean();
+  for (const u of blockers) blocked.add(String(u.contact).toLowerCase());
+  return blocked;
 }
 
 export async function exploreProjectsFromMongo(
@@ -43,10 +59,34 @@ export async function exploreProjectsFromMongo(
   if (params.categoryId && params.categoryId !== 'all') {
     filter.categoryId = params.categoryId;
   }
-  const textQuery = (params.q || params.skills || '').trim();
-  if (textQuery) {
-    const regex = new RegExp(textQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [{ name: regex }, { desc: regex }, { roles: regex }];
+
+  const q = (params.q || '').trim();
+  const skillTerms = (params.skills || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const tagTerms = (params.tags || '')
+    .split(',')
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (tagTerms.length) {
+    filter.tags = { $in: tagTerms };
+  }
+
+  const orClauses: Record<string, unknown>[] = [];
+  if (q) {
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    orClauses.push({ name: regex }, { desc: regex }, { roles: regex }, { tags: regex });
+  }
+  if (skillTerms.length) {
+    for (const t of skillTerms) {
+      const rx = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      orClauses.push({ roles: rx }, { tags: t });
+    }
+  }
+  if (orClauses.length) {
+    filter.$or = orClauses;
   }
 
   const [projects, totalBeforeFilter] = await Promise.all([
@@ -54,11 +94,28 @@ export async function exploreProjectsFromMongo(
     Project.countDocuments(filter),
   ]);
 
-  const withStringIds = (projects as MongoProjectDoc[]).map((p) => ({
+  let withStringIds = (projects as MongoProjectDoc[]).map((p) => ({
     ...p,
     id: p._id.toString(),
     _id: p._id.toString(),
   }));
+
+  if (skillTerms.length) {
+    withStringIds = withStringIds.filter((p) =>
+      skillTerms.some(
+        (t) =>
+          (p.roles || []).some((r) => r.toLowerCase().includes(t)) ||
+          (p.tags || []).some((tag) => tag.includes(t))
+      )
+    );
+  }
+
+  const blocked = await getBlockedSet(params.viewerContact);
+  if (blocked.size) {
+    withStringIds = withStringIds.filter(
+      (p) => !blocked.has(String(p.ownerContact || '').toLowerCase())
+    );
+  }
 
   const filtered = dedupeProjectsForDisplay(filterAllowedProjects(withStringIds));
   const pageSlice = filtered.slice(skip, skip + limit);
@@ -69,6 +126,7 @@ export async function exploreProjectsFromMongo(
     desc: String(p.desc || ''),
     categoryId: String(p.categoryId || 'other'),
     roles: p.roles || [],
+    tags: (p as MongoProjectDoc).tags || [],
     city: String(p.city || ''),
     state: String(p.state || ''),
     slug: String(p.slug || ''),

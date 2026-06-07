@@ -11,6 +11,7 @@ import {
 } from "./socketGuards.js";
 
 const activeUsers = new Map(); // socketId -> { userId, name, contact, projectId }
+const messageReaders = new Map(); // projectId -> Set<userId>
 
 export function setupSocketEvents(io) {
   io.on("connection", (socket) => {
@@ -157,6 +158,25 @@ export function setupSocketEvents(io) {
         userId: user.userId,
         userName,
         isTyping: Boolean(data?.isTyping),
+      });
+    });
+
+    socket.on("messages_read", async (data) => {
+      const projectId = data?.projectId;
+      const ctx = await requireSocketProjectMember(socket, projectId);
+      if (!ctx) return;
+
+      const { user } = ctx;
+      const roomName = `project_${projectId}`;
+      if (!messageReaders.has(projectId)) {
+        messageReaders.set(projectId, new Set());
+      }
+      messageReaders.get(projectId).add(user.userId);
+
+      io.to(roomName).emit("messages_seen", {
+        projectId,
+        userId: user.userId,
+        readerIds: [...messageReaders.get(projectId)],
       });
     });
 

@@ -67,6 +67,7 @@ import StartupBookmark from "./backend/models/StartupBookmark.js";
 import IdeaValidation from "./backend/models/IdeaValidation.js";
 import StandupLog from "./backend/models/StandupLog.js";
 import ProjectNote from "./backend/models/ProjectNote.js";
+import Report from "./backend/models/Report.js";
 import {
   getISTDateString,
   getISTDateLabel,
@@ -93,6 +94,7 @@ import {
 } from "./backend/utils/ecosystem.js";
 import { saveOtpRecord, verifyOtpRecord } from "./lib/otpStore.js";
 import { sendOtpEmail, isEmailOtpConfigured } from "./lib/emailOtp.js";
+import { sendTaskReminderEmail } from "./lib/taskReminderEmail.js";
 import { upsertVerifiedUser, findUserByContact, loginExistingUserAfterOtp } from "./lib/userUpsert.js";
 import {
   streamCofounderReply,
@@ -152,6 +154,23 @@ async function pushNotification({
       uid = await userIdForContact(contactNorm);
     }
     if (!uid) return null;
+
+    const prefUser = await User.findById(uid).lean();
+    const prefs = prefUser?.notificationPreferences || {};
+    const prefMap = {
+      team_message: "projectChat",
+      new_message: "projectChat",
+      join_request: "joinApproved",
+      join_approved: "joinApproved",
+      profile_view: "profileView",
+      standup_reminder: "standupReminder",
+      weekly_report: "weeklyReport",
+      friend_request: "friendRequest",
+      referral_joined: "friendRequest",
+      task_due_reminder: "weeklyReport",
+    };
+    const prefKey = prefMap[type];
+    if (prefKey && prefs[prefKey] === false) return null;
 
     const notification = await Notification.create({
       userId: uid,
@@ -398,11 +417,115 @@ app.get("/api/health", (req, res) => {
 
 app.post("/api/users/upsert", async (req, res) => {
   try {
-    const result = await upsertVerifiedUser(req.body, { requireVerified: true });
+    const result = await upsertVerifiedUser(req.body, {
+      requireVerified: !req.body?.oauth,
+    });
     if (!result.ok) {
       return res.status(result.status || 400).json(formatResponse(false, null, result.error));
     }
+
+    if (result.data?.user) {
+      const ref = req.body?.referredBy ? normalizeContact(req.body.referredBy) : '';
+      if (ref) {
+        const referrer = await User.findOne({ contact: ref }).lean();
+        if (referrer) {
+          await pushNotification({
+            contact: referrer.contact,
+            type: "referral_joined",
+            title: "New referral",
+            message: `${result.data.user.name} joined Make Big using your invite! 🎉`,
+            actionUrl: "/",
+          });
+        }
+      }
+    }
+
     res.json(formatResponse(true, result.data));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/users/:contact/report", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+    const reportedContact = normalizeContact(req.params.contact);
+    if (reportedContact === authContact) {
+      return res.status(400).json(formatResponse(false, null, "Cannot report yourself"));
+    }
+    const reason = String(req.body?.reason || "other");
+    const allowed = ["spam", "inappropriate", "harassment", "other"];
+    if (!allowed.includes(reason)) {
+      return res.status(400).json(formatResponse(false, null, "Invalid reason"));
+    }
+    await Report.create({
+      reportedContact,
+      reportedBy: authContact,
+      reason,
+      details: clampString(req.body?.details, 2000),
+    });
+    res.json(formatResponse(true, { message: "Report submitted. We'll review within 24h." }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/users/:contact/block", authMiddleware, async (req, res) => {
+  try {
+    const authContact = requireAuthContact(req, res);
+    if (!authContact) return;
+    const target = normalizeContact(req.params.contact);
+    if (target === authContact) {
+      return res.status(400).json(formatResponse(false, null, "Cannot block yourself"));
+    }
+    await User.updateOne(
+      { contact: authContact },
+      { $addToSet: { blockedUsers: target } }
+    );
+    res.json(formatResponse(true, { blocked: true }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.patch("/api/users/:contact/notification-preferences", authMiddleware, async (req, res) => {
+  try {
+    const contact = normalizeContact(req.params.contact);
+    if (!assertSameContact(req, res, contact)) return;
+    const prefs = req.body?.preferences || req.body || {};
+    const allowed = [
+      "projectChat",
+      "joinApproved",
+      "profileView",
+      "standupReminder",
+      "weeklyReport",
+      "friendRequest",
+    ];
+    const update = {};
+    for (const key of allowed) {
+      if (typeof prefs[key] === "boolean") update[`notificationPreferences.${key}`] = prefs[key];
+    }
+    const user = await User.findOneAndUpdate(
+      { contact },
+      { $set: update },
+      { new: true }
+    );
+    if (!user) return res.status(404).json(formatResponse(false, null, "User not found"));
+    res.json(formatResponse(true, { preferences: user.notificationPreferences }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/users/:contact/referrals", authMiddleware, async (req, res) => {
+  try {
+    const contact = normalizeContact(req.params.contact);
+    if (!assertSameContact(req, res, contact)) return;
+    const user = await User.findOne({ contact }).lean();
+    const count = user?.referralCount || 0;
+    const code = Buffer.from(contact).toString("base64url");
+    res.json(formatResponse(true, { count, code, link: `https://makebig.vercel.app?ref=${code}` }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }
@@ -865,6 +988,7 @@ app.post("/api/projects/create", authMiddleware, async (req, res) => {
       description,
       categoryId,
       roles = [],
+      tags = [],
       salaryMin,
       salaryMax,
       currency = "INR",
@@ -918,6 +1042,9 @@ app.post("/api/projects/create", authMiddleware, async (req, res) => {
       categoryId,
       projectPurpose: purpose,
       roles: Array.isArray(roles) ? roles : [],
+      tags: Array.isArray(tags)
+        ? tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 5)
+        : [],
       salaryMin: paidRole ? salaryMin : 0,
       salaryMax: paidRole ? salaryMax : 0,
       currency: paidRole ? currency : "INR",
@@ -970,10 +1097,25 @@ app.get("/api/projects", authMiddleware, async (req, res) => {
   }
 });
 
+async function getBlockedContactsForUser(contact) {
+  if (!contact) return [];
+  const user = await User.findOne({ contact: normalizeContact(contact) }).lean();
+  return user?.blockedUsers || [];
+}
+
+async function filterProjectsForViewer(projects, viewerContact) {
+  if (!viewerContact) return projects;
+  const viewer = normalizeContact(viewerContact);
+  const blocked = new Set(await getBlockedContactsForUser(viewer));
+  const blockers = await User.find({ blockedUsers: viewer }).select("contact").lean();
+  for (const u of blockers) blocked.add(normalizeContact(u.contact));
+  return projects.filter((p) => !blocked.has(normalizeContact(p.ownerContact)));
+}
+
 // Browse published projects (for "Join" flow — Person 2 discovers Person 1's projects)
 app.get("/api/projects/browse", async (req, res) => {
   try {
-    const { categoryId, excludeContact } = req.query;
+    const { categoryId, excludeContact, skills, tags } = req.query;
     const filter = {
       status: { $in: ["published", "in-progress"] },
       visibility: { $in: ["public", "invite-only"] },
@@ -987,7 +1129,35 @@ app.get("/api/projects/browse", async (req, res) => {
       filter.ownerContact = { $ne: normalizeContact(excludeContact) };
     }
 
-    const projects = await Project.find(filter).sort({ updatedAt: -1 }).limit(50);
+    if (skills) {
+      const terms = String(skills)
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+      if (terms.length) {
+        filter.$or = terms.flatMap((t) => [
+          { roles: new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+          { tags: t },
+        ]);
+      }
+    }
+
+    if (tags) {
+      const tagTerms = String(tags)
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+      if (tagTerms.length) {
+        filter.tags = { $in: tagTerms };
+      }
+    }
+
+    let projects = await Project.find(filter).sort({ updatedAt: -1 }).limit(50);
+
+    const viewerContact = req.query.viewerContact || req.headers["x-viewer-contact"];
+    if (viewerContact) {
+      projects = await filterProjectsForViewer(projects, String(viewerContact));
+    }
 
     const enriched = dedupeProjectsForDisplay(filterAllowedProjects(projects)).map((p) => {
       const obj = toClient(p);
@@ -1035,6 +1205,25 @@ app.post("/api/projects/:projectId/join", authMiddleware, async (req, res) => {
       return res
         .status(400)
         .json(formatResponse(false, null, "You cannot join your own project"));
+    }
+
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const memberUid = await userIdForContact(memberContact);
+    if (memberUid) {
+      const recentJoins = await Notification.countDocuments({
+        userId: memberUid,
+        type: "join_request_sent",
+        createdAt: { $gte: dayAgo },
+      });
+      if (recentJoins >= 5) {
+        return res.status(429).json(
+          formatResponse(
+            false,
+            null,
+            "You've reached today's limit of 5 join requests. Try again tomorrow."
+          )
+        );
+      }
     }
 
     const alreadyMember = (project.teamMembers || []).some(
@@ -4663,9 +4852,63 @@ async function attachNextApp() {
   console.log("Next.js mounted on same port (SERVE_NEXT=true)");
 }
 
+async function runTaskDueReminders() {
+  try {
+    const now = new Date();
+    const in24h = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const projects = await Project.find({
+      tasks: {
+        $elemMatch: {
+          dueDate: { $lte: in24h, $gte: now },
+          status: { $ne: "done" },
+          reminderSent: { $ne: true },
+        },
+      },
+    });
+
+    for (const project of projects) {
+      let changed = false;
+      for (const task of project.tasks) {
+        if (!task.dueDate || task.status === "done" || task.reminderSent) continue;
+        const due = new Date(task.dueDate);
+        if (due < now || due > in24h) continue;
+
+        const assignee = normalizeContact(task.assignee);
+        if (assignee) {
+          await pushNotification({
+            contact: assignee,
+            projectId: project._id,
+            type: "task_due_reminder",
+            title: "Task due soon",
+            message: `"${task.title}" on ${project.name} is due within 24 hours`,
+            actionUrl: `/dashboard`,
+          });
+          if (assignee.includes("@")) {
+            await sendTaskReminderEmail(assignee, task.title, project.name, task.dueDate);
+          }
+        }
+
+        io.to(`project_${project._id}`).emit("task_reminder", {
+          projectId: project._id.toString(),
+          taskId: task._id?.toString(),
+          title: task.title,
+        });
+
+        task.reminderSent = true;
+        changed = true;
+      }
+      if (changed) await project.save();
+    }
+  } catch (err) {
+    console.error("Task reminder cron:", err.message);
+  }
+}
+
 async function start() {
   await connectDB();
   await attachNextApp();
+  setInterval(runTaskDueReminders, 60 * 60 * 1000);
+  setTimeout(runTaskDueReminders, 15000);
   httpServer.listen(PORT, "0.0.0.0", () => {
     const mode = process.env.SERVE_NEXT === "true" ? "API + Next.js" : "API only";
     console.log(`

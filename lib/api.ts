@@ -11,6 +11,7 @@ import { PLAN_LIMITS } from './plans';
 import { slugifyProjectName } from './site';
 import { getErrorMessage, mapApiError } from './userErrors';
 import { getApiBase, getApiOrigin } from './apiBase';
+import { consumeStoredReferral } from './referral';
 
 export { PlanLimitError };
 
@@ -299,6 +300,12 @@ export async function apiUpsertUser(
       };
     }
 
+    const referral = consumeStoredReferral();
+    const body = {
+      ...user,
+      ...(referral ? { referredBy: referral } : {}),
+    };
+
     const upsertEndpoints = [`/api/users/upsert`, `${API_BASE}/users/upsert`];
     let lastUpsertError: string | null = null;
 
@@ -307,12 +314,13 @@ export async function apiUpsertUser(
         const res = await fetch(url, {
           method: 'POST',
           headers: await getAuthHeadersAsync(),
-          body: JSON.stringify(user),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         if (data.success && data.data) {
           setAuthToken(data.data.token);
           if (typeof window !== 'undefined' && data.data.user) {
+            sessionStorage.removeItem('makebig_ref');
             localStorage.setItem(
               'user',
               JSON.stringify({ ...data.data.user, isLoggedIn: true })
@@ -762,7 +770,8 @@ export interface BrowseProject extends Project {
 
 export async function apiBrowseProjects(
   categoryId?: string,
-  excludeContact?: string
+  excludeContact?: string,
+  options?: { skills?: string[]; tags?: string[]; viewerContact?: string }
 ): Promise<BrowseProject[]> {
   try {
     if (isSupabaseConfigured) {
@@ -784,9 +793,16 @@ export async function apiBrowseProjects(
       }));
     }
 
+    const skills = options?.skills;
+    const tags = options?.tags;
+    const viewerContact = options?.viewerContact;
+
     const params = new URLSearchParams();
     if (categoryId && categoryId !== 'all') params.append('categoryId', categoryId);
     if (excludeContact) params.append('excludeContact', excludeContact);
+    if (skills?.length) params.append('skills', skills.join(','));
+    if (tags?.length) params.append('tags', tags.join(','));
+    if (viewerContact) params.append('viewerContact', viewerContact);
 
     const res = await fetch(`${API_BASE}/projects/browse?${params.toString()}`);
     if (!res.ok) return [];
@@ -1673,4 +1689,57 @@ export async function apiGetGithubCommits(
     commits: data.data?.commits || [],
     repo: data.data?.repo,
   };
+}
+
+export async function apiReportUser(reportedContact: string, reason: string, details = '') {
+  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(reportedContact)}/report`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify({ reason, details }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'report'));
+  return data.data;
+}
+
+export async function apiBlockUser(contact: string) {
+  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}/block`, {
+    method: 'POST',
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'block'));
+  return data.data;
+}
+
+export interface NotificationPreferences {
+  projectChat?: boolean;
+  joinApproved?: boolean;
+  profileView?: boolean;
+  standupReminder?: boolean;
+  weeklyReport?: boolean;
+  friendRequest?: boolean;
+}
+
+export async function apiUpdateNotificationPreferences(
+  contact: string,
+  preferences: NotificationPreferences
+) {
+  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}/notification-preferences`, {
+    method: 'PATCH',
+    headers: await getAuthHeadersAsync(),
+    body: JSON.stringify({ preferences }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(mapApiError(data?.error, 'preferences'));
+  return data.data?.preferences as NotificationPreferences;
+}
+
+export async function apiGetReferralInfo(contact: string) {
+  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}/referrals`, {
+    headers: await getAuthHeadersAsync(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.success) return { count: 0, code: '', link: '' };
+  return data.data as { count: number; code: string; link: string };
 }

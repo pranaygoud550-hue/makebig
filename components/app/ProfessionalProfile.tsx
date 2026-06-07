@@ -19,6 +19,15 @@ import { getErrorMessage } from '@/lib/userErrors';
 import { StarRating } from '@/components/StarRating';
 import { FriendRequestButton } from '@/components/app/FriendRequestButton';
 import { VerifiedSkillsSection } from '@/components/skillVerification/VerifiedSkillsSection';
+import { computeProfileStrength } from '@/lib/profileStrength';
+import { UserSafetyActions } from '@/components/app/UserSafetyActions';
+import {
+  apiGetReferralInfo,
+  apiUpdateNotificationPreferences,
+  type NotificationPreferences,
+} from '@/lib/api';
+import { encodeReferralCode } from '@/lib/referral';
+import { useToast } from '@/lib/context/ToastContext';
 import { ReputationPanel } from '@/components/ecosystem/ReputationPanel';
 
 const MAX_IMAGE_BYTES = 900_000;
@@ -54,6 +63,7 @@ export function ProfessionalProfile({
   onLogout,
 }: ProfessionalProfileProps) {
   const auth = useAuth();
+  const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,6 +83,31 @@ export function ProfessionalProfile({
   const [rateMin, setRateMin] = useState('');
   const [rateMax, setRateMax] = useState('');
   const [currency, setCurrency] = useState('INR');
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>({
+    projectChat: true,
+    joinApproved: true,
+    profileView: true,
+    standupReminder: true,
+    weeklyReport: true,
+    friendRequest: true,
+  });
+  const [referralCount, setReferralCount] = useState(0);
+  const [referralLink, setReferralLink] = useState('');
+
+  const strength = computeProfileStrength({
+    name,
+    bio,
+    skills,
+    college: user.college,
+    profileImage: profileImage || publicData?.profile?.profileImage,
+  });
+
+  const strengthBarColor = {
+    red: 'bg-red-500',
+    orange: 'bg-amber-500',
+    blue: 'bg-[#0A66C2]',
+    green: 'bg-green-500',
+  }[strength.color];
 
   const loadProfile = async () => {
     setLoading(true);
@@ -100,6 +135,14 @@ export function ProfessionalProfile({
       setSkills(user.skills || []);
     }
     setName(data?.user.name || user.name);
+    if (data?.user?.notificationPreferences) {
+      setNotifPrefs({ ...notifPrefs, ...data.user.notificationPreferences });
+    }
+    if (isOwnProfile) {
+      const ref = await apiGetReferralInfo(user.contact);
+      setReferralCount(ref.count || 0);
+      setReferralLink(ref.link || `https://makebig.vercel.app?ref=${encodeReferralCode(user.contact)}`);
+    }
     setLoading(false);
   };
 
@@ -271,6 +314,34 @@ export function ProfessionalProfile({
           ) : (
             <>
               <div className="bg-white rounded-2xl border border-[#e0e0e0] shadow-sm p-5 sm:p-6">
+                {canEdit && (
+                  <div className="mb-5 pb-5 border-b border-[#f0f0f0]">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-sm font-bold text-[#1d2226]">{strength.label}</p>
+                      <span className="text-xs text-[#666]">{strength.score}%</span>
+                    </div>
+                    <div className="h-2 bg-[#e5e7eb] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${strengthBarColor}`}
+                        style={{ width: `${strength.score}%` }}
+                      />
+                    </div>
+                    {strength.missingHint && strength.score < 100 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditing(true);
+                          if (strength.anchor === 'photo') {
+                            document.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+                          }
+                        }}
+                        className="text-xs text-[#0A66C2] mt-2 hover:underline text-left"
+                      >
+                        {strength.missingHint}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
                   <div className="relative shrink-0 mx-auto sm:mx-0">
                     <ProfileAvatar name={name} imageUrl={avatar} size="xl" className="ring-4 ring-white" />
@@ -667,6 +738,62 @@ export function ProfessionalProfile({
                       </div>
                     </section>
                   </>
+                )}
+
+                {canEdit && (
+                  <>
+                    <section className="bg-white rounded-2xl border border-[#e0e0e0] p-5">
+                      <h2 className="text-xs font-bold text-[#666] uppercase tracking-wide mb-2">Invite friends</h2>
+                      <p className="text-sm text-[#666] mb-2">
+                        You&apos;ve invited {referralCount} people
+                        {referralCount >= 3 ? ' · Connector badge unlocked 🏅' : ''}
+                      </p>
+                      <div className="flex gap-2">
+                        <input readOnly value={referralLink} className={`flex-1 ${FIELD} text-xs`} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(referralLink);
+                            showToast('Invite link copied');
+                          }}
+                          className="px-3 py-2 text-xs font-semibold text-[#0A66C2] border border-[#0A66C2] rounded-lg"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </section>
+
+                    <section className="bg-white rounded-2xl border border-[#e0e0e0] p-5">
+                      <h2 className="text-xs font-bold text-[#666] uppercase tracking-wide mb-3">Notification settings</h2>
+                      {(
+                        [
+                          ['projectChat', 'New message in project chat'],
+                          ['joinApproved', 'Join request approved'],
+                          ['profileView', 'Someone viewed your profile'],
+                          ['standupReminder', 'Daily standup reminder'],
+                          ['weeklyReport', 'Weekly project report'],
+                          ['friendRequest', 'Friend request received'],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <label key={key} className="flex items-center justify-between py-2 text-sm border-b border-[#f5f5f5] last:border-0">
+                          <span className="text-[#1d2226]">{label}</span>
+                          <input
+                            type="checkbox"
+                            checked={notifPrefs[key] !== false}
+                            onChange={(e) => {
+                              const next = { ...notifPrefs, [key]: e.target.checked };
+                              setNotifPrefs(next);
+                              void apiUpdateNotificationPreferences(user.contact, next);
+                            }}
+                          />
+                        </label>
+                      ))}
+                    </section>
+                  </>
+                )}
+
+                {!canEdit && (
+                  <UserSafetyActions targetContact={user.contact} viewerContact={auth.user?.contact} />
                 )}
               </div>
             </>
