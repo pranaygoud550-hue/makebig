@@ -22,6 +22,7 @@ import { useToast } from '@/lib/context/ToastContext';
 import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
 import { useTabPageTitle } from '@/lib/hooks/usePageTitle';
 import type { DashboardNavTab } from '@/components/DashboardNew';
+import { PushNotificationPrompt } from '@/components/PushNotificationPrompt';
 
 const TAB_STORAGE_KEY = 'makeBigActiveTab';
 const PROFILE_OPEN_KEY = 'makeBigProfileOpen';
@@ -247,6 +248,7 @@ export function AppShell({
         onChange={handleTabChange}
         unreadCount={unreadCount}
       />
+      <PushNotificationPrompt />
     </div>
   );
 }

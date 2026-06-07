@@ -7,7 +7,7 @@ import { SalaryLeaderboard } from '@/components/SalaryLeaderboard';
 import { VerifiedSkillsLeaderboard } from '@/components/skillVerification/VerifiedSkillsLeaderboard';
 import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
 import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
-import { MarketingFooter } from '@/components/MarketingFooter';
+import { ShowcaseFeed } from '@/components/ShowcaseFeed';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { BrowseProject } from '@/lib/api';
 
@@ -222,6 +222,9 @@ export function MarketingHomepage({
           </div>
         </div>
       </section>
+
+      {/* ── Live showcase feed ── */}
+      <ShowcaseFeed />
 
       {/* ── Social proof ── */}
       <section className="bg-[#0A66C2] py-8 px-4">

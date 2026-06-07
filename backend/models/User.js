@@ -106,6 +106,24 @@ const userSchema = new mongoose.Schema(
       achievements: [String],
       computedAt: Date,
     },
+    availability: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    pushSubscriptions: [
+      {
+        endpoint: String,
+        keys: { p256dh: String, auth: String },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    latestIdeaValidation: {
+      id: String,
+      ideaName: String,
+      problemClarity: Number,
+      worthBuilding: Boolean,
+      validatedAt: Date,
+    },
   },
   { timestamps: true }
 );

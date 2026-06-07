@@ -36,6 +36,7 @@ export const metadata: Metadata = {
     icon: '/icon.png',
     apple: '/icon.png',
   },
+  manifest: '/manifest.json',
 };
 
 export const viewport: Viewport = {
@@ -54,6 +55,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript() }} />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="bg-[#f3f2ef] text-[#1d2226] dark:bg-gray-900 dark:text-white transition-colors">
         <AppProviders>{children}</AppProviders>

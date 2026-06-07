@@ -11,6 +11,7 @@ import { dedupeById } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 import { OnboardingChecklist } from '@/components/app/OnboardingChecklist';
+import { SmartSearch } from '@/components/SmartSearch';
 import { computeProfileStrength } from '@/lib/profileStrength';
 import { apiGetUser } from '@/lib/api';
 
@@ -61,8 +62,6 @@ export function HomeTab({
   onOpenExplore,
   onOpenProfile,
 }: HomeTabProps) {
-  const [query, setQuery] = useState('');
-  const [debounced, setDebounced] = useState('');
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<SearchProjectHit[]>([]);
   const [recommendations, setRecommendations] = useState(true);
@@ -90,11 +89,6 @@ export function HomeTab({
       );
     });
   }, [userContact]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(query.trim()), 300);
-    return () => clearTimeout(t);
-  }, [query]);
 
   useEffect(() => {
     fetch('/api/public/explore?limit=50&page=1')
@@ -131,8 +125,8 @@ export function HomeTab({
   }, []);
 
   useEffect(() => {
-    runSearch(debounced);
-  }, [debounced, runSearch]);
+    runSearch('');
+  }, [runSearch]);
 
   const openProject = (id: string) => setSelectedProjectId(id);
 
@@ -152,7 +146,7 @@ export function HomeTab({
     } as BrowseProject);
   };
 
-  const showResults = debounced.length > 0 || recommendations;
+  const showResults = recommendations;
   const firstName = userName?.split(' ')[0] || 'there';
 
   return (
@@ -225,23 +219,12 @@ export function HomeTab({
       </section>
 
       <section className="space-y-3">
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#666] text-sm pointer-events-none">
-            🔍
-          </span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects, skills, or categories…"
-            className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-[#d9d9d9] bg-white text-sm text-[#1d2226] placeholder:text-[#999] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/30 focus:border-[#0A66C2]"
-          />
-        </div>
+        <SmartSearch userContact={userContact} onOpenExplore={onOpenExplore} />
 
         {showResults && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-[#666] uppercase tracking-wide px-0.5">
-              {debounced ? `Results for “${debounced}”` : 'Recommended projects'}
+              Recommended projects
             </p>
 
             {loading && (

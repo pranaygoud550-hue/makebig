@@ -173,6 +173,11 @@ const projectSchema = new mongoose.Schema(
         leftAt: { type: Date, default: Date.now },
       },
     ],
+    weeklyReportWeek: { type: String, default: '' },
+    lastHealthAlertAt: { type: Date },
+    inactivePromptAt: { type: Date },
+    inactiveConfirmedAt: { type: Date },
+    aiValidated: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

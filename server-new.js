@@ -81,7 +81,7 @@ import {
   DEV_SMART_TASKS,
   parseGithubRepo,
 } from "./backend/ai/projectManager.js";
-import { validateIdeaWithAI, reportToMarkdown } from "./backend/ai/ideaValidator.js";
+import { validateIdeaWithAI, reportToMarkdown, generateClarifyingQuestions, generateFullValidationReport, generatePitchDeckOutline, pitchDeckToText } from "./backend/ai/ideaValidator.js";
 import {
   computeProjectHealth,
   computeUserReputation,
@@ -95,6 +95,16 @@ import {
 import { saveOtpRecord, verifyOtpRecord } from "./lib/otpStore.js";
 import { sendOtpEmail, isEmailOtpConfigured } from "./lib/emailOtp.js";
 import { sendTaskReminderEmail } from "./lib/taskReminderEmail.js";
+import {
+  gatherProjectWeeklyData,
+  generateWeeklyReportAI,
+  sendWeeklyReportEmail,
+  getISTWeekKey,
+  isSunday8pmIST,
+  weekLabelIST,
+} from "./lib/weeklyReport.js";
+import { sendHealthAlertEmail, daysSince } from "./lib/healthAlertEmail.js";
+import { sendPushToUser, isPushConfigured } from "./lib/pushNotifications.js";
 import { upsertVerifiedUser, findUserByContact, loginExistingUserAfterOtp } from "./lib/userUpsert.js";
 import {
   streamCofounderReply,
@@ -168,6 +178,7 @@ async function pushNotification({
       friend_request: "friendRequest",
       referral_joined: "friendRequest",
       task_due_reminder: "weeklyReport",
+      project_health: "weeklyReport",
     };
     const prefKey = prefMap[type];
     if (prefKey && prefs[prefKey] === false) return null;
@@ -186,6 +197,13 @@ async function pushNotification({
     io.to(`user_${uid}`).emit("notification_received", payload);
     if (contactNorm) {
       io.to(`contact_${contactNorm}`).emit("notification_received", payload);
+    }
+    if (isPushConfigured() && contactNorm) {
+      await sendPushToUser(User, contactNorm, {
+        title: title || "Make Big",
+        body: message || "",
+        url: actionUrl || "/",
+      });
     }
     return notification;
   } catch (err) {
@@ -1703,6 +1721,309 @@ app.get("/api/ai/idea-validator/reports", authMiddleware, async (req, res) => {
     }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/idea-validator/questions", authMiddleware, async (req, res) => {
+  try {
+    const { ideaDescription } = req.body || {};
+    if (!ideaDescription?.trim()) {
+      return res.status(400).json(formatResponse(false, null, "Describe your idea first"));
+    }
+    const questions = await generateClarifyingQuestions(clampString(ideaDescription, 3000));
+    res.json(formatResponse(true, { questions }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/idea-validator/full-report", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const { ideaDescription, answers, projectId } = req.body || {};
+    if (!ideaDescription?.trim()) {
+      return res.status(400).json(formatResponse(false, null, "Idea description required"));
+    }
+    const report = await generateFullValidationReport(
+      clampString(ideaDescription, 3000),
+      Array.isArray(answers) ? answers : []
+    );
+    const saved = await IdeaValidation.create({
+      contact,
+      ideaName: clampString(ideaDescription.slice(0, 80), 120),
+      problemStatement: clampString(ideaDescription, 2000),
+      targetAudience: "",
+      businessModel: "",
+      industry: "",
+      report,
+      rawReport: JSON.stringify(report, null, 2),
+    });
+    await User.updateOne(
+      { contact },
+      {
+        $set: {
+          latestIdeaValidation: {
+            id: saved._id.toString(),
+            ideaName: saved.ideaName,
+            problemClarity: report.problemClarity,
+            worthBuilding: report.worthBuilding,
+            validatedAt: new Date(),
+          },
+        },
+        $addToSet: { badges: "AI Validated ✓" },
+      }
+    );
+    if (projectId) {
+      await Project.findByIdAndUpdate(projectId, { aiValidated: true });
+    }
+    res.json(formatResponse(true, { report, id: saved._id.toString() }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/ai/pitch-deck", authMiddleware, async (req, res) => {
+  try {
+    const { projectId } = req.body || {};
+    if (!projectId) return res.status(400).json(formatResponse(false, null, "projectId required"));
+    const project = await Project.findById(projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Project not found"));
+    const contacts = [
+      project.ownerContact,
+      ...(project.teamMembers || []).filter((m) => m.status === "joined").map((m) => m.contact),
+    ].filter(Boolean);
+    const users = await User.find({ contact: { $in: contacts.map(normalizeContact) } })
+      .select("name contact")
+      .lean();
+    const nameMap = Object.fromEntries(users.map((u) => [normalizeContact(u.contact), u.name]));
+    const teamMembers = (project.teamMembers || [])
+      .filter((m) => m.status === "joined")
+      .map((m) => ({
+        contact: m.contact,
+        name: nameMap[normalizeContact(m.contact)] || m.contact,
+        role: m.role,
+      }));
+    const slides = await generatePitchDeckOutline(project, teamMembers);
+    const text = pitchDeckToText(slides);
+    res.json(formatResponse(true, { slides, text }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || "" });
+});
+
+app.post("/api/users/me/push-subscription", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const { subscription } = req.body || {};
+    if (!subscription?.endpoint) {
+      return res.status(400).json(formatResponse(false, null, "Invalid subscription"));
+    }
+    await User.updateOne(
+      { contact },
+      {
+        $pull: { pushSubscriptions: { endpoint: subscription.endpoint } },
+      }
+    );
+    await User.updateOne(
+      { contact },
+      {
+        $push: {
+          pushSubscriptions: {
+            endpoint: subscription.endpoint,
+            keys: subscription.keys,
+            createdAt: new Date(),
+          },
+        },
+      }
+    );
+    res.json(formatResponse(true, { saved: true }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.patch("/api/users/me/availability", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const { availability } = req.body || {};
+    await User.updateOne({ contact }, { $set: { availability: availability || {} } });
+    res.json(formatResponse(true, { availability }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/projects/:projectId/team-availability", authMiddleware, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+    if (!project) return res.status(404).json(formatResponse(false, null, "Not found"));
+    const contacts = [
+      project.ownerContact,
+      ...(project.teamMembers || []).filter((m) => m.status === "joined").map((m) => m.contact),
+    ]
+      .filter(Boolean)
+      .map(normalizeContact);
+    const users = await User.find({ contact: { $in: contacts } })
+      .select("name contact availability")
+      .lean();
+    res.json(formatResponse(true, { members: users }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/projects/:projectId/confirm-active", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Not found"));
+    project.inactiveConfirmedAt = new Date();
+    project.inactivePromptAt = undefined;
+    await project.save();
+    res.json(formatResponse(true, { ok: true }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/projects/:projectId/archive", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json(formatResponse(false, null, "Not found"));
+    if (normalizeContact(project.ownerContact) !== contact) {
+      return res.status(403).json(formatResponse(false, null, "Owner only"));
+    }
+    project.status = "closed";
+    await project.save();
+    res.json(formatResponse(true, { ok: true }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/public/showcase-feed", async (req, res) => {
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [newProjects, verifiedUsers, activities] = await Promise.all([
+      Project.find({ status: { $in: ["published", "in-progress"] }, createdAt: { $gte: weekAgo } })
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .select("name slug categoryId city createdAt")
+        .lean(),
+      User.find({ "verifiedSkills.0": { $exists: true }, updatedAt: { $gte: weekAgo } })
+        .sort({ updatedAt: -1 })
+        .limit(6)
+        .select("name contact verifiedSkills college")
+        .lean(),
+      Activity.find({ createdAt: { $gte: weekAgo }, type: { $in: ["task_completed", "milestone", "member_joined"] } })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean(),
+    ]);
+    const milestoneProjects = await Project.find({
+      "journey.completionPercent": { $gte: 25 },
+      updatedAt: { $gte: weekAgo },
+    })
+      .limit(5)
+      .select("name slug journey.completionPercent")
+      .lean();
+
+    const items = [
+      ...newProjects.map((p) => ({
+        type: "new_project",
+        text: `🚀 New project: ${p.name}`,
+        meta: p.city || p.categoryId,
+        at: p.createdAt,
+      })),
+      ...milestoneProjects.map((p) => ({
+        type: "milestone",
+        text: `🎯 ${p.name} hit ${p.journey?.completionPercent || 25}% on their journey`,
+        at: p.updatedAt,
+      })),
+      ...verifiedUsers.flatMap((u) =>
+        (u.verifiedSkills || []).slice(0, 1).map((vs) => ({
+          type: "verified",
+          text: `🏆 ${u.name} verified in ${vs.skillName}`,
+          meta: u.college,
+          at: vs.verifiedAt || u.updatedAt,
+        }))
+      ),
+      ...activities.map((a) => ({
+        type: "activity",
+        text: a.description || a.type,
+        at: a.createdAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 15);
+
+    res.json({ items });
+  } catch (error) {
+    res.status(500).json({ items: [] });
+  }
+});
+
+app.get("/api/public/smart-search", async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim().toLowerCase();
+    if (q.length < 2) {
+      return res.json({ projects: [], users: [], posts: [], trending: ["React", "UI/UX", "edtech", "AI", "mobile app"] });
+    }
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const [projects, users, posts] = await Promise.all([
+      Project.find({
+        status: { $in: ["published", "in-progress"] },
+        $or: [{ name: regex }, { desc: regex }, { tags: regex }, { roles: regex }],
+      })
+        .limit(12)
+        .select("name desc slug tags roles categoryId")
+        .lean(),
+      User.find({
+        $or: [{ name: regex }, { skills: regex }, { college: regex }],
+      })
+        .limit(12)
+        .select("name contact skills college city")
+        .lean(),
+      Post.find({ content: regex })
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .select("content projectId authorName createdAt")
+        .lean(),
+    ]);
+    res.json({
+      projects: projects.map((p) => ({
+        id: p._id.toString(),
+        name: p.name,
+        desc: p.desc,
+        slug: p.slug,
+        tags: p.tags,
+      })),
+      users: users.map((u) => ({
+        contact: u.contact,
+        name: u.name,
+        skills: u.skills,
+        college: u.college,
+      })),
+      posts: posts.map((p) => ({
+        id: p._id.toString(),
+        content: p.content?.slice(0, 120),
+        projectId: p.projectId?.toString(),
+        authorName: p.authorName,
+      })),
+      trending: ["React", "food delivery", "edtech", "AI", "healthcare"],
+    });
+  } catch (error) {
+    res.status(500).json({ projects: [], users: [], posts: [], trending: [] });
   }
 });
 
@@ -4334,6 +4655,7 @@ app.get("/api/match/cofounder", authMiddleware, async (req, res) => {
         city:           candidate.city     || "",
         state:          candidate.state    || "",
         graduationYear: candidate.graduationYear || "",
+        hobbies:          candidate.hobbies    || [],
         lastActive:     candidate.lastActive,
         score:          total,
         filledSkills:   filledGap,
@@ -4922,11 +5244,128 @@ async function runTaskDueReminders() {
   }
 }
 
+async function runWeeklyReports() {
+  if (!isSunday8pmIST()) return;
+  try {
+    const weekKey = getISTWeekKey();
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const projects = await Project.find({
+      status: { $in: ["published", "in-progress"] },
+      weeklyReportWeek: { $ne: weekKey },
+    }).limit(100);
+
+    for (const project of projects) {
+      const memberCount =
+        (project.teamMembers || []).filter((m) => m.status === "joined").length + 1;
+      if (memberCount < 2) continue;
+
+      const activityCount = await Activity.countDocuments({
+        projectId: project._id,
+        createdAt: { $gte: weekAgo },
+      });
+      const messageCount = await Message.countDocuments({
+        projectId: project._id,
+        createdAt: { $gte: weekAgo },
+      });
+      if (activityCount + messageCount < 1) continue;
+
+      const data = await gatherProjectWeeklyData(
+        Project,
+        Message,
+        Activity,
+        StandupLog,
+        project
+      );
+      const reportBody = await generateWeeklyReportAI(data);
+      const owner = normalizeContact(project.ownerContact);
+      if (owner.includes("@")) {
+        await sendWeeklyReportEmail(
+          owner,
+          project.name,
+          reportBody,
+          weekLabelIST(),
+          project.slug ? `https://makebig.vercel.app/startup/${project.slug}` : undefined
+        );
+      }
+      await pushNotification({
+        contact: owner,
+        projectId: project._id,
+        type: "weekly_report",
+        title: `Weekly report — ${project.name}`,
+        message: reportBody.slice(0, 160),
+        actionUrl: "/",
+      });
+      project.weeklyReportWeek = weekKey;
+      await project.save();
+    }
+  } catch (err) {
+    console.error("Weekly report cron:", err.message);
+  }
+}
+
+async function runDailyHealthChecks() {
+  try {
+    const projects = await Project.find({
+      status: { $in: ["published", "in-progress"] },
+    }).limit(200);
+
+    for (const project of projects) {
+      const health = await computeProjectHealth(
+        Project,
+        User,
+        Post,
+        Activity,
+        project._id.toString()
+      );
+      const score = health?.score ?? project.health?.score ?? 0;
+      const lastActivity = health?.metrics?.lastActivityAt || project.health?.metrics?.lastActivityAt;
+      const inactiveDays = daysSince(lastActivity);
+
+      if (score < 40) {
+        const alertRecent =
+          project.lastHealthAlertAt &&
+          Date.now() - new Date(project.lastHealthAlertAt).getTime() < 3 * 86400000;
+        if (!alertRecent) {
+          const teammates = await getTeammateContacts(project._id.toString());
+          for (const c of teammates) {
+            await pushNotification({
+              contact: c,
+              projectId: project._id,
+              type: "project_health",
+              title: "Project health alert",
+              message: `⚠️ ${project.name} health score dropped to ${score}. Last activity was ${inactiveDays} days ago. Time to check in with your team!`,
+              actionUrl: "/",
+            });
+          }
+          const owner = normalizeContact(project.ownerContact);
+          if (owner.includes("@")) {
+            await sendHealthAlertEmail(owner, project.name, score, inactiveDays);
+          }
+          project.lastHealthAlertAt = new Date();
+          if (inactiveDays >= 7 && !project.inactivePromptAt) {
+            project.inactivePromptAt = new Date();
+          }
+          await project.save();
+        }
+      } else if (inactiveDays >= 7 && !project.inactivePromptAt && !project.inactiveConfirmedAt) {
+        project.inactivePromptAt = new Date();
+        await project.save();
+      }
+    }
+  } catch (err) {
+    console.error("Health check cron:", err.message);
+  }
+}
+
 async function start() {
   await connectDB();
   await attachNextApp();
   setInterval(runTaskDueReminders, 60 * 60 * 1000);
   setTimeout(runTaskDueReminders, 15000);
+  setInterval(runWeeklyReports, 60 * 60 * 1000);
+  setTimeout(runWeeklyReports, 30000);
+  setInterval(runDailyHealthChecks, 24 * 60 * 60 * 1000);
+  setTimeout(runDailyHealthChecks, 45000);
   httpServer.listen(PORT, "0.0.0.0", () => {
     const mode = process.env.SERVE_NEXT === "true" ? "API + Next.js" : "API only";
     console.log(`

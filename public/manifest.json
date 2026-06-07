@@ -1,0 +1,12 @@
+{
+  "name": "Make Big",
+  "short_name": "Make Big",
+  "description": "Build Big Ideas Together",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f2ef",
+  "theme_color": "#0A66C2",
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

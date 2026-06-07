@@ -22,7 +22,8 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { useToast } from '@/lib/context/ToastContext';
-import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
+import { AvailabilityView } from './AvailabilityView';
+import { ProjectHealthBanner } from './ProjectHealthBanner';
 
 interface DashboardNewProps {
   project: ProjectData;
@@ -44,7 +45,8 @@ export type DashboardNavTab =
   | 'requests'
   | 'messages'
   | 'notes'
-  | 'activity';
+  | 'activity'
+  | 'availability';
 
 type NavTab = DashboardNavTab;
 
@@ -59,6 +61,7 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'messages',  label: 'Messages',         icon: '💬' },
   { id: 'notes',     label: 'Notes',            icon: '📝' },
   { id: 'activity',  label: 'Activity',         icon: '⚡' },
+  { id: 'availability', label: 'Schedule',     icon: '📅' },
 ];
 
 export function DashboardNew({
@@ -448,6 +451,7 @@ export function DashboardNew({
         {/* Main Content — full width until sidebar opens */}
         <main className="flex-1 overflow-y-auto bg-[#f3f2ef] w-full min-w-0">
           <div className="p-4 md:p-6 lg:px-8 pb-24 mx-auto w-full max-w-none">
+            <ProjectHealthBanner projectId={project.id} projectName={project.name} />
 
             {activeNav === 'dashboard' && (
               <DashboardOverview
@@ -552,6 +556,12 @@ export function DashboardNew({
                   userName={user.name}
                   userContact={user.contact}
                 />
+              </div>
+            )}
+
+            {activeNav === 'availability' && user && (
+              <div className="bg-white rounded-xl border border-[#e0e0e0] p-5">
+                <AvailabilityView projectId={project.id} user={user} />
               </div>
             )}
 

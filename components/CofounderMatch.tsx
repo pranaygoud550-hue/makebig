@@ -10,6 +10,7 @@ import {
 import { getErrorMessage } from '@/lib/userErrors';
 import { ProjectData, User } from '@/lib/types';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
+import { computeCompatibility, compatibilityLabel } from '@/lib/compatibilityScore';
 
 interface CofounderMatchProps {
   project: ProjectData;
@@ -63,12 +64,21 @@ function MatchCard({
   dismissed,
   onDismiss,
   onInvited,
+  ownerContext,
 }: {
   match: MatchCandidate;
   projectId: string;
   dismissed: boolean;
   onDismiss: (id: string) => void;
   onInvited: (id: string) => void;
+  ownerContext: {
+    skills: string[];
+    city?: string;
+    graduationYear?: string;
+    hobbies?: string[];
+    lastActive?: string;
+    projectRoles: string[];
+  };
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [inviting, setInviting]           = useState(false);
@@ -76,7 +86,22 @@ function MatchCard({
   const [inviteError, setInviteError]     = useState('');
   const { openProfile } = useProfileView();
 
-  const clr = scoreColor(match.score);
+  const compatibility = computeCompatibility({
+    ownerSkills: ownerContext.skills,
+    ownerCity: ownerContext.city,
+    ownerGraduationYear: ownerContext.graduationYear,
+    ownerHobbies: ownerContext.hobbies,
+    ownerLastActive: ownerContext.lastActive,
+    projectRoles: ownerContext.projectRoles,
+    candidateSkills: match.skills,
+    candidateCity: match.city,
+    candidateGraduationYear: match.graduationYear,
+    candidateHobbies: match.hobbies,
+    candidateLastActive: match.lastActive,
+    candidateFilledSkills: match.filledSkills,
+  });
+
+  const clr = scoreColor(compatibility.score);
 
   if (dismissed) return null;
 
@@ -139,17 +164,21 @@ function MatchCard({
             onClick={() => setShowBreakdown(s => !s)}
             className={`shrink-0 text-right cursor-pointer group`}
           >
-            <div className={`text-lg font-black ${clr.text}`}>{match.score}<span className="text-xs font-bold">%</span></div>
+            <div className={`text-lg font-black ${clr.text}`}>{compatibility.score}<span className="text-xs font-bold">%</span></div>
             <div className="text-[9px] text-[#999] group-hover:text-[#0A66C2] transition-colors">
-              {showBreakdown ? 'hide ▲' : 'why? ▾'}
+              compatible
             </div>
           </button>
         </div>
 
+        <p className="text-[11px] text-[#666] mt-2 leading-relaxed">
+          {compatibilityLabel(compatibility.score)} — {compatibility.reasons.join(' · ') || 'Potential team fit'}
+        </p>
+
         {/* Score breakdown */}
         {showBreakdown && (
           <div className={`mt-3 p-3 rounded-xl ${clr.bg} border border-[#e0e0e0] space-y-1.5`}>
-            <p className="text-[10px] font-bold text-[#666] uppercase tracking-wide mb-2">Match score breakdown</p>
+            <p className="text-[10px] font-bold text-[#666] uppercase tracking-wide mb-2">Match algorithm score: {match.score}%</p>
             <ScoreBar label="Skills"    value={match.scoreBreakdown.skill}    max={50} color={clr.bar} />
             <ScoreBar label="Breadth"   value={match.scoreBreakdown.breadth}  max={10} color="bg-blue-400" />
             <ScoreBar label="Category"  value={match.scoreBreakdown.category} max={20} color="bg-purple-500" />
@@ -455,6 +484,14 @@ export function CofounderMatch({ project, user, ownerContact }: CofounderMatchPr
               dismissed={dismissed.has(match.id)}
               onDismiss={handleDismiss}
               onInvited={handleInvited}
+              ownerContext={{
+                skills: meta?.ownerSkills || user?.skills || [],
+                city: user?.city || meta?.projectCity,
+                graduationYear: user?.graduationYear,
+                hobbies: user?.hobbies,
+                lastActive: user?.contact ? undefined : undefined,
+                projectRoles: project.skills || meta?.skillGap || [],
+              }}
             />
           ))}
         </div>

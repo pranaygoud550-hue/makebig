@@ -1350,6 +1350,7 @@ export interface MatchCandidate {
   city: string;
   state: string;
   graduationYear: string;
+  hobbies?: string[];
   lastActive?: string;
   score: number;
   filledSkills: string[];

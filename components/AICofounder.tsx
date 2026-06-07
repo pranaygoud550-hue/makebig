@@ -10,6 +10,8 @@ import {
   type StreamUsage,
 } from '@/lib/aiCofounderStream';
 import { getAICofounderStatusUrl } from '@/lib/aiCofounderUrls';
+import { getApiOrigin } from '@/lib/apiBase';
+import { useToast } from '@/lib/context/ToastContext';
 import { ProjectData, User } from '@/lib/types';
 
 interface AICofounderProps {
@@ -39,7 +41,8 @@ interface ChatMessage {
   ts: number;
 }
 
-const QUICK_PROMPTS: { id: ActionId; label: string; icon: string }[] = [
+const QUICK_PROMPTS: { id: ActionId | 'pitch-deck'; label: string; icon: string }[] = [
+  { id: 'pitch-deck', label: 'Generate pitch deck outline', icon: '📊' },
   { id: 'validate-idea', label: 'Validate my idea', icon: '💡' },
   { id: 'target-user', label: 'Who is my target user?', icon: '🎯' },
   { id: 'build-first', label: 'What should I build first?', icon: '🛠' },
@@ -258,6 +261,47 @@ export function AICofounder({ project, user }: AICofounderProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const { showToast } = useToast();
+
+  const runPitchDeck = useCallback(async () => {
+    if (!project.id || streaming) return;
+    setStreaming(true);
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: 'Generate pitch deck outline',
+      ts: Date.now(),
+    };
+    const assistantId = `a-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      userMsg,
+      { id: assistantId, role: 'assistant', content: 'Building your 10-slide deck…', streaming: true, ts: Date.now() },
+    ]);
+    try {
+      const headers = await getAuthHeadersAsync();
+      const res = await fetch(`${getApiOrigin()}/api/ai/pitch-deck`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+      const data = await res.json();
+      const text = data.success ? data.data.text : data.error || 'Could not generate deck';
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, content: text, streaming: false, action: 'generate-pitch' } : m
+        )
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, content: 'Pitch deck generation failed.', streaming: false } : m
+        )
+      );
+    } finally {
+      setStreaming(false);
+    }
+  }, [project.id, streaming]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -474,7 +518,13 @@ export function AICofounder({ project, user }: AICofounderProps) {
               key={p.id}
               type="button"
               disabled={streaming}
-              onClick={() => sendMessage(p.id)}
+              onClick={() => {
+                if (p.id === 'pitch-deck') {
+                  void runPitchDeck();
+                  return;
+                }
+                sendMessage(p.id as ActionId);
+              }}
               className="text-left px-3 py-2.5 rounded-xl border border-[#30363d] bg-[#21262d] hover:border-[#58a6ff]/50 hover:bg-[#30363d] transition-all disabled:opacity-40"
             >
               <span className="text-sm">{p.icon}</span>
