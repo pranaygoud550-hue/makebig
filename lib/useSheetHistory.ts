@@ -1,22 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
-/** Push history when a sheet opens; browser back closes it instead of leaving the page. */
+/** Push history when a panel opens; browser back closes it instead of leaving the page. */
 export function useSheetHistory(isOpen: boolean, onClose: () => void) {
-  const pushedRef = useRef(false);
-
   useEffect(() => {
-    if (!isOpen) {
-      pushedRef.current = false;
-      return;
-    }
+    if (!isOpen) return;
 
-    window.history.pushState({ sheet: true }, '');
-    pushedRef.current = true;
+    window.history.pushState({ panel: true }, '');
 
     const onPopState = () => {
-      pushedRef.current = false;
       onClose();
     };
 

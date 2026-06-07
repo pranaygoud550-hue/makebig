@@ -52,6 +52,8 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
   const [siOtpError, setSiOtpError] = useState('');
   const [siOtpSending, setSiOtpSending] = useState(false);
   const [siOtpVerifying, setSiOtpVerifying] = useState(false);
+  const [siOtpRetryStatus, setSiOtpRetryStatus] = useState('');
+  const [signUpOtpRetryStatus, setSignUpOtpRetryStatus] = useState('');
   const [siDevCode, setSiDevCode] = useState<string | null>(null);
   const [signUpDevCode, setSignUpDevCode] = useState<string | null>(null);
   const [siOtpSentMsg, setSiOtpSentMsg] = useState('');
@@ -118,6 +120,8 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     setSiOtpError('');
     setSiDevCode(null);
     setSignUpDevCode(null);
+    setSiOtpRetryStatus('');
+    setSignUpOtpRetryStatus('');
     setSiOtpSentMsg('');
     setSignUpOtpSentMsg('');
     setResendCooldown(0);
@@ -312,6 +316,54 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
 
   const startResendCooldown = () => setResendCooldown(45);
 
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  /** Retry OTP send on 503 (Render cold start) with user-visible progress. */
+  const sendOtpWithRetry = async (
+    contactValue: string,
+    purpose: 'signin' | 'signup',
+    onRetryStatus: (msg: string) => void
+  ): Promise<{ sent: boolean; devCode?: string; message: string }> => {
+    const maxAttempts = 3;
+    const payload = { contact: contactValue.trim().toLowerCase(), purpose };
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      let data: {
+        success?: boolean;
+        data?: { sent: boolean; devCode?: string; message: string };
+        error?: string;
+      } = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (res.status === 503 || (res.status >= 500 && !data.success)) {
+        if (attempt < maxAttempts) {
+          onRetryStatus(
+            `Server is waking up, retrying in 8 seconds… Attempt ${attempt} of ${maxAttempts}`
+          );
+          await sleep(8000);
+          continue;
+        }
+        throw new Error('Please try again in 1 minute');
+      }
+
+      if (data.success && data.data) return data.data;
+
+      throw new Error(data.error || 'Could not send OTP');
+    }
+
+    throw new Error('Please try again in 1 minute');
+  };
+
   // ——— Sign In: send OTP ———
   const handleSiSend = async () => {
     const contactErr = validateContact(siContact);
@@ -322,8 +374,14 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     if (siOtpSending || resendCooldown > 0) return;
     setSiOtpSending(true);
     setSiOtpError('');
+    setSiOtpRetryStatus('');
     try {
-      const res = await apiSendOTP(siContact.trim(), 'signin');
+      let res: { sent: boolean; devCode?: string; message: string };
+      if (isSupabaseConfigured) {
+        res = await apiSendOTP(siContact.trim(), 'signin');
+      } else {
+        res = await sendOtpWithRetry(siContact.trim(), 'signin', setSiOtpRetryStatus);
+      }
       setSiDevCode(res.devCode || null);
       setSiOtpSentMsg(res.message || 'OTP sent. Check your email or the code below.');
       setSiStep('otp');
@@ -342,6 +400,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       }
     } finally {
       setSiOtpSending(false);
+      setSiOtpRetryStatus('');
     }
   };
 
@@ -380,8 +439,14 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     if (otpSending || resendCooldown > 0) return;
     setOtpSending(true);
     setOtpError('');
+    setSignUpOtpRetryStatus('');
     try {
-      const res = await apiSendOTP(contact.trim(), 'signup');
+      let res: { sent: boolean; devCode?: string; message: string };
+      if (isSupabaseConfigured) {
+        res = await apiSendOTP(contact.trim(), 'signup');
+      } else {
+        res = await sendOtpWithRetry(contact.trim(), 'signup', setSignUpOtpRetryStatus);
+      }
       setSignUpDevCode(res.devCode || null);
       setSignUpOtpSentMsg(res.message || 'OTP sent.');
       setOtpValues(['', '', '', '', '', '']);
@@ -400,6 +465,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       }
     } finally {
       setOtpSending(false);
+      setSignUpOtpRetryStatus('');
     }
   };
 
@@ -647,6 +713,11 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                       />
                     </Field>
                     {siOtpError && <p className="text-red-500 text-sm">{siOtpError}</p>}
+                    {siOtpRetryStatus && (
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        {siOtpRetryStatus}
+                      </p>
+                    )}
                     <LiButton onClick={handleSiSend} disabled={!siContact.trim() || siOtpSending || resendCooldown > 0}>
                       {siOtpSending ? 'Sending…' : resendCooldown > 0 ? `Wait ${resendCooldown}s` : 'Send OTP'}
                     </LiButton>
@@ -662,10 +733,9 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                       </p>
                     )}
                     {siDevCode && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        <p className="font-semibold">Your verification code</p>
-                        <p className="mt-1 font-mono text-2xl tracking-widest">{siDevCode}</p>
-                        <p className="mt-1 text-xs text-amber-800">
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                        <p className="font-semibold">Dev mode — your OTP: {siDevCode}</p>
+                        <p className="mt-1 text-xs text-blue-800">
                           Enter this code in the boxes below.
                         </p>
                       </div>
@@ -952,10 +1022,9 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                       </p>
                     )}
                     {signUpDevCode && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        <p className="font-semibold">Your verification code</p>
-                        <p className="mt-1 font-mono text-2xl tracking-widest">{signUpDevCode}</p>
-                        <p className="mt-1 text-xs text-amber-800">
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                        <p className="font-semibold">Dev mode — your OTP: {signUpDevCode}</p>
+                        <p className="mt-1 text-xs text-blue-800">
                           Enter this code in the boxes below.
                         </p>
                       </div>
@@ -969,6 +1038,11 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                     />
                     {otpVerifying && <p className="text-[#0A66C2] text-sm text-center">Verifying…</p>}
                     {otpError && <p className="text-red-500 text-sm">{otpError}</p>}
+                    {signUpOtpRetryStatus && (
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        {signUpOtpRetryStatus}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between">
                       <button
                         onClick={() => { setStep(4); setOtpValues(['','','','','','']); setOtpError(''); }}

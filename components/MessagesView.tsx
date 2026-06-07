@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useProjectSocket } from '@/lib/useProjectSocket';
-import { apiGetProjectMessages, getAuthTokenAsync } from '@/lib/api';
+import type { Socket } from 'socket.io-client';
+import { apiGetProjectMessages, apiSendProjectMessage } from '@/lib/api';
+import { socketManager } from '@/lib/realtime';
 import { getInitials } from '@/lib/utils';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 
@@ -21,6 +22,11 @@ interface ChatMessage {
   createdAt: string;
 }
 
+interface TypingUser {
+  userId: string;
+  userName: string;
+}
+
 const AVATAR_COLORS = [
   'bg-purple-500', 'bg-teal-500', 'bg-rose-500', 'bg-amber-500', 'bg-indigo-500',
 ];
@@ -33,7 +39,7 @@ function colorForName(name: string) {
 
 function normalizeMessage(m: Record<string, string>): ChatMessage {
   return {
-    id: m.id || m._id || String(m.createdAt),
+    id: String(m.id || m._id || m.createdAt),
     senderId: m.senderId,
     senderName: m.senderName || 'User',
     content: m.content,
@@ -57,22 +63,19 @@ function mergeMessages(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessag
 }
 
 export function MessagesView({ projectId, userId, userName, userContact }: MessagesViewProps) {
-  const [token, setToken] = useState<string | null>(null);
   const { openProfile } = useProfileView();
-  const { messages, activeUsers, typingUsers, sendMessage, emitTyping, isConnected } =
-    useProjectSocket(projectId, userId, userName, userContact, token);
+  const socketRef = useRef<Socket | null>(null);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [activeUsers, setActiveUsers] = useState<TypingUser[]>([]);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    getAuthTokenAsync().then(setToken);
-  }, []);
 
   const appendMessages = useCallback((incoming: ChatMessage[]) => {
     setChatMessages((prev) => mergeMessages(prev, incoming));
@@ -83,36 +86,107 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
     return stored.map((m: Record<string, string>) => normalizeMessage(m));
   }, [projectId]);
 
+  /* Connect → join room → then load messages */
   useEffect(() => {
+    if (!projectId) return;
+
     let cancelled = false;
+
+    const onConnect = () => {
+      console.log('[MessagesView] socket connected');
+      setIsConnected(true);
+    };
+
+    const onDisconnect = () => {
+      console.log('[MessagesView] socket disconnected');
+      setIsConnected(false);
+    };
+
+    const onNewMessage = (message: Record<string, string>) => {
+      console.log('[MessagesView] new_message', message.id || message._id);
+      appendMessages([normalizeMessage(message)]);
+    };
+
+    const onActiveUsers = (users: TypingUser[]) => {
+      setActiveUsers(Array.isArray(users) ? users : []);
+    };
+
+    const onUserTyping = (data: { userId: string; userName: string; isTyping: boolean }) => {
+      if (data.userId === userId) return;
+      if (data.isTyping) {
+        setTypingUsers((prev) =>
+          prev.some((u) => u.userId === data.userId) ? prev : [...prev, data]
+        );
+      } else {
+        setTypingUsers((prev) => prev.filter((u) => u.userId !== data.userId));
+      }
+    };
+
     (async () => {
       setLoading(true);
+      setChatMessages([]);
+      setIsConnected(false);
+
+      const socket = await socketManager.joinProjectRoom(projectId, {
+        userId,
+        userName,
+        userContact,
+      });
+
+      if (cancelled) return;
+
+      if (!socket) {
+        const msgs = await loadMessages();
+        if (!cancelled) {
+          appendMessages(msgs);
+          setLoading(false);
+        }
+        return;
+      }
+
+      socketRef.current = socket;
+      setIsConnected(socket.connected);
+
+      socket.on('connect', onConnect);
+      socket.on('disconnect', onDisconnect);
+      socket.on('new_message', onNewMessage);
+      socket.on('newMessage', onNewMessage);
+      socket.on('active_users', onActiveUsers);
+      socket.on('user_typing', onUserTyping);
+
+      /* Wait briefly for join_project to complete before loading history */
+      await new Promise((r) => setTimeout(r, socket.connected ? 150 : 400));
+
       const msgs = await loadMessages();
       if (!cancelled) {
         appendMessages(msgs);
         setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
+      const socket = socketRef.current;
+      if (socket) {
+        socket.off('connect', onConnect);
+        socket.off('disconnect', onDisconnect);
+        socket.off('new_message', onNewMessage);
+        socket.off('newMessage', onNewMessage);
+        socket.off('active_users', onActiveUsers);
+        socket.off('user_typing', onUserTyping);
+      }
+      socketRef.current = null;
+      socketManager.releaseProjectRoom(projectId, userId, userName);
     };
-  }, [loadMessages, appendMessages]);
+  }, [projectId, userId, userName, userContact, appendMessages, loadMessages]);
 
-  /* Append socket messages immediately (no full refetch) */
-  useEffect(() => {
-    if (!messages.length) return;
-    appendMessages(
-      messages.map((m: Record<string, string>) => normalizeMessage(m))
-    );
-  }, [messages, appendMessages]);
-
-  /* Poll only when socket is offline — merge new ids only */
+  /* Fallback poll when disconnected */
   useEffect(() => {
     if (isConnected) return;
     const interval = setInterval(async () => {
       const fresh = await loadMessages();
       appendMessages(fresh);
-    }, 5000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [isConnected, loadMessages, appendMessages]);
 
@@ -133,6 +207,17 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
     resizeTextarea();
   }, [input]);
 
+  const emitTyping = (isTyping: boolean) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('user_typing', {
+        projectId,
+        userId,
+        userName,
+        isTyping,
+      });
+    }
+  };
+
   const handleInput = (val: string) => {
     setInput(val);
     emitTyping(true);
@@ -144,10 +229,27 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
     if (!input.trim()) return;
     const text = input.trim();
     setSendError(null);
-    const result = await sendMessage(text);
-    if (result?.ok === false) {
+
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('send_message', {
+        projectId,
+        senderId: userId,
+        senderName: userName,
+        content: text,
+        type: 'text',
+      });
+      setInput('');
+      emitTyping(false);
+      return;
+    }
+
+    const result = await apiSendProjectMessage(projectId, text);
+    if (!result.ok) {
       setSendError(result.error || 'Could not send message');
       return;
+    }
+    if (result.message) {
+      appendMessages([normalizeMessage(result.message as Record<string, string>)]);
     }
     setInput('');
     emitTyping(false);
@@ -155,32 +257,33 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
 
   const typingLabel =
     typingUsers.length > 0
-      ? `${typingUsers.map((u: { userName: string }) => u.userName).join(', ')} typing…`
+      ? `${typingUsers.map((u) => u.userName).join(', ')} typing…`
       : null;
 
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
+  const statusLabel = isConnected
+    ? `● Live${activeUsers.length ? ` — ${activeUsers.length} online` : ''}`
+    : '○ Reconnecting…';
+
   return (
     <div className="flex flex-col h-[calc(100dvh-10rem)] md:h-full min-h-[70vh] max-h-[85dvh] md:max-h-none">
-      {/* Header */}
       <div className="bg-white rounded-t-xl border border-b-0 border-[#e0e0e0] px-4 md:px-5 py-3 md:py-4 shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base md:text-lg font-bold text-[#1d2226]">Project Chat</h2>
             <p className="text-xs mt-0.5">
               {isConnected ? (
-                <span className="text-green-600 font-medium">
-                  ● Live — {activeUsers.length} online
-                </span>
+                <span className="text-green-600 font-medium">{statusLabel}</span>
               ) : (
-                <span className="text-[#666]">○ Connecting… messages sync every few seconds</span>
+                <span className="text-amber-600 font-medium">{statusLabel}</span>
               )}
             </p>
           </div>
           {activeUsers.length > 0 && (
             <div className="flex -space-x-2">
-              {activeUsers.slice(0, 4).map((u: { userId: string; userName: string }) => (
+              {activeUsers.slice(0, 4).map((u) => (
                 <div
                   key={u.userId}
                   title={u.userName}
@@ -194,7 +297,6 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
         </div>
       </div>
 
-      {/* Messages area */}
       <div className="flex-1 overflow-y-auto bg-[#f8f9fa] border-x border-[#e0e0e0] p-4 md:p-5 space-y-3 pb-24 md:pb-4">
         {loading && (
           <div className="flex justify-center py-8">
@@ -275,7 +377,6 @@ export function MessagesView({ projectId, userId, userName, userContact }: Messa
         <div ref={bottomRef} />
       </div>
 
-      {/* Sticky input bar */}
       <div className="sticky bottom-0 z-10 bg-white border border-t border-[#e0e0e0] rounded-b-xl p-3 md:p-4 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {sendError && <p className="text-xs text-red-600 mb-2 px-1">{sendError}</p>}
         <div className="flex gap-2 md:gap-3 items-end">

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { INDIAN_CITIES } from '@/lib/indianCities';
 import { BrowseProject } from '@/lib/api';
-import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
+import { dedupeById } from '@/lib/dedupeProjects';
 import { ProjectExploreCard } from '@/components/app/ProjectExploreCard';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
@@ -99,12 +99,10 @@ export function ExploreView({
         const data = await res.json();
         if (cancelled || !data.success) return;
 
-        const incoming = dedupeProjectsForDisplay(
-          (data.data.projects || []) as ExploreProject[]
-        );
+        const incoming = dedupeById((data.data.projects || []) as ExploreProject[]);
 
         setProjects((prev) =>
-          page === 1 ? incoming : dedupeProjectsForDisplay([...prev, ...incoming])
+          page === 1 ? incoming : dedupeById([...prev, ...incoming])
         );
         setHasMore(Boolean(data.data.hasMore));
         setTotal(data.data.total ?? incoming.length);
@@ -169,7 +167,7 @@ export function ExploreView({
         </div>
 
         <div className="flex gap-6 flex-col lg:flex-row">
-          <aside className="lg:w-64 xl:w-72 shrink-0 space-y-4">
+          <aside className="lg:min-w-[200px] lg:w-64 xl:w-72 shrink-0 space-y-4">
             <div className="bg-white rounded-2xl border border-[#e0e0e0] p-4">
               <p className="text-xs font-bold text-[#1d2226] uppercase tracking-wide mb-2">City</p>
               <select

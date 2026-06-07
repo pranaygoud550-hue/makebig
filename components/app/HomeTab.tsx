@@ -7,7 +7,7 @@ import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartups
 import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
 import { BrowseProject } from '@/lib/api';
 import { filterAllowedProjects } from '@/lib/projectAllowlist';
-import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
+import { dedupeById } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 
@@ -76,7 +76,7 @@ export function HomeTab({
       .then((r) => r.json())
       .then((data) => {
         if (!data.success) return;
-        const list = dedupeProjectsForDisplay(data.data?.projects || []) as SearchProjectHit[];
+        const list = dedupeById(data.data?.projects || []) as SearchProjectHit[];
         const openRoles = list.reduce((n, p) => n + (p.roles?.length || 0), 0);
         setStats({
           totalProjects: data.data?.total ?? list.length,
@@ -94,9 +94,7 @@ export function HomeTab({
       const data = await res.json();
       if (data.success) {
         setProjects(
-          dedupeProjectsForDisplay(
-            filterAllowedProjects(data.data?.projects || [])
-          ) as SearchProjectHit[]
+          dedupeById(filterAllowedProjects(data.data?.projects || [])) as SearchProjectHit[]
         );
         setRecommendations(Boolean(data.data?.recommendations));
       }
