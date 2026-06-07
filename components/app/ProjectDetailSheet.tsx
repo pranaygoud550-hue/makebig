@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatSalaryBand, getInitials } from '@/lib/utils';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { getErrorMessage } from '@/lib/userErrors';
+import { useSheetHistory } from '@/lib/useSheetHistory';
 
 export interface SearchProjectHit {
   id: string;
@@ -70,6 +71,8 @@ export function ProjectDetailSheet({
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetailPayload | null>(null);
 
+  useSheetHistory(Boolean(projectId), onClose);
+
   useEffect(() => {
     if (!projectId) {
       setDetail(null);
@@ -131,19 +134,29 @@ export function ProjectDetailSheet({
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-lg bg-white h-full shadow-2xl overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-[#e0e0e0] px-4 py-3 flex items-center justify-between z-10">
-          <h2 className="font-bold text-[#1d2226]">Project details</h2>
+      <div className="relative w-full md:max-w-lg bg-white h-[100dvh] md:h-full shadow-2xl overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-[#e0e0e0] px-4 py-3 flex items-center gap-3 z-10 h-14">
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-[#f3f2ef] text-[#666] font-bold"
+            className="flex items-center gap-1 text-sm font-semibold text-[#0A66C2] hover:text-[#004182] shrink-0"
+          >
+            <span aria-hidden>←</span> Back
+          </button>
+          <h2 className="font-bold text-[#1d2226] text-sm md:text-base flex-1 truncate">
+            Project details
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="hidden md:flex w-8 h-8 rounded-full hover:bg-[#f3f2ef] text-[#666] font-bold items-center justify-center"
+            aria-label="Close"
           >
             ×
           </button>
         </div>
 
-        <div className="p-4 space-y-5 pb-24">
+        <div className="p-4 space-y-5 pb-24 md:pb-8 text-sm md:text-base">
           {loading && (
             <p className="text-sm text-[#666] text-center py-12">Loading…</p>
           )}
@@ -153,7 +166,7 @@ export function ProjectDetailSheet({
           {p && (
             <>
               <div>
-                <h3 className="text-xl font-bold text-[#1d2226]">{p.name}</h3>
+                <h3 className="text-lg md:text-xl font-bold text-[#1d2226]">{p.name}</h3>
                 <p className="text-xs text-[#666] mt-1 capitalize">
                   {p.categoryId?.replace(/-/g, ' ')} · {p.projectPurpose || 'college'} · {p.status}
                 </p>

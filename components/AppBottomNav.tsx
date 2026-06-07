@@ -9,14 +9,14 @@ export type AppTab =
   | 'friends'
   | 'project';
 
-const TABS: { id: AppTab; label: string; icon: string }[] = [
+export const APP_NAV_TABS: { id: AppTab; label: string; icon: string }[] = [
   { id: 'home', label: 'Home', icon: '🏠' },
   { id: 'explore', label: 'Explore', icon: '🔍' },
   { id: 'posts', label: 'Posts', icon: '📝' },
   { id: 'ai', label: 'AI Coder', icon: '🤖' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'friends', label: 'Friends', icon: '👋' },
-  { id: 'project', label: 'Your project', icon: '📁' },
+  { id: 'project', label: 'Your Project', icon: '📁' },
 ];
 
 interface AppBottomNavProps {
@@ -27,10 +27,10 @@ interface AppBottomNavProps {
 
 export function AppBottomNav({ active, onChange, unreadCount = 0 }: AppBottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#d9d9d9] shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#d9d9d9] shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
       <div className="w-full overflow-x-auto">
         <div className="flex items-stretch min-w-max px-1">
-          {TABS.map((tab) => {
+          {APP_NAV_TABS.map((tab) => {
             const isActive = active === tab.id;
             const showBadge = tab.id === 'notifications' && unreadCount > 0;
             return (

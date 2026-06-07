@@ -2050,7 +2050,20 @@ app.post("/api/projects/:projectId/messages", authMiddleware, async (req, res) =
       description: `${senderName}: ${preview}`,
     });
 
-    res.json(formatResponse(true, { message: toClient(message) }));
+    const clientMessage = toClient(message);
+    const roomName = `project_${req.params.projectId}`;
+    io.to(roomName).emit("new_message", {
+      _id: message._id,
+      id: message._id.toString(),
+      projectId: req.params.projectId,
+      senderId,
+      senderName,
+      content,
+      type: "text",
+      createdAt: message.createdAt,
+    });
+
+    res.json(formatResponse(true, { message: clientMessage }));
   } catch (error) {
     res.status(500).json(formatResponse(false, null, error.message));
   }

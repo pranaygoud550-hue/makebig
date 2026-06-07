@@ -117,6 +117,9 @@ export function AppShell({
       )}
       <AppTopBar
         currentProject={currentProject}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        unreadCount={unreadCount}
         onStartProject={onStartProject}
         onJoinProject={onJoinProject}
         onOpenDashboard={() => onOpenYourProject('dashboard')}
@@ -144,7 +147,7 @@ export function AppShell({
         onLogout={onLogout}
       />
 
-      <main className="flex-1 pb-20 w-full px-4 sm:px-6 lg:px-8 py-4">
+      <main className="flex-1 pb-20 md:pb-4 w-full px-4 sm:px-6 lg:px-8 py-4 text-sm md:text-base">
         {activeTab === 'home' && (
           <HomeTab
             userName={user.name}

@@ -10,7 +10,7 @@ import {
 import { PLAN_LIMITS } from './plans';
 import { slugifyProjectName } from './site';
 import { getErrorMessage, mapApiError } from './userErrors';
-import { getApiBase } from './apiBase';
+import { getApiBase, getApiOrigin } from './apiBase';
 
 export { PlanLimitError };
 
@@ -1154,7 +1154,8 @@ export async function apiSendProjectMessage(
       };
     }
 
-    const res = await fetch(`/api/projects/${projectId}/messages`, {
+    const origin = getApiOrigin();
+    const res = await fetch(`${origin}/api/projects/${projectId}/messages`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify({ content }),

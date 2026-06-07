@@ -3,6 +3,7 @@
 import { User } from '@/lib/types';
 import { ProfessionalProfile } from '@/components/app/ProfessionalProfile';
 import { useEffect, useState } from 'react';
+import { useSheetHistory } from '@/lib/useSheetHistory';
 
 interface UserProfilePanelProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface UserProfilePanelProps {
 
 export function UserProfilePanel({ isOpen, onClose, user, onSaved, onLogout }: UserProfilePanelProps) {
   const [mounted, setMounted] = useState(isOpen);
+
+  useSheetHistory(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) setMounted(true);

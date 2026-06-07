@@ -5,6 +5,7 @@ import { ProfessionalProfile } from '@/components/app/ProfessionalProfile';
 import { apiGetUser } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { User } from '@/lib/types';
+import { useSheetHistory } from '@/lib/useSheetHistory';
 
 interface MemberProfilePanelProps {
   contact: string | null;
@@ -21,6 +22,8 @@ export function MemberProfilePanel({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+
+  useSheetHistory(Boolean(contact), onClose);
 
   useEffect(() => {
     if (!contact) {
@@ -63,14 +66,24 @@ export function MemberProfilePanel({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/40 flex items-start justify-center overflow-y-auto p-4 md:p-8"
+      className="fixed inset-0 z-[60] bg-black/40 flex items-start justify-center overflow-y-auto md:p-8"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-3xl bg-[#f3f2ef] rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto relative">
+      <div className="w-full h-[100dvh] md:h-auto md:max-h-[90vh] md:max-w-3xl bg-[#f3f2ef] md:rounded-2xl shadow-2xl overflow-y-auto relative">
+        <div className="sticky top-0 z-20 bg-white border-b border-[#e0e0e0] px-4 h-14 flex items-center gap-3 md:hidden">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1 text-sm font-semibold text-[#0A66C2]"
+          >
+            <span aria-hidden>←</span> Back
+          </button>
+          <span className="font-bold text-[#1d2226] text-sm truncate">Profile</span>
+        </div>
         {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-2xl">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 md:rounded-2xl">
             <p className="text-sm text-[#666]">Loading profile…</p>
           </div>
         )}

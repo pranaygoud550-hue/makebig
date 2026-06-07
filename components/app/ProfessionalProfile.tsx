@@ -246,13 +246,22 @@ export function ProfessionalProfile({
       <div className={cardClass}>
         <div className="h-28 sm:h-32 bg-gradient-to-r from-[#0A66C2] via-[#0A66C2] to-[#004182] relative shrink-0">
           {variant === 'panel' && onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 px-3 py-1.5 rounded-full bg-white/90 text-[#1d2226] text-sm font-semibold border border-[#e0e0e0] hover:bg-white shadow-sm"
-            >
-              Close
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="md:hidden absolute top-4 left-4 z-10 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/90 text-[#0A66C2] text-sm font-semibold border border-[#e0e0e0] hover:bg-white shadow-sm"
+              >
+                <span aria-hidden>←</span> Back
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="hidden md:flex absolute top-6 right-6 z-10 px-3 py-1.5 rounded-full bg-white/90 text-[#1d2226] text-sm font-semibold border border-[#e0e0e0] hover:bg-white shadow-sm"
+              >
+                Close
+              </button>
+            </>
           )}
         </div>
 
