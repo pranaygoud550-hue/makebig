@@ -8,6 +8,7 @@ import { connectProjectRoom } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { apiRemoveProjectMember } from '@/lib/api';
 import { useToast } from '@/lib/context/ToastContext';
+import { getApiOrigin } from '@/lib/apiBase';
 
 interface TeamMember {
   contact: string;
@@ -33,9 +34,7 @@ const AVATAR_COLORS = [
   'bg-rose-500', 'bg-amber-500', 'bg-indigo-500',
 ];
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+const API = getApiOrigin();
 
 export function TeamMembersView({
   projectId,
@@ -51,6 +50,7 @@ export function TeamMembersView({
   const toast = onShowToast || localToast;
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
   const [removing, setRemoving] = useState(false);
   const { openProfile } = useProfileView();
@@ -63,6 +63,7 @@ export function TeamMembersView({
     let cancelled = false;
 
     (async () => {
+      setFetchFailed(false);
       try {
         if (isSupabaseConfigured) {
           const { data, error } = await supabase
@@ -82,8 +83,11 @@ export function TeamMembersView({
           const res = await fetch(`${API}/api/projects/${projectId}/members`);
           const json = await res.json();
           if (!cancelled && json.success) setTeam(json.data.members || []);
+          else if (!cancelled) setFetchFailed(true);
         }
-      } catch { /* API offline */ }
+      } catch {
+        if (!cancelled) setFetchFailed(true);
+      }
       finally { if (!cancelled) setLoading(false); }
     })();
 
@@ -236,7 +240,14 @@ export function TeamMembersView({
         </div>
       )}
 
-      {!loading && team.length === 0 && (
+      {!loading && fetchFailed && (
+        <div className="bg-white rounded-2xl border border-amber-200 p-8 text-center">
+          <p className="text-[#1d2226] font-bold text-lg">Could not load team</p>
+          <p className="text-[#666] text-sm mt-1">Check your connection or wait for the API to wake up, then refresh.</p>
+        </div>
+      )}
+
+      {!loading && !fetchFailed && team.length === 0 && (
         <div className="bg-white rounded-2xl border border-dashed border-[#d9d9d9] p-12 text-center">
           <div className="flex justify-center gap-1 mb-4 text-4xl">
             <span className="opacity-30">👤</span>

@@ -706,7 +706,7 @@ export async function apiCreateProject(project: Partial<Project>): Promise<Proje
   }
 }
 
-export async function apiPublishProject(projectId: string): Promise<Project | null> {
+export async function apiPublishProject(projectId: string): Promise<Project> {
   try {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
@@ -750,12 +750,17 @@ export async function apiPublishProject(projectId: string): Promise<Project | nu
       method: 'POST',
       headers: await getAuthHeadersAsync(),
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.success ? data.data.project : null;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(mapApiError(data?.error, 'project') || 'Failed to publish project');
+    }
+    if (!data.success || !data.data?.project) {
+      throw new Error('Publish failed — project was created but is not visible in explore yet');
+    }
+    return data.data.project;
   } catch (e) {
     console.error('Error publishing project:', e);
-    return null;
+    throw new Error(getErrorMessage(e, 'project'));
   }
 }
 

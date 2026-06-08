@@ -131,10 +131,11 @@ export function MarketingHomepage({
     fetch('/api/public/stats')
       .then((r) => r.json())
       .then((data) => {
+        if (!data?.totalProjects && !data?.totalUsers) return;
         setStats([
-          { value: `${data.totalProjects || 0}+`, label: 'Total Projects', key: 'projects' },
-          { value: `${data.totalUsers || 0}+`, label: 'Active Members', key: 'members' },
-          { value: `${data.totalCities || 0}+`, label: 'Cities', key: 'cities' },
+          { value: `${data.totalProjects}+`, label: 'Total Projects', key: 'projects' },
+          { value: `${data.totalUsers}+`, label: 'Active Members', key: 'members' },
+          { value: `${Math.max(data.totalCities || 1, 1)}+`, label: 'Cities', key: 'cities' },
           { value: `${WIZARD_CATEGORIES.length}+`, label: 'Categories', key: 'categories' },
         ]);
       })

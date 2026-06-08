@@ -83,14 +83,14 @@ export function HomeTab({
     apiGetUser(userContact).then((u) => {
       if (!u) return;
       setUserCreatedAt(u.createdAt);
-      setProfileComplete(
-        computeProfileStrength({
-          name: u.name,
-          bio: '',
-          skills: u.skills,
-          college: u.college,
-        }).score >= 80
-      );
+      const strength = computeProfileStrength({
+        name: u.name,
+        bio: (u as { bio?: string }).bio || '',
+        skills: u.skills,
+        college: u.college,
+        profileImage: (u as { profileImage?: string }).profileImage,
+      });
+      setProfileComplete(strength.score >= 60);
     });
   }, [userContact]);
 

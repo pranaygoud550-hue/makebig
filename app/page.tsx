@@ -25,6 +25,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
 import { captureReferralFromUrl } from '@/lib/referral';
 import { markOnboardingJoin, markOnboardingProject } from '@/components/app/OnboardingChecklist';
+import { requestAppTab } from '@/lib/requestAppTab';
 
 export default function Home() {
   const auth = useAuth();
@@ -32,6 +33,7 @@ export default function Home() {
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [showWizard, setShowWizard]           = useState(false);
   const [showSplash, setShowSplash]           = useState(true);
+  const [pendingWizardEntry, setPendingWizardEntry] = useState<'create' | 'join' | null>(null);
   const [showProfile, setShowProfile]         = useState(false);
   const [showDashboard, setShowDashboard]     = useState(false);
   const [dashboardInitialNav, setDashboardInitialNav] = useState<DashboardNavTab | undefined>();
@@ -51,9 +53,18 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('makeBigSplashSeen', '1');
+      if (sessionStorage.getItem('makeBigSplashSeen') === '1') {
+        setShowSplash(false);
+      }
     }
     captureReferralFromUrl();
+    const authParam = new URLSearchParams(window.location.search).get('auth');
+    if (authParam === 'signup') {
+      setPendingWizardEntry('create');
+      setAuthInitialMode('signup');
+      setShowAuth(true);
+      window.history.replaceState({}, '', '/');
+    }
   }, []);
 
   const openAuth = useCallback((mode: 'signin' | 'signup' = 'signin') => {
@@ -172,8 +183,16 @@ export default function Home() {
     }
   }, [auth.user, pendingJoinCategory]);
 
+  const resumePendingWizard = useCallback(() => {
+    if (!pendingWizardEntry) return;
+    setWizardInitialEntry(pendingWizardEntry);
+    setPendingWizardEntry(null);
+    setShowWizard(true);
+  }, [pendingWizardEntry]);
+
   const handleStartProject = () => {
     if (!auth.checkAuth()) {
+      setPendingWizardEntry('create');
       openAuth('signup');
       return;
     }
@@ -185,6 +204,7 @@ export default function Home() {
 
   const handleJoinProject = () => {
     if (!auth.checkAuth()) {
+      setPendingWizardEntry('join');
       openAuth('signup');
       return;
     }
@@ -211,6 +231,7 @@ export default function Home() {
 
   const handleOpenYourProject = async (section?: DashboardNavTab) => {
     if (!hasActiveWorkspace(currentProject)) {
+      handleStartProject();
       return;
     }
     let p = currentProject!;
@@ -257,6 +278,7 @@ export default function Home() {
     );
     const restored = await restoreUserProject(normalized);
     if (restored) applyRestoredProject(restored, normalized);
+    else resumePendingWizard();
   };
 
   const handleSignUp = async (
@@ -272,23 +294,23 @@ export default function Home() {
     await auth.login(name, normalized, skills, hobbies, college, graduationYear, verifiedSkills);
     const restored = await restoreUserProject(normalized);
     if (restored) applyRestoredProject(restored, normalized);
+    else resumePendingWizard();
   };
 
   const handleWizardComplete = async (data: ProjectData) => {
     if (data.mode === 'join') {
       setShowWizard(false);
       setWizardInitialEntry(undefined);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('makeBigActiveTab', 'explore');
-      }
+      requestAppTab('explore');
       return;
     }
 
     if (data.mode === 'member') {
       persistProject(data);
+      if (auth.user?.contact) markOnboardingProject(auth.user.contact);
       setShowWizard(false);
       setWizardInitialEntry(undefined);
-      setShowDashboard(false);
+      setShowDashboard(true);
       return;
     }
 
@@ -314,8 +336,8 @@ export default function Home() {
         const published = await apiPublishProject(created.id);
         savedProject = {
           ...data,
-          id: published?.id || created.id,
-          slug: (published as any)?.slug || (created as any)?.slug,
+          id: published.id || created.id,
+          slug: published.slug || (created as { slug?: string }).slug,
           ownerContact: auth.user.contact,
           mode: 'create',
         };
@@ -330,6 +352,7 @@ export default function Home() {
     }
 
     persistProject(savedProject);
+    if (auth.user?.contact) markOnboardingProject(auth.user.contact);
     setShowWizard(false);
     setWizardInitialEntry(undefined);
 
@@ -338,21 +361,27 @@ export default function Home() {
       if (result.ok && result.project) persistProject(result.project);
     }
 
-    if (
+    const autoSetup =
       typeof window !== 'undefined' &&
       sessionStorage.getItem('makebig_auto_setup_pending') === '1' &&
-      savedProject.id
-    ) {
+      savedProject.id;
+
+    if (autoSetup) {
       sessionStorage.removeItem('makebig_auto_setup_pending');
       queueAgentRun({
-        projectId: savedProject.id,
+        projectId: savedProject.id!,
         agentType: 'setup',
         goal: `Set up ${savedProject.name}`,
       });
-      sessionStorage.setItem('makeBigActiveTab', 'ai');
     }
 
-    setShowDashboard(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('makebig_welcome_project', savedProject.name);
+    }
+    setShowDashboard(true);
+    if (autoSetup) {
+      requestAppTab('ai');
+    }
   };
 
   const handleCheckDebug = async () => {
@@ -580,7 +609,11 @@ export default function Home() {
               <p className="text-sm text-[#666] mb-5">{projectCreateError}</p>
               <button
                 type="button"
-                onClick={() => setProjectCreateError(null)}
+                onClick={() => {
+                  setProjectCreateError(null);
+                  setWizardInitialEntry('create');
+                  setShowWizard(true);
+                }}
                 className="w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
               >
                 Try again
@@ -687,7 +720,11 @@ export default function Home() {
             <p className="text-sm text-[#666] mb-5">{projectCreateError}</p>
             <button
               type="button"
-              onClick={() => setProjectCreateError(null)}
+              onClick={() => {
+                setProjectCreateError(null);
+                setWizardInitialEntry('create');
+                setShowWizard(true);
+              }}
               className="w-full py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
             >
               Try again
@@ -700,7 +737,10 @@ export default function Home() {
         isSignedIn={Boolean(auth.user?.contact)}
         userContact={auth.user?.contact}
         onStartProject={handleStartProject}
-        onRequireAuth={() => openAuth('signup')}
+        onRequireAuth={() => {
+          setPendingWizardEntry('create');
+          openAuth('signup');
+        }}
         onJoinProject={handlePublicJoinClick}
         onCheckDebug={handleCheckDebug}
         showDebug={showDebug}

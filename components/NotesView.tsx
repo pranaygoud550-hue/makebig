@@ -11,6 +11,7 @@ import {
 import { getAuthHeadersAsync } from '@/lib/api';
 import { socketManager } from '@/lib/realtime';
 import { useToast } from '@/lib/context/ToastContext';
+import { getApiOrigin } from '@/lib/apiBase';
 
 interface NotesViewProps {
   projectId: string;
@@ -19,9 +20,7 @@ interface NotesViewProps {
   userContact: string;
 }
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+const API = getApiOrigin();
 
 function formatSavedTime(iso: string | null) {
   if (!iso) return '';

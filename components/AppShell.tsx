@@ -24,6 +24,8 @@ import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
 import { useTabPageTitle } from '@/lib/hooks/usePageTitle';
 import type { DashboardNavTab } from '@/components/DashboardNew';
 import { PushNotificationPrompt } from '@/components/PushNotificationPrompt';
+import { APP_TAB_REQUEST } from '@/lib/requestAppTab';
+import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 
 const TAB_STORAGE_KEY = 'makeBigActiveTab';
 const PROFILE_OPEN_KEY = 'makeBigProfileOpen';
@@ -100,6 +102,16 @@ export function AppShell({
     const goToAi = () => handleTabChange('ai');
     window.addEventListener(AI_LINK_EVENT, goToAi);
     return () => window.removeEventListener(AI_LINK_EVENT, goToAi);
+  }, [handleTabChange]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onTabRequest = (e: Event) => {
+      const tab = (e as CustomEvent<AppTab>).detail;
+      if (tab) handleTabChange(tab);
+    };
+    window.addEventListener(APP_TAB_REQUEST, onTabRequest);
+    return () => window.removeEventListener(APP_TAB_REQUEST, onTabRequest);
   }, [handleTabChange]);
 
   useEffect(() => {
@@ -200,9 +212,13 @@ export function AppShell({
               setActiveTab('explore');
             }}
             onOpenProfile={() => {
-              window.location.href = '/profile';
+              setShowProfile(true);
+              if (typeof window !== 'undefined') sessionStorage.setItem(PROFILE_OPEN_KEY, '1');
             }}
-            onOpenProject={() => onOpenYourProject('dashboard')}
+            onOpenProject={() => {
+              if (hasActiveWorkspace(currentProject)) onOpenYourProject('dashboard');
+              else onStartProject();
+            }}
             onOpenAI={() => handleTabChange('ai')}
           />
         )}

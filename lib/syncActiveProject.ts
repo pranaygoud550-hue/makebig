@@ -1,8 +1,7 @@
 import { ProjectData } from '@/lib/types';
+import { getApiOrigin } from '@/lib/apiBase';
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+const API = getApiOrigin();
 
 /** Attach MongoDB id to a locally saved project by matching owner + name. */
 export async function syncActiveProjectId(

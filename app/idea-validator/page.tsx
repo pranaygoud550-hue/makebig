@@ -6,6 +6,7 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { getAuthHeadersAsync } from '@/lib/api';
 import { getApiOrigin } from '@/lib/apiBase';
 import { useToast } from '@/lib/context/ToastContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface FullReport {
   problemClarity?: number;
@@ -20,6 +21,7 @@ interface FullReport {
 }
 
 export default function IdeaValidatorPage() {
+  const auth = useAuth();
   const [step, setStep] = useState(1);
   const [idea, setIdea] = useState('');
   const [questions, setQuestions] = useState<string[]>([]);
@@ -123,7 +125,19 @@ export default function IdeaValidatorPage() {
               placeholder="What problem are you solving? Who is it for? What makes your approach different?"
               className="w-full border border-[#d9d9d9] dark:border-gray-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
             />
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <div className="space-y-2">
+                <p className="text-sm text-red-500">{error}</p>
+                {!auth.user && /sign in/i.test(error) && (
+                  <Link
+                    href="/?auth=signup"
+                    className="inline-flex text-sm font-semibold text-[#0A66C2] hover:underline"
+                  >
+                    Sign up free to validate your idea →
+                  </Link>
+                )}
+              </div>
+            )}
             <button
               type="button"
               disabled={loading || !idea.trim()}

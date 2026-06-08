@@ -258,9 +258,13 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
       project,
       matchCount: getSkillMatchCount(state.skills, project.roles || []),
     }));
-    const similar = ranked
-      .filter(item => item.matchCount > 0)
+    const matched = ranked
+      .filter((item) => item.matchCount > 0)
       .sort((a, b) => b.matchCount - a.matchCount);
+    const similar =
+      matched.length > 0
+        ? matched
+        : [...ranked].sort((a, b) => b.project.name.localeCompare(a.project.name));
     return { similarProjects: similar };
   }, [browseProjects, state.skills]);
 

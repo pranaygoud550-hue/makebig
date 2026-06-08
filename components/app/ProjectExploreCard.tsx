@@ -173,6 +173,13 @@ export function ProjectExploreCard({
             >
               Request to join
             </button>
+          ) : p.slug ? (
+            <Link
+              href={`/?join=${encodeURIComponent(p.slug)}`}
+              className="flex w-full items-center justify-center py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
+            >
+              Request to join
+            </Link>
           ) : null}
         </div>
       )}

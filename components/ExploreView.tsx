@@ -79,6 +79,7 @@ export function ExploreView({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   const toggleSkill = (skill: string) => {
@@ -102,6 +103,7 @@ export function ExploreView({
 
     async function load() {
       setLoading(true);
+      setLoadError(null);
       const params = new URLSearchParams();
       if (city) params.set('city', city);
       if (category) params.set('categoryId', category);
@@ -114,7 +116,14 @@ export function ExploreView({
       try {
         const res = await fetch(`${EXPLORE_API}?${params}`, { signal: controller.signal });
         const data = await res.json();
-        if (cancelled || !data.success) return;
+        if (cancelled) return;
+        if (!data.success) {
+          if (page === 1) {
+            setProjects([]);
+            setLoadError('Could not load projects — check your connection and try again.');
+          }
+          return;
+        }
 
         let incoming = dedupeById((data.data.projects || []) as ExploreProject[]);
         if (selectedSkills.length) {
@@ -133,7 +142,10 @@ export function ExploreView({
         setTotal(selectedSkills.length ? incoming.length : (data.data.total ?? incoming.length));
       } catch (e) {
         if ((e as Error).name === 'AbortError') return;
-        if (page === 1) setProjects([]);
+        if (page === 1) {
+          setProjects([]);
+          setLoadError('Could not load projects — the server may be waking up. Try again in a moment.');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -271,6 +283,18 @@ export function ExploreView({
                   <ProjectCardSkeleton key={i} />
                 ))}
               </div>
+            ) : loadError ? (
+              <div className="py-16 text-center bg-white rounded-2xl border border-amber-200">
+                <p className="font-bold text-[#1d2226]">Could not load projects</p>
+                <p className="text-sm text-[#666] mt-1">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  className="mt-4 px-5 py-2 rounded-full bg-[#0A66C2] text-white text-sm font-semibold"
+                >
+                  Retry
+                </button>
+              </div>
             ) : projects.length === 0 ? (
               <div className="py-16 text-center bg-white rounded-2xl border border-dashed border-[#d9d9d9]">
                 <p className="font-bold text-[#1d2226]">No projects found</p>
@@ -284,7 +308,7 @@ export function ExploreView({
                       key={p.id}
                       project={p}
                       userContact={userContact}
-                      showJoin={embedded && Boolean(onJoinProject || onOpenDashboard)}
+                      showJoin={embedded ? Boolean(onJoinProject || onOpenDashboard) : true}
                       onJoinProject={onJoinProject}
                       onOpenDashboard={
                         onOpenDashboard ? () => onOpenDashboard('dashboard') : undefined

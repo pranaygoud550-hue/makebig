@@ -32,6 +32,7 @@ import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemP
 import { isProjectOwner } from '@/lib/projectOwnership';
 import { ConnectGitHubCard } from '@/components/ConnectGitHubCard';
 import { markOnboardingTasks } from '@/components/app/OnboardingChecklist';
+import { getApiOrigin } from '@/lib/apiBase';
 
 interface DashboardOverviewProps {
   project: ProjectData;
@@ -76,9 +77,7 @@ function normalizeTask(raw: Record<string, unknown>): Task {
   };
 }
 
-const API =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:5001';
+const API = getApiOrigin();
 
 const COLUMNS: { key: Task['status']; label: string; accent: string; dot: string }[] = [
   { key: 'todo',        label: 'To Do',       accent: 'bg-[#f3f2ef] text-[#666]',  dot: 'bg-[#aaa]'     },
@@ -226,6 +225,16 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
   const [smartTasks, setSmartTasks]     = useState<SmartTaskSuggestion[]>([]);
   const [loadingSmartTasks, setLoadingSmartTasks] = useState(false);
   const [addingSmartId, setAddingSmartId] = useState<number | null>(null);
+  const [welcomeName, setWelcomeName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const name = sessionStorage.getItem('makebig_welcome_project');
+    if (name) {
+      setWelcomeName(name);
+      sessionStorage.removeItem('makebig_welcome_project');
+    }
+  }, []);
 
   /* ── Open from external FAB ── */
   useEffect(() => {
@@ -577,6 +586,23 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
 
   return (
     <div className="space-y-6">
+
+      {welcomeName && (
+        <div className="bg-gradient-to-r from-[#EEF3FB] to-white border border-[#0A66C2]/25 rounded-2xl p-5">
+          <p className="text-xs font-bold text-[#0A66C2] uppercase tracking-wide">You&apos;re live</p>
+          <h3 className="font-bold text-[#1d2226] mt-1">{welcomeName} is published</h3>
+          <p className="text-sm text-[#666] mt-1">
+            Add 3 tasks below, invite teammates from the Team tab, and post your first update in Posts.
+          </p>
+          <button
+            type="button"
+            onClick={() => setWelcomeName(null)}
+            className="mt-3 text-xs font-semibold text-[#0A66C2] hover:underline"
+          >
+            Got it →
+          </button>
+        </div>
+      )}
 
       {/* Project header */}
       <div>

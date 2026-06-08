@@ -66,7 +66,7 @@ export function OnboardingChecklist({
       id: 'project' as const,
       label: 'Create or join a project',
       done: state.project,
-      action: onOpenExplore ?? onOpenProject,
+      action: onOpenProject ?? onOpenExplore,
     },
     {
       id: 'tasks' as const,

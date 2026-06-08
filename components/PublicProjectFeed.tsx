@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { apiBrowseProjects, BrowseProject } from '@/lib/api';
+import { apiBrowseProjects, apiCheckHealth, BrowseProject } from '@/lib/api';
 import { filterAllowedProjects, isAllowedPublicProject } from '@/lib/projectAllowlist';
 import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
@@ -75,18 +75,32 @@ export function PublicProjectFeed({
   const [category, setCategory]   = useState<string>('all');
   const [search, setSearch]       = useState('');
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   /* ─── Initial load + on category change ─── */
   const load = useCallback(async () => {
     setLoading(true);
-    const raw = await apiBrowseProjects(
-      category,
-      undefined,
-      userContact ? { viewerContact: userContact } : undefined
-    );
-    const list = dedupeProjectsForDisplay(filterAllowedProjects(raw));
-    setProjects(list);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const online = await apiCheckHealth();
+      if (!online) {
+        setLoadError('Projects are temporarily unavailable — the API may be waking up. Try again in a moment.');
+        setProjects([]);
+        return;
+      }
+      const raw = await apiBrowseProjects(
+        category,
+        undefined,
+        userContact ? { viewerContact: userContact } : undefined
+      );
+      const list = dedupeProjectsForDisplay(filterAllowedProjects(raw));
+      setProjects(list);
+    } catch {
+      setLoadError('Could not load projects. The API may be waking up — refresh in a few seconds.');
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
   }, [category, userContact]);
 
   useEffect(() => { load(); }, [load]);
@@ -235,6 +249,18 @@ export function PublicProjectFeed({
                 </div>
               </div>
             ))}
+          </div>
+        ) : loadError ? (
+          <div className="bg-white border border-amber-200 rounded-2xl p-12 text-center">
+            <p className="text-[#1d2226] font-semibold text-lg">Could not load projects</p>
+            <p className="text-[#666] text-sm mt-1">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="mt-4 px-5 py-2 rounded-full bg-[#0A66C2] text-white text-sm font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-white border border-dashed border-[#d9d9d9] rounded-2xl p-12 text-center">

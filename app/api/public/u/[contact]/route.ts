@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { getApiOrigin } from '@/lib/apiBase';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const API = getApiOrigin();
 
 export async function GET(
   _request: Request,
