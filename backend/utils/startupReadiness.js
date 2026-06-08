@@ -78,6 +78,16 @@ export function computeProgressScore(input) {
 }
 
 export function computeStartupReadiness(input) {
+  const hasActivity =
+    (input.tasks?.length || 0) > 0 ||
+    (input.postsCount || 0) > 0 ||
+    (input.activitiesCount || 0) > 0;
+  const joined = (input.teamMembers || []).filter((m) => m.status === 'joined').length;
+
+  if (!hasActivity && joined === 0) {
+    return { team: 0, market: 0, validation: 0, progress: 0, overall: 0, computedAt: new Date().toISOString() };
+  }
+
   const team = computeTeamScore(input);
   const market = computeMarketScore(input);
   const validation = computeValidationScore(input);

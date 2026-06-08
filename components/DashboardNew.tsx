@@ -24,12 +24,11 @@ import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { useToast } from '@/lib/context/ToastContext';
 import { AvailabilityView } from './AvailabilityView';
 import { ProjectHealthBanner } from './ProjectHealthBanner';
-import { AgentHistoryView } from './AgentHistoryView';
+import { ProjectAIPanel } from '@/components/dashboard/ProjectAIPanel';
+import { setProjectAIMode } from '@/lib/projectAIMode';
 import { useAgentSocket } from '@/lib/useAgentSocket';
 import { useRemovedFromProject } from '@/lib/hooks/useRemovedFromProject';
 import type { AgentCompleteEvent, AgentStepEvent } from '@/lib/agentTypes';
-import { queueAgentRun } from '@/lib/agentPending';
-import type { AgentType } from '@/lib/agentTypes';
 
 interface DashboardNewProps {
   project: ProjectData;
@@ -59,6 +58,7 @@ type NavTab = DashboardNavTab;
 
 const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard',        icon: '📊' },
+  { id: 'agent',     label: 'AI Workspace',     icon: '🤖' },
   { id: 'matches',   label: 'Find Co-founders', icon: '🤝' },
   { id: 'projects',  label: 'My Projects',      icon: '📁' },
   { id: 'team',      label: 'Team Members',     icon: '👥' },
@@ -69,7 +69,6 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'notes',     label: 'Notes',            icon: '📝' },
   { id: 'activity',  label: 'Activity',         icon: '⚡' },
   { id: 'availability', label: 'Schedule',     icon: '📅' },
-  { id: 'agent',        label: 'Agent',          icon: '🤖' },
 ];
 
 export function DashboardNew({
@@ -237,6 +236,11 @@ export function DashboardNew({
   const selectNav = (id: NavTab) => {
     setActiveNav(id);
     closeSidebar();
+  };
+
+  const openAIWorkspace = (mode: 'assistant' | 'agent') => {
+    if (project.id) setProjectAIMode(project.id, mode);
+    selectNav('agent');
   };
 
   return (
@@ -505,6 +509,8 @@ export function DashboardNew({
                 project={project}
                 user={user}
                 onProjectUpdate={onProjectUpdate}
+                onOpenAI={openAIWorkspace}
+                onNavigateTab={selectNav}
                 externalShowNewTask={showFloatingTask}
                 onExternalTaskClose={() => setShowFloatingTask(false)}
               />
@@ -613,20 +619,12 @@ export function DashboardNew({
             )}
 
             {activeNav === 'agent' && project.id && user && (
-              <div className="bg-white rounded-xl border border-[#e0e0e0] p-5">
-                <h2 className="text-lg font-bold text-[#1d2226] mb-1">Agent history</h2>
-                <p className="text-sm text-[#666] mb-4">
-                  Past agent runs for {project.name}. Re-run or undo changes.
-                </p>
-                <AgentHistoryView
-                  projectId={project.id}
-                  refreshKey={agentHistoryRefresh}
-                  onRerun={(type: AgentType, goal: string) => {
-                    queueAgentRun({ projectId: project.id!, agentType: type, goal });
-                    showToast('Agent started — open AI tab to watch progress', 'info');
-                  }}
-                />
-              </div>
+              <ProjectAIPanel
+                project={project}
+                user={user}
+                ownerContact={ownerContact}
+                agentHistoryRefresh={agentHistoryRefresh}
+              />
             )}
 
           </div>

@@ -13,6 +13,7 @@ interface NavbarProps {
   onProfileClick: () => void;
   onLogout: () => void;
   onProjectClick: () => void;
+  variant?: 'default' | 'landing';
 }
 
 export function Navbar({
@@ -22,11 +23,19 @@ export function Navbar({
   onProfileClick,
   onLogout,
   onProjectClick,
+  variant = 'default',
 }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const isLanding = variant === 'landing';
 
   return (
-    <nav className="sticky top-0 z-40 bg-white border-b border-[#d9d9d9] shadow-sm">
+    <nav
+      className={
+        isLanding
+          ? 'fixed top-0 left-0 right-0 z-50 bg-[#0A0A0F]/80 backdrop-blur-md border-b border-white/[0.06]'
+          : 'sticky top-0 z-40 bg-white border-b border-[#d9d9d9] shadow-sm'
+      }
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
@@ -34,11 +43,37 @@ export function Navbar({
 
           {/* Nav links */}
           <div className="hidden md:flex items-center gap-6">
-            <Link href="/" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Home</Link>
-            <Link href="/learn" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Learn</Link>
-            <Link href="/explore" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Explore</Link>
-            <Link href="/pricing" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Pricing</Link>
-            <Link href="/#discover" className="text-sm text-[#666] hover:text-[#0A66C2] font-medium transition-colors">Projects</Link>
+            <Link
+              href="/"
+              className={`text-sm font-medium transition-colors ${isLanding ? 'text-white/60 hover:text-white' : 'text-[#666] hover:text-[#0A66C2]'}`}
+            >
+              Home
+            </Link>
+            <Link
+              href="/learn"
+              className={`text-sm font-medium transition-colors ${isLanding ? 'text-white/60 hover:text-white' : 'text-[#666] hover:text-[#0A66C2]'}`}
+            >
+              Learn
+            </Link>
+            <Link
+              href="/explore"
+              data-tour="explore"
+              className={`text-sm font-medium transition-colors ${isLanding ? 'text-white/60 hover:text-white' : 'text-[#666] hover:text-[#0A66C2]'}`}
+            >
+              Explore
+            </Link>
+            <Link
+              href="/pricing"
+              className={`text-sm font-medium transition-colors ${isLanding ? 'text-white/60 hover:text-white' : 'text-[#666] hover:text-[#0A66C2]'}`}
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/#discover"
+              className={`text-sm font-medium transition-colors ${isLanding ? 'text-white/60 hover:text-white' : 'text-[#666] hover:text-[#0A66C2]'}`}
+            >
+              Projects
+            </Link>
           </div>
 
           {/* Auth */}
@@ -103,14 +138,26 @@ export function Navbar({
             ) : (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  data-tour="profile"
                   onClick={onAuthClick}
-                  className="px-4 py-1.5 text-sm font-semibold text-[#0A66C2] border border-[#0A66C2] rounded-full hover:bg-[#EEF3FB] transition-colors"
+                  className={
+                    isLanding
+                      ? 'px-4 py-1.5 text-sm font-semibold text-white/80 border border-white/20 rounded-full hover:bg-white/5 transition-colors'
+                      : 'px-4 py-1.5 text-sm font-semibold text-[#0A66C2] border border-[#0A66C2] rounded-full hover:bg-[#EEF3FB] transition-colors'
+                  }
                 >
                   Sign In
                 </button>
                 <button
+                  type="button"
+                  data-tour="signup"
                   onClick={onAuthClick}
-                  className="px-4 py-1.5 text-sm font-semibold text-white bg-[#0A66C2] rounded-full hover:bg-[#004182] transition-colors"
+                  className={
+                    isLanding
+                      ? 'px-4 py-1.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-purple-600 rounded-full hover:opacity-90 transition-opacity'
+                      : 'px-4 py-1.5 text-sm font-semibold text-white bg-[#0A66C2] rounded-full hover:bg-[#004182] transition-colors'
+                  }
                 >
                   Join Now
                 </button>

@@ -1,15 +1,9 @@
 'use client';
 
-import { AICofounder } from '@/components/AICofounder';
 import { ProjectWorkspaceGate } from '@/components/app/ProjectWorkspaceGate';
-import { useSubscription } from '@/lib/hooks/useSubscription';
+import { ProjectAIPanel } from '@/components/dashboard/ProjectAIPanel';
 import { ProjectData, User } from '@/lib/types';
-import {
-  canUseAICofounder,
-  isProjectOwner,
-  workspaceLabel,
-} from '@/lib/projectWorkspace';
-import Link from 'next/link';
+import { canUseAICofounder, workspaceLabel } from '@/lib/projectWorkspace';
 
 interface AICoderTabProps {
   user: User;
@@ -24,11 +18,9 @@ export function AICoderTab({
   onOpenDashboard,
   onProjectSynced,
 }: AICoderTabProps) {
-  const owner = isProjectOwner(currentProject, user.contact);
   const ownerContact =
     currentProject?.ownerContact ||
-    (owner ? user.contact : undefined);
-  const { isPro } = useSubscription(ownerContact);
+    (currentProject?.mode === 'create' ? user.contact : undefined);
 
   return (
     <ProjectWorkspaceGate
@@ -38,8 +30,8 @@ export function AICoderTab({
       onProjectSynced={onProjectSynced}
       noProject={{
         icon: '🤖',
-        title: 'AI Co-founder',
-        description: 'Create or join a project first, then get task ideas, pitch drafts, and health checks.',
+        title: 'AI Workspace',
+        description: 'Create or join a project first, then chat with the Assistant or run an Agent.',
       }}
       needsSync={{
         icon: '🤖',
@@ -70,46 +62,7 @@ export function AICoderTab({
           </button>
         </div>
       ) : currentProject ? (
-        <div className="space-y-3">
-          <header>
-            <h1 className="text-xl font-bold text-[#1d2226]">AI Co-founder</h1>
-            <p className="text-sm text-[#666] mt-0.5">
-              {owner ? (
-                <>
-                  For <strong>{workspaceLabel(currentProject)}</strong> — tasks, pitch, health check.
-                </>
-              ) : (
-                <>
-                  Helping with <strong>{workspaceLabel(currentProject)}</strong> — ask about tasks,
-                  ideas, and what to build next.{' '}
-                  <button
-                    type="button"
-                    onClick={onOpenDashboard}
-                    className="text-[#0A66C2] font-semibold hover:underline"
-                  >
-                    Open team dashboard
-                  </button>
-                </>
-              )}
-            </p>
-          </header>
-          {!isPro && owner && (
-            <div className="bg-[#EEF3FB] border border-[#0A66C2]/20 rounded-xl px-4 py-3 text-sm text-[#1d2226]">
-              <strong>Free plan</strong> — 10 AI link reads per project per day.{' '}
-              <Link href="/pricing" className="text-[#0A66C2] font-semibold hover:underline">
-                Upgrade to Pro
-              </Link>{' '}
-              for unlimited link reads, unlimited projects, and priority matching.
-            </div>
-          )}
-          <div className="min-h-[60vh] flex flex-col bg-white rounded-2xl border border-[#e0e0e0] overflow-hidden">
-            <AICofounder
-              project={currentProject}
-              user={user}
-              ownerContact={ownerContact}
-            />
-          </div>
-        </div>
+        <ProjectAIPanel project={currentProject} user={user} ownerContact={ownerContact} />
       ) : null}
     </ProjectWorkspaceGate>
   );

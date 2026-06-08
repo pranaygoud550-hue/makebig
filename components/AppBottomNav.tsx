@@ -13,7 +13,7 @@ export const APP_NAV_TABS: { id: AppTab; label: string; icon: string; mobileLabe
   { id: 'home', label: 'Home', icon: '🏠' },
   { id: 'explore', label: 'Explore', icon: '🔍' },
   { id: 'posts', label: 'Posts', icon: '📝' },
-  { id: 'ai', label: 'AI Coder', mobileLabel: 'AI', icon: '🤖' },
+  { id: 'ai', label: 'AI Workspace', mobileLabel: 'AI', icon: '🤖' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'friends', label: 'Friends', icon: '👋' },
   { id: 'project', label: 'Your Project', mobileLabel: 'Project', icon: '📁' },

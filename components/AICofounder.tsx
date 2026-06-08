@@ -41,6 +41,8 @@ interface AICofounderProps {
   project: ProjectData;
   user: User | null;
   ownerContact?: string;
+  /** Hide Agent tab when agent lives in a separate mode toggle (ProjectAIPanel). */
+  hideAgentTab?: boolean;
 }
 
 type ActionId =
@@ -279,7 +281,7 @@ function DMContextModal({
   );
 }
 
-export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
+export function AICofounder({ project, user, ownerContact, hideAgentTab = false }: AICofounderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -812,6 +814,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
           >
             🏗 Build
           </button>
+          {!hideAgentTab && (
           <button
             type="button"
             onClick={() => setPanelTab('agent')}
@@ -823,6 +826,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
           >
             🤖 Agent
           </button>
+          )}
           {linkUsage && !linkUsage.isPro && linkUsage.limit != null && (
             <span className="ml-auto text-[10px] text-[#8b949e] self-center">
               {linkUsage.used}/{linkUsage.limit} link reads today
@@ -870,7 +874,7 @@ export function AICofounder({ project, user, ownerContact }: AICofounderProps) {
             <div className="w-14 h-14 rounded-2xl bg-[#21262d] border border-[#30363d] flex items-center justify-center mb-4">
               <RobotIcon className="w-8 h-8 text-[#58a6ff]" />
             </div>
-            <h3 className="font-bold text-[#e6edf3]">Hi, I&apos;m your AI co-founder</h3>
+            <h3 className="font-bold text-[#e6edf3]">Hi, I&apos;m your AI Assistant</h3>
             <p className="text-sm text-[#8b949e] mt-2 max-w-xs">
               I remember our last 10 messages. Ask about{' '}
               <span className="text-[#58a6ff] font-medium">{project.name}</span>.

@@ -85,10 +85,8 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
     }
   };
 
-  const showHealth =
-    health &&
-    (configured || health.score > 0 || health.heatmap.some((h) => h.count > 0));
-  const showReadiness = readiness && (configured || readiness.overall > 0);
+  const showHealth = health != null;
+  const showReadiness = readiness != null;
 
   return (
     <div className="space-y-5">
@@ -169,7 +167,16 @@ export function StartupEcosystemPanels({ projectId, isOwner }: StartupEcosystemP
         </>
       )}
 
-      {showReadiness && <StartupReadinessDashboard scores={readiness!} />}
+      {showReadiness && (
+        <>
+          {readiness!.overall === 0 && (
+            <p className="text-xs text-[#666] -mt-2">
+              Scores start at 0 — they grow as you add tasks, teammates, and ship updates.
+            </p>
+          )}
+          <StartupReadinessDashboard scores={readiness!} />
+        </>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import './globals.css';
 import { AppProviders } from './providers';
 import { themeInitScript } from '@/lib/themeInitScript';
 import { SITE_URL } from '@/lib/site';
+import { OnboardingTourRoot } from '@/components/onboarding/OnboardingTourRoot';
 
 export const metadata: Metadata = {
   title: {
@@ -58,7 +59,10 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="bg-[#f3f2ef] text-[#1d2226] dark:bg-gray-900 dark:text-white transition-colors">
-        <AppProviders>{children}</AppProviders>
+        <AppProviders>
+          {children}
+          <OnboardingTourRoot />
+        </AppProviders>
       </body>
     </html>
   );

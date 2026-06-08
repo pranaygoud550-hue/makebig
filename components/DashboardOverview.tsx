@@ -31,6 +31,7 @@ import Link from 'next/link';
 import { StartupEcosystemPanels } from '@/components/ecosystem/StartupEcosystemPanels';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import { ConnectGitHubCard } from '@/components/ConnectGitHubCard';
+import { AIWorkspacePreview } from '@/components/dashboard/AIWorkspacePreview';
 import { markOnboardingTasks } from '@/components/app/OnboardingChecklist';
 import { getApiOrigin } from '@/lib/apiBase';
 
@@ -38,6 +39,8 @@ interface DashboardOverviewProps {
   project: ProjectData;
   user: User | null;
   onProjectUpdate?: (project: ProjectData) => void;
+  onOpenAI?: (mode: 'assistant' | 'agent') => void;
+  onNavigateTab?: (tab: 'invite' | 'team' | 'feed') => void;
   /** Called from parent's floating FAB */
   externalShowNewTask?: boolean;
   onExternalTaskClose?: () => void;
@@ -94,11 +97,15 @@ const PRIORITY_CLS = {
 const AVATAR_COLORS = ['bg-[#0A66C2]', 'bg-purple-500', 'bg-teal-500', 'bg-rose-500', 'bg-amber-500'];
 
 /* ── SVG Health Ring ── */
-function HealthRing({ pct, health }: { pct: number; health: 'on-track' | 'at-risk' | 'overdue' }) {
+function HealthRing({ pct, health }: { pct: number; health: 'on-track' | 'at-risk' | 'overdue' | 'getting-started' }) {
   const R = 38;
   const circ = 2 * Math.PI * R;
   const offset = circ - (pct / 100) * circ;
-  const color = health === 'on-track' ? '#22c55e' : health === 'at-risk' ? '#f59e0b' : '#ef4444';
+  const color =
+    health === 'on-track' ? '#22c55e'
+    : health === 'at-risk' ? '#f59e0b'
+    : health === 'getting-started' ? '#9ca3af'
+    : '#ef4444';
   return (
     <svg width="96" height="96" viewBox="0 0 100 100" className="shrink-0">
       <circle cx="50" cy="50" r={R} fill="none" stroke="#e5e7eb" strokeWidth="10" />
@@ -209,10 +216,11 @@ function SortableTaskCard({
   );
 }
 
-export function DashboardOverview({ project, user, onProjectUpdate, externalShowNewTask, onExternalTaskClose }: DashboardOverviewProps) {
+export function DashboardOverview({ project, user, onProjectUpdate, onOpenAI, onNavigateTab, externalShowNewTask, onExternalTaskClose }: DashboardOverviewProps) {
   const { showToast } = useToast();
   const [tasks, setTasks]     = useState<Task[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [githubConnected, setGithubConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as Task['priority'], assignee: '' });
@@ -568,16 +576,18 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
     ? Math.ceil((new Date(project.deadline).getTime() - Date.now()) / 86400000)
     : null;
 
-  const health: 'on-track' | 'at-risk' | 'overdue' =
-    daysLeft !== null && daysLeft <= 0 ? 'overdue'
-    : (daysLeft !== null && daysLeft <= 7) || (total > 0 && pct < 30) ? 'at-risk'
+  const health: 'on-track' | 'at-risk' | 'overdue' | 'getting-started' =
+    total === 0 ? 'getting-started'
+    : daysLeft !== null && daysLeft <= 0 ? 'overdue'
+    : (daysLeft !== null && daysLeft <= 7) || pct < 30 ? 'at-risk'
     : 'on-track';
 
-  const healthLabel  = { 'on-track': 'On Track', 'at-risk': 'At Risk', 'overdue': 'Overdue' };
+  const healthLabel  = { 'on-track': 'On Track', 'at-risk': 'At Risk', 'overdue': 'Overdue', 'getting-started': 'Getting started' };
   const healthColors = {
     'on-track': 'text-green-700 bg-green-50 border-green-200',
     'at-risk':  'text-amber-700 bg-amber-50 border-amber-200',
     'overdue':  'text-red-700   bg-red-50   border-red-200',
+    'getting-started': 'text-[#666] bg-[#f3f2ef] border-[#e0e0e0]',
   };
 
   const iCls = 'w-full px-3 py-2 border border-[#d9d9d9] rounded-lg text-sm text-[#1d2226] placeholder-[#aaa] focus:outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2]/20 bg-white transition-all';
@@ -618,6 +628,18 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
         )}
       </div>
 
+      {project.id && user && onOpenAI && (
+        <AIWorkspacePreview
+          project={project}
+          tasks={tasks}
+          teamMemberCount={members.length}
+          githubConnected={githubConnected}
+          onOpenAI={onOpenAI}
+          onAddTask={() => setShowNewTask(true)}
+          onNavigate={(tab) => onNavigateTab?.(tab)}
+        />
+      )}
+
       {project.id && (
         <StartupEcosystemPanels projectId={project.id} isOwner={isOwner} />
       )}
@@ -634,7 +656,8 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
             <div className="flex items-center gap-3 flex-wrap">
               <p className="text-lg font-bold text-[#1d2226]">Project Health</p>
               <span className={`text-xs font-bold px-3 py-1 rounded-full border ${healthColors[health]}`}>
-                {health === 'overdue' ? '🔴' : health === 'at-risk' ? '🟡' : '🟢'} {healthLabel[health]}
+                {health === 'overdue' ? '🔴' : health === 'at-risk' ? '🟡' : health === 'getting-started' ? '⚪' : '🟢'}{' '}
+                {healthLabel[health]}
               </span>
             </div>
 
@@ -732,11 +755,14 @@ export function DashboardOverview({ project, user, onProjectUpdate, externalShow
       )}
 
       {project.id && (
-        <ConnectGitHubCard
-          projectId={project.id}
-          isOwner={isProjectOwner(user?.contact, project.ownerContact)}
-          onError={setTaskError}
-        />
+        <div id="connect-github">
+          <ConnectGitHubCard
+            projectId={project.id}
+            isOwner={isProjectOwner(user?.contact, project.ownerContact)}
+            onError={setTaskError}
+            onConnectionChange={setGithubConnected}
+          />
+        </div>
       )}
 
       {/* ── Kanban Board with DnD ── */}

@@ -65,6 +65,14 @@ export default function Home() {
       setShowAuth(true);
       window.history.replaceState({}, '', '/');
     }
+
+    const onTourSignup = () => {
+      setPendingWizardEntry('create');
+      setAuthInitialMode('signup');
+      setShowAuth(true);
+    };
+    window.addEventListener('makebig:open-signup', onTourSignup);
+    return () => window.removeEventListener('makebig:open-signup', onTourSignup);
   }, []);
 
   const openAuth = useCallback((mode: 'signin' | 'signup' = 'signin') => {
@@ -628,8 +636,9 @@ export default function Home() {
 
   /* Public marketing front — logged out, or signed in before create/join */
   return (
-    <div className="bg-[#f3f2ef] min-h-screen">
+    <div className="min-h-screen bg-[#0A0A0F]">
       <Navbar
+        variant="landing"
         user={auth.user}
         profileImage={auth.profile?.profileImage}
         onAuthClick={() => openAuth('signin')}

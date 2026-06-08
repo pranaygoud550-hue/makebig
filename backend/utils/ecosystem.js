@@ -103,14 +103,39 @@ export function computeHealthScore(input) {
   const tasks = input.tasks || [];
   const done = tasks.filter((t) => t.status === 'done').length;
   const open = tasks.filter((t) => t.status !== 'done').length;
-  const total = tasks.length || 1;
   const joined = (input.teamMembers || []).filter((m) => m.status === 'joined').length;
   const activeMembers = joined + 1;
+  const updatesThisWeek = (input.postsThisWeek || 0) + (input.activitiesThisWeek || 0);
+  const hasActivity =
+    tasks.length > 0 || updatesThisWeek > 0 || (input.heatmap?.slice(-7).reduce((s, h) => s + h.count, 0) || 0) > 0;
+
+  if (!hasActivity) {
+    return {
+      score: 0,
+      activity: 0,
+      engagement: 0,
+      progress: 0,
+      taskCompletion: 0,
+      level: healthLevel(0),
+      metrics: {
+        activeMembers,
+        lastActivityAt: input.lastActivityAt ? new Date(input.lastActivityAt).toISOString() : null,
+        openTasks: open,
+        completedTasks: done,
+        updatesThisWeek: 0,
+        joinRequests: input.joinRequestsPending || 0,
+        responseTimeHours: 0,
+      },
+      heatmap: input.heatmap || [],
+      computedAt: new Date().toISOString(),
+    };
+  }
+
+  const total = tasks.length || 1;
   const taskCompletion = clamp((done / total) * 100);
   const progress = clamp((input.journeyCompletion ?? 0) * 0.6 + taskCompletion * 0.4);
-  const updatesThisWeek = (input.postsThisWeek || 0) + (input.activitiesThisWeek || 0);
   const activity = clamp(Math.min(100, updatesThisWeek * 15 + (input.heatmap?.slice(-7).reduce((s, h) => s + h.count, 0) || 0) * 5));
-  const engagement = clamp(activeMembers * 12 + Math.min(40, updatesThisWeek * 8) + Math.max(0, 30 - (input.joinRequestsPending || 0) * 5));
+  const engagement = clamp(Math.min(100, joined * 10 + Math.min(40, updatesThisWeek * 8) + Math.max(0, 30 - (input.joinRequestsPending || 0) * 5)));
   const score = clamp((activity + engagement + progress + taskCompletion) / 4);
   const lastActivityAt = input.lastActivityAt ? new Date(input.lastActivityAt).toISOString() : null;
   const daysSince = lastActivityAt ? (Date.now() - new Date(lastActivityAt).getTime()) / 86400000 : 999;

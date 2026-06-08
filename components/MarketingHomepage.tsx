@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import { PublicProjectFeed } from '@/components/PublicProjectFeed';
 import { SalaryLeaderboard } from '@/components/SalaryLeaderboard';
 import { VerifiedSkillsLeaderboard } from '@/components/skillVerification/VerifiedSkillsLeaderboard';
@@ -9,8 +9,26 @@ import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartups
 import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
 import { ShowcaseFeed } from '@/components/ShowcaseFeed';
 import { MarketingFooter } from '@/components/MarketingFooter';
+import { HeroSection } from '@/components/landing/HeroSection';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { BrowseProject } from '@/lib/api';
+
+const HowItWorks = dynamic(
+  () => import('@/components/landing/HowItWorks').then((m) => m.HowItWorks),
+  { loading: () => <SectionPlaceholder /> }
+);
+const FeatureBento = dynamic(
+  () => import('@/components/landing/FeatureBento').then((m) => m.FeatureBento),
+  { loading: () => <SectionPlaceholder /> }
+);
+const TestimonialMarquee = dynamic(
+  () => import('@/components/landing/TestimonialMarquee').then((m) => m.TestimonialMarquee),
+  { loading: () => <SectionPlaceholder /> }
+);
+const FinalCTA = dynamic(
+  () => import('@/components/landing/FinalCTA').then((m) => m.FinalCTA),
+  { loading: () => <SectionPlaceholder /> }
+);
 
 export interface DebugSnapshot {
   timestamp: string;
@@ -34,82 +52,8 @@ interface MarketingHomepageProps {
   onCloseDebug?: () => void;
 }
 
-const PILLARS = [
-  {
-    icon: '🤝',
-    title: 'Find your co-founder first',
-    tagline: 'Before you find your repo.',
-    desc: 'Match by skills, college, city, and compatibility — built for Indian student startups, not open-source maintainers.',
-    highlights: ['Co-founder compatibility score', 'Verified skills leaderboard', 'Join requests & team roles'],
-  },
-  {
-    icon: '🤖',
-    title: 'AI co-founder that knows your project',
-    tagline: 'Not generic ChatGPT.',
-    desc: 'Auto-setup, sprint plans, competitor link analysis, and weekly reports — all tied to your actual team and tasks.',
-    highlights: ['AI agent sets up in 30 seconds', 'Read any link (GitHub, competitors)', 'Health alerts when teams go quiet'],
-  },
-  {
-    icon: '📈',
-    title: 'Momentum when teams usually quit',
-    tagline: 'Week 3 is when projects die.',
-    desc: 'Standups, health scores, milestones, and live feeds keep amateur teams accountable — the stuff GitHub never tracks.',
-    highlights: ['Project health score', 'Team chat & task board', 'Showcase feed for real activity'],
-  },
-];
-
-const GITHUB_FLOW = [
-  { step: '1', label: 'Team up on Make Big', detail: 'Find co-founders, validate your idea, run the setup agent.' },
-  { step: '2', label: 'Plan your sprint here', detail: 'Tasks, standups, AI advice — no repo required yet.' },
-  { step: '3', label: 'Connect GitHub when ready', detail: 'Paste your repo URL — we show commits & AI reads your README.' },
-  { step: '4', label: 'Code on GitHub, lead on Make Big', detail: 'Push code there. Track progress, health, and pitch here.' },
-];
-
-const SUPPORTING = [
-  { icon: '💡', title: 'Idea validator', desc: 'AI scores your startup idea before you write a line of code.' },
-  { icon: '📚', title: 'Learn → build', desc: 'Pick up skills, then spin up a project with your team.' },
-  { icon: '🌍', title: 'Explore & join', desc: 'Browse live projects and open roles across India.' },
-];
-
-const DEFAULT_STATS = [
-  { value: '50+', label: 'Total Projects', key: 'projects' },
-  { value: '100+', label: 'Active Members', key: 'members' },
-  { value: '12+', label: 'Cities', key: 'cities' },
-];
-
-function HeroIllustration() {
-  return (
-    <svg viewBox="0 0 400 320" className="w-full max-w-md mx-auto" aria-hidden>
-      <defs>
-        <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#0A66C2" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#22c55e" stopOpacity="0.1" />
-        </linearGradient>
-      </defs>
-      <rect x="40" y="40" width="320" height="240" rx="20" fill="url(#heroGrad)" stroke="#0A66C2" strokeOpacity="0.2" />
-      <rect x="60" y="70" width="130" height="80" rx="12" fill="white" stroke="#e0e0e0" />
-      <rect x="70" y="82" width="60" height="8" rx="4" fill="#0A66C2" opacity="0.7" />
-      <rect x="70" y="98" width="90" height="6" rx="3" fill="#e0e0e0" />
-      <rect x="70" y="110" width="70" height="6" rx="3" fill="#e0e0e0" />
-      <circle cx="95" cy="135" r="10" fill="#EEF3FB" stroke="#0A66C2" strokeWidth="1.5" />
-      <circle cx="120" cy="135" r="10" fill="#EEF3FB" stroke="#0A66C2" strokeWidth="1.5" />
-      <circle cx="145" cy="135" r="10" fill="#dcfce7" stroke="#22c55e" strokeWidth="1.5" />
-      <rect x="210" y="70" width="130" height="55" rx="10" fill="white" stroke="#e0e0e0" />
-      <rect x="222" y="82" width="50" height="6" rx="3" fill="#22c55e" opacity="0.8" />
-      <rect x="222" y="96" width="80" height="5" rx="2" fill="#f3f2ef" />
-      <rect x="222" y="106" width="60" height="5" rx="2" fill="#f3f2ef" />
-      <rect x="210" y="140" width="130" height="55" rx="10" fill="white" stroke="#e0e0e0" />
-      <rect x="222" y="152" width="40" height="6" rx="3" fill="#f59e0b" opacity="0.8" />
-      <rect x="222" y="166" width="90" height="5" rx="2" fill="#f3f2ef" />
-      <rect x="60" y="170" width="280" height="90" rx="12" fill="white" stroke="#0A66C2" strokeOpacity="0.25" />
-      <rect x="75" y="188" width="8" height="55" rx="4" fill="#0A66C2" opacity="0.3" />
-      <rect x="95" y="200" width="8" height="43" rx="4" fill="#22c55e" opacity="0.5" />
-      <rect x="115" y="210" width="8" height="33" rx="4" fill="#0A66C2" opacity="0.6" />
-      <rect x="135" y="195" width="8" height="48" rx="4" fill="#f59e0b" opacity="0.5" />
-      <rect x="155" y="205" width="8" height="38" rx="4" fill="#22c55e" opacity="0.4" />
-      <text x="200" y="220" fill="#666" fontSize="11" fontFamily="system-ui">Tasks · Posts · Team</text>
-    </svg>
-  );
+function SectionPlaceholder() {
+  return <div className="h-32 bg-[#0A0A0F]" aria-hidden />;
 }
 
 export function MarketingHomepage({
@@ -118,349 +62,74 @@ export function MarketingHomepage({
   onStartProject,
   onRequireAuth,
   onJoinProject,
-  onExploreClick,
   onCheckDebug,
   showDebug,
   debugData,
   onCloseDebug,
 }: MarketingHomepageProps) {
-  const exploreHref = '/explore';
-  const [stats, setStats] = useState(DEFAULT_STATS);
-
-  useEffect(() => {
-    fetch('/api/public/stats')
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data?.totalProjects && !data?.totalUsers) return;
-        setStats([
-          { value: `${data.totalProjects}+`, label: 'Total Projects', key: 'projects' },
-          { value: `${data.totalUsers}+`, label: 'Active Members', key: 'members' },
-          { value: `${Math.max(data.totalCities || 1, 1)}+`, label: 'Cities', key: 'cities' },
-          { value: `${WIZARD_CATEGORIES.length}+`, label: 'Categories', key: 'categories' },
-        ]);
-      })
-      .catch(() => {});
-  }, []);
+  const handleStartFree = () => {
+    onRequireAuth();
+  };
 
   return (
-    <>
-      <style>{`
-        @keyframes float-slow {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(12px, -18px) scale(1.05); }
-        }
-        @keyframes float-slower {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(-16px, 12px); }
-        }
-        @keyframes grid-fade {
-          0%, 100% { opacity: 0.04; }
-          50% { opacity: 0.08; }
-        }
-        @keyframes rise-in {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
-        .animate-float-slower { animation: float-slower 11s ease-in-out infinite; }
-        .animate-grid-fade { animation: grid-fade 6s ease-in-out infinite; }
-        .animate-rise-in { animation: rise-in 0.7s ease-out forwards; }
-      `}</style>
+    <div className="bg-[#0A0A0F]">
+      <HeroSection onStartFree={handleStartFree} />
 
-      {/* ── Hero ── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#EEF3FB] via-white to-[#f3f2ef] border-b border-[#e0e0e0]">
-        <div
-          className="absolute inset-0 animate-grid-fade pointer-events-none"
-          style={{
-            backgroundImage:
-              'linear-gradient(#0A66C2 1px, transparent 1px), linear-gradient(90deg, #0A66C2 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div className="absolute top-16 -left-20 w-80 h-80 bg-[#0A66C2]/15 rounded-full blur-3xl animate-float-slow pointer-events-none" />
-        <div className="absolute bottom-10 -right-16 w-96 h-96 bg-[#22c55e]/10 rounded-full blur-3xl animate-float-slower pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#0A66C2]/5 rounded-full blur-3xl pointer-events-none" />
+      <Suspense fallback={<SectionPlaceholder />}>
+        <HowItWorks />
+      </Suspense>
 
-        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-16 md:py-24 grid lg:grid-cols-2 gap-12 items-center">
-          <div className="animate-rise-in text-center lg:text-left">
-            <span className="inline-flex items-center gap-2 px-3 py-1 bg-white text-[#0A66C2] text-xs font-bold rounded-full uppercase tracking-wider mb-5 border border-[#0A66C2]/20 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-              Built for Indian student startups
-            </span>
-            <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-black text-[#1d2226] leading-[1.08] tracking-tight">
-              Find your co-founder.{' '}
-              <span className="text-[#0A66C2]">Ship your first sprint.</span>{' '}
-              Code on GitHub.
-            </h1>
-            <p className="text-[#666] text-base md:text-lg mt-5 leading-relaxed max-w-xl mx-auto lg:mx-0">
-              GitHub stores your code. Make Big forms your team, validates your idea, and tells you
-              what to do next — until you&apos;re ready to push your first repo.
-            </p>
+      <Suspense fallback={<SectionPlaceholder />}>
+        <FeatureBento />
+      </Suspense>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-center lg:justify-start">
-              <button
-                type="button"
-                onClick={onRequireAuth}
-                className="px-8 py-3.5 bg-[#0A66C2] text-white font-bold rounded-full hover:bg-[#004182] hover:shadow-lg hover:shadow-[#0A66C2]/25 transition-all text-sm sm:text-base text-center"
-              >
-                Get Started
-              </button>
-              <Link
-                href={exploreHref}
-                className="px-8 py-3.5 bg-white border-2 border-[#0A66C2] text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] transition-all text-sm sm:text-base text-center"
-              >
-                Explore Projects
-              </Link>
-              <button
-                type="button"
-                onClick={onStartProject}
-                className="px-8 py-3.5 bg-white border border-[#d9d9d9] text-[#666] font-bold rounded-full hover:bg-[#f3f2ef] transition-all text-sm sm:text-base"
-              >
-                Start a project
-              </button>
-            </div>
+      <Suspense fallback={<SectionPlaceholder />}>
+        <TestimonialMarquee />
+      </Suspense>
 
-            <p className="text-xs text-[#999] mt-5">
-              Free for students · Works with GitHub · AI setup in ~30 seconds
-            </p>
-          </div>
+      {!isSignedIn && (
+        <Suspense fallback={<SectionPlaceholder />}>
+          <FinalCTA onCreateAccount={onRequireAuth} />
+        </Suspense>
+      )}
 
-          <div className="relative animate-rise-in lg:delay-150 hidden sm:block">
-            <div className="absolute -inset-4 bg-gradient-to-br from-[#0A66C2]/10 to-transparent rounded-3xl blur-xl" />
-            <HeroIllustration />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Live showcase feed ── */}
-      <ShowcaseFeed />
-
-      {/* ── Social proof ── */}
-      <section className="bg-[#0A66C2] py-8 px-4">
-        <div className="w-full px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {stats.map((s) => (
-            <div key={s.key}>
-              <p className="text-3xl md:text-4xl font-black text-white">{s.value}</p>
-              <p className="text-sm text-white/75 mt-1 font-medium">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Learn CTA (full dashboard at /learn) ── */}
-      <section className="bg-white py-12 px-4 border-b border-[#e0e0e0]">
-        <div className="w-full px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="max-w-xl">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#0A66C2] mb-2">
-              Learn course → Do project
-            </p>
-            <h2 className="text-2xl md:text-3xl font-black text-[#1d2226]">
-              No empty employment — learn a skill, then ship a project.
-            </h2>
-            <p className="text-sm text-[#666] mt-2 leading-relaxed">
-              {WIZARD_CATEGORIES.length} sectors from filmmaking to cybersecurity. Video lessons,
-              progress tracking, then start your project on Make Big.
-            </p>
-          </div>
-          <Link
-            href="/learn"
-            className="shrink-0 px-8 py-3.5 bg-[#0A66C2] text-white font-bold rounded-full hover:bg-[#004182] transition-all text-center text-sm"
-          >
-            Open Learn Dashboard →
-          </Link>
-        </div>
-      </section>
-
-      {/* ── Three pillars ── */}
-      <section className="bg-white py-16 md:py-20 px-4 border-b border-[#e0e0e0]">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">
-              What Make Big does that GitHub doesn&apos;t
-            </h2>
-            <p className="text-[#666] text-sm md:text-base mt-2">
-              We don&apos;t replace your dev tools — we get your team from zero to first repo.
-            </p>
-          </div>
-          <div className="grid lg:grid-cols-3 gap-6">
-            {PILLARS.map((p) => (
-              <div
-                key={p.title}
-                className="rounded-2xl border border-[#e0e0e0] bg-[#f8f9fa] hover:bg-white hover:border-[#0A66C2]/30 p-6 transition-all hover:shadow-lg"
-              >
-                <span className="text-3xl" aria-hidden>
-                  {p.icon}
-                </span>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-[#0A66C2] mt-3">
-                  {p.tagline}
-                </p>
-                <h3 className="font-bold text-[#1d2226] text-xl mt-1">{p.title}</h3>
-                <p className="text-sm text-[#666] mt-2 leading-relaxed">{p.desc}</p>
-                <ul className="mt-4 space-y-1.5">
-                  {p.highlights.map((h) => (
-                    <li key={h} className="text-xs text-[#1d2226] flex items-start gap-2">
-                      <span className="text-[#22c55e] shrink-0">✓</span>
-                      {h}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── GitHub workflow ── */}
-      <section className="bg-[#1d2226] py-14 px-4 text-white">
-        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2">
-            Works with GitHub
-          </p>
-          <h2 className="text-2xl md:text-3xl font-bold">
-            Connect your repo when you&apos;re ready — not on day one
-          </h2>
-          <p className="text-white/75 text-sm mt-3 leading-relaxed">
-            Paste a GitHub URL on your dashboard. We show recent commits, and your AI co-founder
-            reads your README to give project-specific advice.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-4 mt-10 text-left">
-            {GITHUB_FLOW.map((item) => (
-              <div
-                key={item.step}
-                className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-3"
-              >
-                <span className="w-8 h-8 rounded-full bg-[#0A66C2] text-white font-bold text-sm flex items-center justify-center shrink-0">
-                  {item.step}
-                </span>
-                <div>
-                  <p className="font-semibold text-white">{item.label}</p>
-                  <p className="text-xs text-white/65 mt-1 leading-relaxed">{item.detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Supporting features ── */}
-      <section className="bg-[#f3f2ef] py-12 px-4 border-b border-[#e0e0e0]">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="grid sm:grid-cols-3 gap-4">
-            {SUPPORTING.map((f) => (
-              <div
-                key={f.title}
-                className="bg-white border border-[#e0e0e0] rounded-xl p-5"
-              >
-                <span className="text-2xl">{f.icon}</span>
-                <h3 className="font-bold text-[#1d2226] mt-2">{f.title}</h3>
-                <p className="text-sm text-[#666] mt-1">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* removed old 6-card feature grid */}
-
-      <div id="discover">
+      {/* ── Live activity & discovery (below the fold) ── */}
+      <div id="discover" className="bg-[#f3f2ef]">
+        <ShowcaseFeed />
         <PublicProjectFeed
           isAuthed={isSignedIn}
           userContact={userContact}
           onRequireAuth={onRequireAuth}
           onJoinProject={onJoinProject}
         />
-      </div>
+        <SalaryLeaderboard onRequireAuth={onRequireAuth} />
+        <FeaturedStartupsSection />
+        <VerifiedSkillsLeaderboard />
+        <StartupJourneyFeed />
 
-      <SalaryLeaderboard onRequireAuth={onRequireAuth} />
-      <FeaturedStartupsSection />
-      <VerifiedSkillsLeaderboard />
-      <StartupJourneyFeed />
-
-      <section className="bg-white border-t border-[#e0e0e0] py-14 px-4">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">Browse by category</h2>
-              <p className="text-[#666] text-sm mt-1">
-                {WIZARD_CATEGORIES.length} fields where students are shipping projects right now.
-              </p>
+        <section className="bg-white border-t border-[#e0e0e0] py-14 px-4">
+          <div className="w-full px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">Browse by category</h2>
+            <p className="text-[#666] text-sm mt-1 mb-6">
+              {WIZARD_CATEGORIES.length} fields where students are shipping projects right now.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {WIZARD_CATEGORIES.map((category) => (
+                <a
+                  key={category.id}
+                  href="#discover"
+                  className="group block bg-[#f3f2ef] hover:bg-[#EEF3FB] border border-[#e0e0e0] hover:border-[#0A66C2]/30 rounded-xl p-4 transition-all"
+                >
+                  <p className="font-semibold text-[#1d2226] text-sm group-hover:text-[#0A66C2] transition-colors">
+                    {category.title}
+                  </p>
+                  <p className="text-xs text-[#666] mt-0.5 line-clamp-1">{category.blurb}</p>
+                </a>
+              ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {WIZARD_CATEGORIES.map((category) => (
-              <a
-                key={category.id}
-                href="#discover"
-                className="group block bg-[#f3f2ef] hover:bg-[#EEF3FB] border border-[#e0e0e0] hover:border-[#0A66C2]/30 rounded-xl p-4 transition-all"
-              >
-                <p className="font-semibold text-[#1d2226] text-sm group-hover:text-[#0A66C2] transition-colors">
-                  {category.title}
-                </p>
-                <p className="text-xs text-[#666] mt-0.5 line-clamp-1">{category.blurb}</p>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#f3f2ef] py-14 px-4">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1d2226]">How it works</h2>
-            <p className="text-[#666] text-sm mt-1">From idea to launch in four simple steps</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                n: '1',
-                t: 'Form your team',
-                d: 'Find co-founders, validate your idea, and publish your startup on Make Big.',
-              },
-              {
-                n: '2',
-                t: 'AI sets you up',
-                d: 'Our agent writes your pitch, roles, tasks, and journey stage in ~30 seconds.',
-              },
-              {
-                n: '3',
-                t: 'Connect GitHub',
-                d: 'Link your repo when you start coding — commits & AI advice sync automatically.',
-              },
-              {
-                n: '4',
-                t: 'Stay moving',
-                d: 'Health scores, standups, and weekly AI reports keep your team from going quiet.',
-              },
-            ].map((s) => (
-              <div key={s.n} className="bg-white border border-[#e0e0e0] rounded-2xl p-6">
-                <div className="w-9 h-9 rounded-full bg-[#0A66C2] text-white font-bold flex items-center justify-center text-sm mb-3">
-                  {s.n}
-                </div>
-                <p className="font-semibold text-[#1d2226]">{s.t}</p>
-                <p className="text-sm text-[#666] mt-1.5">{s.d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {!isSignedIn && (
-        <section className="bg-[#0A66C2] py-14 px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-white">Ready to find your co-founder?</h2>
-            <p className="text-white/80 text-sm md:text-base mt-2">
-              Start on Make Big. Connect GitHub when you&apos;re ready to code. Free for students.
-            </p>
-            <button
-              type="button"
-              onClick={onRequireAuth}
-              className="mt-6 px-8 py-3.5 bg-white text-[#0A66C2] font-bold rounded-full hover:bg-[#EEF3FB] hover:shadow-lg transition-all text-sm"
-            >
-              Create your free account
-            </button>
-          </div>
         </section>
-      )}
+      </div>
 
       <MarketingFooter onCheckDebug={onCheckDebug} />
 
@@ -486,21 +155,27 @@ export function MarketingHomepage({
               </div>
               <div className="bg-[#f3f2ef] p-3 rounded-lg">
                 <p className="font-semibold text-xs uppercase text-[#666] mb-1">Current User</p>
-                <pre className="text-xs overflow-x-auto">{JSON.stringify(debugData.currentUser, null, 2) || 'empty'}</pre>
+                <pre className="text-xs overflow-x-auto">
+                  {JSON.stringify(debugData.currentUser, null, 2) || 'empty'}
+                </pre>
               </div>
               <div className="bg-[#f3f2ef] p-3 rounded-lg">
                 <p className="font-semibold text-xs uppercase text-[#666] mb-1">localStorage: user</p>
-                <pre className="text-xs overflow-x-auto">{JSON.stringify(debugData.localStorage_user, null, 2) || 'empty'}</pre>
+                <pre className="text-xs overflow-x-auto">
+                  {JSON.stringify(debugData.localStorage_user, null, 2) || 'empty'}
+                </pre>
               </div>
               <div className="bg-[#f3f2ef] p-3 rounded-lg">
                 <p className="font-semibold text-xs uppercase text-[#666] mb-1">Current Project</p>
-                <pre className="text-xs overflow-x-auto">{JSON.stringify(debugData.currentProject, null, 2) || 'empty'}</pre>
+                <pre className="text-xs overflow-x-auto">
+                  {JSON.stringify(debugData.currentProject, null, 2) || 'empty'}
+                </pre>
               </div>
               <p className="text-xs text-[#999]">Updated: {debugData.timestamp}</p>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
