@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { handleVerifyOtp } from '@/lib/otpService';
+import { setAuthCookieOnResponse } from '@/lib/authSessionServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: result.error }, { status: result.status });
     }
 
-    return NextResponse.json({ success: true, data: result.data });
+    const payload = { ...result.data };
+    delete (payload as { token?: string }).token;
+
+    const response = NextResponse.json({ success: true, data: payload });
+
+    if (result.data?.token) {
+      return setAuthCookieOnResponse(response, result.data.token);
+    }
+
+    return response;
   } catch (e) {
     console.error('verify-otp error:', e);
     const message = e instanceof Error ? e.message : 'OTP verification failed';

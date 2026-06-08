@@ -48,8 +48,14 @@ export function verifyToken(token) {
   }
 }
 
+function tokenFromCookies(req) {
+  const raw = req.headers.cookie || "";
+  const match = raw.match(/(?:^|;\s*)makebig_session=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export async function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1];
+  const token = req.headers.authorization?.split(" ")[1] || tokenFromCookies(req);
 
   if (!token) {
     return res.status(401).json({ error: "No token provided" });

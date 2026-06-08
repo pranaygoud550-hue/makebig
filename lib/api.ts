@@ -22,62 +22,70 @@ function otpAuthEndpoints(path: 'send-otp' | 'verify-otp') {
   return [`/api/auth/${path}`];
 }
 
-// Store JWT token locally
-let authToken: string | null =
-  typeof window !== 'undefined'
-    ? localStorage.getItem('auth_token') || localStorage.getItem('makeBigToken')
-    : null;
+let supabaseAuthToken: string | null = null;
 
+/** Supabase-only; Mongo sessions use httpOnly cookie via /api/auth/* and /api/backend proxy. */
 export function setAuthToken(token: string) {
-  authToken = token;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('auth_token', token);
-  }
+  if (isSupabaseConfigured) supabaseAuthToken = token;
 }
 
 export function getAuthToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return (
-      localStorage.getItem('auth_token') ||
-      localStorage.getItem('makeBigToken') ||
-      localStorage.getItem('makebig_token') ||
-      authToken
-    );
-  }
-  return authToken;
+  if (isSupabaseConfigured) return supabaseAuthToken;
+  return null;
 }
 
 export async function getAuthHeadersAsync(): Promise<Record<string, string>> {
-  const token = await getAuthTokenAsync();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (isSupabaseConfigured) {
+    const token = await getAuthTokenAsync();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
   return headers;
 }
 
+/** Socket.io to Render needs a bearer token; read from same-origin route backed by httpOnly cookie. */
 export async function getAuthTokenAsync(): Promise<string | null> {
   if (isSupabaseConfigured) {
     const token = await getSupabaseAccessToken();
     if (token) return token;
+    return supabaseAuthToken;
   }
-  return getAuthToken();
+  if (typeof window === 'undefined') return null;
+  try {
+    const res = await fetch('/api/auth/socket-token', { credentials: 'include', cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.success ? (data.data?.token as string) : null;
+  } catch {
+    return null;
+  }
 }
 
-export function clearAuthToken() {
-  authToken = null;
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('makeBigToken');
+export async function clearAuthToken() {
+  supabaseAuthToken = null;
+  if (typeof window !== 'undefined' && !isSupabaseConfigured) {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
-// Helper to add auth header
 function getAuthHeaders() {
-  const token = getAuthToken();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (isSupabaseConfigured && supabaseAuthToken) {
+    headers.Authorization = `Bearer ${supabaseAuthToken}`;
   }
   return headers;
+}
+
+function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  const sameOrigin = input.startsWith('/');
+  return fetch(input, {
+    ...init,
+    credentials: sameOrigin ? 'include' : init?.credentials,
+  });
 }
 
 function rowToProject(row: any): Project {
@@ -115,11 +123,30 @@ export interface VerifyOtpResult {
   user?: User;
 }
 
-function persistSessionUser(user: User, token: string) {
-  setAuthToken(token);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('user', JSON.stringify({ ...user, isLoggedIn: true }));
+export async function fetchSessionUser(): Promise<User | null> {
+  try {
+    const res = await apiFetch('/api/auth/session');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.success ? (data.data.user as User) : null;
+  } catch {
+    return null;
   }
+}
+
+export async function apiAuthLogin(
+  payload: Record<string, unknown>
+): Promise<User | null> {
+  const res = await apiFetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(mapApiError(data.error, 'auth') || 'Login failed');
+  }
+  return (data.data?.user as User) || (await fetchSessionUser());
 }
 
 // ── OTP ──────────────────────────────────────────────────────────────────────
@@ -151,7 +178,7 @@ export async function apiSendOTP(
     let lastError = 'Could not send OTP — check your email/phone and try again';
     for (const url of endpoints) {
       try {
-        const res = await fetch(url, {
+        const res = await apiFetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -203,23 +230,20 @@ export async function apiVerifyOTP(
     let lastError = 'Incorrect OTP code';
     for (const url of endpoints) {
       try {
-        const res = await fetch(url, {
+        const res = await apiFetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (data.success === true) {
-          const token = data.data?.token;
           const user = data.data?.user as User | undefined;
-          if (purpose === 'signin' && token && user) {
-            persistSessionUser(user, token);
+          if (purpose === 'signin' && user) {
             return { ok: true, user };
           }
           if (purpose === 'signup' && data.data?.verified) {
             return { ok: true };
           }
-          if (token) setAuthToken(token);
           return { ok: true, user };
         }
         lastError = mapApiError(data.error, 'otp') || lastError;
@@ -242,7 +266,7 @@ export async function apiVerifyOTP(
 
 export async function apiCheckHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/health`, {
+    const res = await apiFetch(`${API_BASE}/health`, {
       method: 'GET',
       cache: 'no-store',
     });
@@ -306,34 +330,18 @@ export async function apiUpsertUser(
       ...(referral ? { referredBy: referral } : {}),
     };
 
-    const upsertEndpoints = [`/api/users/upsert`, `${API_BASE}/users/upsert`];
-    let lastUpsertError: string | null = null;
-
-    for (const url of upsertEndpoints) {
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: await getAuthHeadersAsync(),
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (data.success && data.data) {
-          setAuthToken(data.data.token);
-          if (typeof window !== 'undefined' && data.data.user) {
-            sessionStorage.removeItem('makebig_ref');
-            localStorage.setItem(
-              'user',
-              JSON.stringify({ ...data.data.user, isLoggedIn: true })
-            );
-          }
-          return data.data;
-        }
-        lastUpsertError = data.error || null;
-      } catch (e) {
-        if (e instanceof TypeError) continue;
-        throw e;
-      }
+    const res = await apiFetch('/api/users/upsert', {
+      method: 'POST',
+      headers: await getAuthHeadersAsync(),
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.success && data.data?.user) {
+      if (typeof window !== 'undefined') sessionStorage.removeItem('makebig_ref');
+      const user = data.data.user as User;
+      return { user, token: '' };
     }
+    const lastUpsertError = data.error || null;
 
     if (lastUpsertError) {
       console.error('Error upserting user:', lastUpsertError);
@@ -369,7 +377,7 @@ export async function apiGetUser(contact: string): Promise<User | null> {
       };
     }
 
-    const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}`, {
+    const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(contact)}`, {
       method: 'GET',
     });
     if (!res.ok) return null;
@@ -407,7 +415,7 @@ export async function apiGetProfile(contact: string): Promise<Profile | null> {
       };
     }
 
-    const res = await fetch(`${API_BASE}/profile/${encodeURIComponent(contact)}`, {
+    const res = await apiFetch(`${API_BASE}/profile/${encodeURIComponent(contact)}`, {
       method: 'GET',
     });
     if (!res.ok) return null;
@@ -475,7 +483,7 @@ export async function apiUpsertProfile(profile: Profile): Promise<Profile | null
       };
     }
 
-    const res = await fetch(`${API_BASE}/profile/upsert`, {
+    const res = await apiFetch(`${API_BASE}/profile/upsert`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify(profile),
@@ -523,7 +531,7 @@ export async function apiGetPublicProfile(
 export async function apiGetTalent(search?: string): Promise<any[]> {
   try {
     const q = search?.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
-    const res = await fetch(`${API_BASE}/talent${q}`, {
+    const res = await apiFetch(`${API_BASE}/talent${q}`, {
       method: 'GET',
     });
     if (!res.ok) return [];
@@ -547,7 +555,7 @@ export interface FriendPerson {
 
 export async function apiGetFriends(): Promise<FriendPerson[]> {
   try {
-    const res = await fetch(`${API_BASE}/friends`, { headers: await getAuthHeadersAsync() });
+    const res = await apiFetch(`${API_BASE}/friends`, { headers: await getAuthHeadersAsync() });
     const data = await res.json();
     return data.success ? data.data.friends || [] : [];
   } catch {
@@ -560,7 +568,7 @@ export async function apiGetFriendRequests(): Promise<{
   outgoing: FriendPerson[];
 }> {
   try {
-    const res = await fetch(`${API_BASE}/friends/requests`, { headers: await getAuthHeadersAsync() });
+    const res = await apiFetch(`${API_BASE}/friends/requests`, { headers: await getAuthHeadersAsync() });
     const data = await res.json();
     if (!data.success) return { incoming: [], outgoing: [] };
     return {
@@ -587,7 +595,7 @@ export async function apiGetFriendStatus(contact: string): Promise<FriendLinkSta
 
 export async function apiSendFriendRequest(contact: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/friends/request`, {
+    const res = await apiFetch(`${API_BASE}/friends/request`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify({ contact: contact.trim().toLowerCase() }),
@@ -627,7 +635,7 @@ export async function apiDeclineFriendRequest(contact: string): Promise<boolean>
 
 export async function apiRateProfile(contact: string, stars: number): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/profile/rate`, {
+    const res = await apiFetch(`${API_BASE}/profile/rate`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify({ contact, stars }),
@@ -684,7 +692,7 @@ export async function apiCreateProject(project: Partial<Project>): Promise<Proje
     const ownerContact = project.ownerContact?.toLowerCase() || '';
     if (ownerContact) await assertCanCreateProject(ownerContact);
 
-    const res = await fetch(`${API_BASE}/projects/create`, {
+    const res = await apiFetch(`${API_BASE}/projects/create`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify(project),
@@ -746,7 +754,7 @@ export async function apiPublishProject(projectId: string): Promise<Project> {
       return rowToProject(data);
     }
 
-    const res = await fetch(`${API_BASE}/projects/${projectId}/publish`, {
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}/publish`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
     });
@@ -810,7 +818,7 @@ export async function apiBrowseProjects(
     if (tags?.length) params.append('tags', tags.join(','));
     if (viewerContact) params.append('viewerContact', viewerContact);
 
-    const res = await fetch(`${API_BASE}/projects/browse?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE}/projects/browse?${params.toString()}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.success ? data.data.projects : [];
@@ -859,7 +867,7 @@ export async function apiJoinProject(
       throw new Error('Sign in again to join this project');
     }
 
-    const res = await fetch(`${API_BASE}/projects/${projectId}/join`, {
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}/join`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify({ memberName, role }),
@@ -883,7 +891,7 @@ export async function apiGetJoinRequests(
   projectId: string
 ): Promise<{ contact: string; role: string; requestedAt?: string }[]> {
   try {
-    const res = await fetch(`${API_BASE}/projects/${projectId}/join-requests`, {
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}/join-requests`, {
       headers: await getAuthHeadersAsync(),
     });
     const data = await res.json();
@@ -939,7 +947,7 @@ export async function apiGetProjects(filters?: { status?: string; ownerContact?:
     if (filters?.ownerContact) params.append('ownerContact', filters.ownerContact);
     if (filters?.categoryId) params.append('categoryId', filters.categoryId);
     
-    const res = await fetch(`${API_BASE}/projects?${params.toString()}`, {
+    const res = await apiFetch(`${API_BASE}/projects?${params.toString()}`, {
       method: 'GET',
     });
     if (!res.ok) return [];
@@ -975,7 +983,7 @@ export async function apiGetProject(projectId: string): Promise<{ project: Proje
       };
     }
 
-    const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}`, {
       method: 'GET',
     });
     if (!res.ok) return null;
@@ -1003,7 +1011,7 @@ export async function apiUpdateProject(projectId: string, updates: Partial<Proje
       return rowToProject(data);
     }
 
-    const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}`, {
       method: 'PUT',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify(updates),
@@ -1031,7 +1039,7 @@ export async function apiSendInvite(projectId: string, receiverContact: string, 
       return data;
     }
 
-    const res = await fetch(`${API_BASE}/invites/send`, {
+    const res = await apiFetch(`${API_BASE}/invites/send`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify({ projectId, receiverContact, role, message }),
@@ -1069,7 +1077,7 @@ export async function apiAcceptInvite(inviteId: string): Promise<any> {
       return data;
     }
 
-    const res = await fetch(`${API_BASE}/invites/${inviteId}/accept`, {
+    const res = await apiFetch(`${API_BASE}/invites/${inviteId}/accept`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
     });
@@ -1100,7 +1108,7 @@ export async function apiGetProjectActivities(projectId: string): Promise<any[]>
       }));
     }
 
-    const res = await fetch(`${API_BASE}/projects/${projectId}/activities`, {
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}/activities`, {
       method: 'GET',
     });
     if (!res.ok) return [];
@@ -1256,7 +1264,7 @@ export async function apiGetUserNotifications(userId: string): Promise<any[]> {
       return (data || []).map((n: any) => ({ ...n, createdAt: n.created_at }));
     }
 
-    const res = await fetch(`${API_BASE}/users/${userId}/notifications`, {
+    const res = await apiFetch(`${API_BASE}/users/${userId}/notifications`, {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -1271,7 +1279,7 @@ export async function apiGetUserNotifications(userId: string): Promise<any[]> {
 
 export async function apiMarkNotificationRead(notificationId: string): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
+    const res = await apiFetch(`${API_BASE}/notifications/${notificationId}/read`, {
       method: 'PUT',
       headers: getAuthHeaders(),
     });
@@ -1286,7 +1294,7 @@ export async function apiMarkNotificationRead(notificationId: string): Promise<a
 
 export async function apiGetReceivedInvites(contact: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE}/invites/received?contact=${encodeURIComponent(contact)}`);
+    const res = await apiFetch(`${API_BASE}/invites/received?contact=${encodeURIComponent(contact)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.success ? data.data.invites : [];
@@ -1298,7 +1306,7 @@ export async function apiGetReceivedInvites(contact: string): Promise<any[]> {
 
 export async function apiGetProjectInvites(projectId: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE}/projects/${projectId}/invites`);
+    const res = await apiFetch(`${API_BASE}/projects/${projectId}/invites`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.success ? data.data.invites : [];
@@ -1310,7 +1318,7 @@ export async function apiGetProjectInvites(projectId: string): Promise<any[]> {
 
 export async function apiDeclineInvite(inviteId: string): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE}/invites/${inviteId}/decline`, {
+    const res = await apiFetch(`${API_BASE}/invites/${inviteId}/decline`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -1325,7 +1333,7 @@ export async function apiDeclineInvite(inviteId: string): Promise<any> {
 
 export async function apiGetTopSalaryProjects(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE}/projects/top-salaries`);
+    const res = await apiFetch(`${API_BASE}/projects/top-salaries`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.success ? data.data.projects : [];
@@ -1337,7 +1345,7 @@ export async function apiGetTopSalaryProjects(): Promise<any[]> {
 
 export async function apiSearchUsers(query: string): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE}/talent?search=${encodeURIComponent(query)}`);
+    const res = await apiFetch(`${API_BASE}/talent?search=${encodeURIComponent(query)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.success ? data.data.users || [] : [];
@@ -1421,7 +1429,7 @@ export async function apiAICofounder(
   ownerContact?: string
 ): Promise<{ response: string; devMode: boolean }> {
   try {
-    const res = await fetch(`${API_BASE}/ai/cofounder`, {
+    const res = await apiFetch(`${API_BASE}/ai/cofounder`, {
       method: 'POST',
       headers: await getAuthHeadersAsync(),
       body: JSON.stringify({ action, projectId, context }),
@@ -1497,7 +1505,7 @@ export async function apiListCourses(params?: {
   if (params?.page) qs.set('page', String(params.page));
   if (params?.limit) qs.set('limit', String(params.limit));
 
-  const res = await fetch(`${API_BASE}/courses?${qs}`, { cache: 'no-store' });
+  const res = await apiFetch(`${API_BASE}/courses?${qs}`, { cache: 'no-store' });
   const data = await res.json().catch(() => ({}));
   if (!data.success) {
     return { courses: [], total: 0, page: 1, hasMore: false };
@@ -1511,7 +1519,7 @@ export async function apiListCourses(params?: {
 }
 
 export async function apiGetCourse(slug: string): Promise<Course | null> {
-  const res = await fetch(`${API_BASE}/courses/${encodeURIComponent(slug)}`, {
+  const res = await apiFetch(`${API_BASE}/courses/${encodeURIComponent(slug)}`, {
     headers: await getAuthHeadersAsync(),
   });
   const data = await res.json().catch(() => ({}));
@@ -1520,7 +1528,7 @@ export async function apiGetCourse(slug: string): Promise<Course | null> {
 }
 
 export async function apiGetMyCourses(): Promise<Course[]> {
-  const res = await fetch(`${API_BASE}/courses/my`, {
+  const res = await apiFetch(`${API_BASE}/courses/my`, {
     headers: await getAuthHeadersAsync(),
   });
   const data = await res.json().catch(() => ({}));
@@ -1529,7 +1537,7 @@ export async function apiGetMyCourses(): Promise<Course[]> {
 }
 
 export async function apiEnrollCourse(courseId: string): Promise<Course | null> {
-  const res = await fetch(`${API_BASE}/courses/${courseId}/enroll`, {
+  const res = await apiFetch(`${API_BASE}/courses/${courseId}/enroll`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
   });
@@ -1542,7 +1550,7 @@ export async function apiCompleteLesson(
   courseId: string,
   lessonId: string
 ): Promise<Course | null> {
-  const res = await fetch(`${API_BASE}/courses/${courseId}/lessons/${lessonId}/complete`, {
+  const res = await apiFetch(`${API_BASE}/courses/${courseId}/lessons/${lessonId}/complete`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
   });
@@ -1570,7 +1578,7 @@ export interface StandupToday {
 }
 
 export async function apiGetStandupToday(projectId: string): Promise<StandupToday | null> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/standup/today`, {
+  const res = await apiFetch(`${API_BASE}/projects/${projectId}/standup/today`, {
     headers: await getAuthHeadersAsync(),
   });
   const data = await res.json().catch(() => ({}));
@@ -1582,7 +1590,7 @@ export async function apiSubmitStandup(
   projectId: string,
   payload: { yesterday?: string; today?: string; blockers?: string; skip?: boolean }
 ) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/standup`, {
+  const res = await apiFetch(`${API_BASE}/projects/${projectId}/standup`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify(payload),
@@ -1600,7 +1608,7 @@ export interface ProjectNotePayload {
 }
 
 export async function apiGetProjectNotes(projectId: string): Promise<ProjectNotePayload | null> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/notes`, {
+  const res = await apiFetch(`${API_BASE}/projects/${projectId}/notes`, {
     headers: await getAuthHeadersAsync(),
   });
   const data = await res.json().catch(() => ({}));
@@ -1612,7 +1620,7 @@ export async function apiSaveProjectNotes(
   projectId: string,
   content: string
 ): Promise<ProjectNotePayload | null> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/notes`, {
+  const res = await apiFetch(`${API_BASE}/projects/${projectId}/notes`, {
     method: 'PUT',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify({ content }),
@@ -1633,7 +1641,7 @@ export async function apiGetSmartTasks(
   projectId: string,
   context: Record<string, unknown>
 ): Promise<{ tasks: SmartTaskSuggestion[]; devMode: boolean }> {
-  const res = await fetch(`${API_BASE}/ai/smart-tasks`, {
+  const res = await apiFetch(`${API_BASE}/ai/smart-tasks`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify({ projectId, context }),
@@ -1654,7 +1662,7 @@ export async function apiExtractTasksFromNotes(
   projectId: string,
   content: string
 ): Promise<{ tasks: ExtractedTaskItem[]; devMode: boolean }> {
-  const res = await fetch(`${API_BASE}/ai/extract-tasks`, {
+  const res = await apiFetch(`${API_BASE}/ai/extract-tasks`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify({ projectId, content }),
@@ -1665,7 +1673,7 @@ export async function apiExtractTasksFromNotes(
 }
 
 export async function apiUpdateProjectGithub(projectId: string, githubUrl: string) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/github`, {
+  const res = await apiFetch(`${API_BASE}/projects/${projectId}/github`, {
     method: 'PATCH',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify({ github_url: githubUrl }),
@@ -1686,7 +1694,7 @@ export interface GithubCommit {
 export async function apiGetGithubCommits(
   projectId: string
 ): Promise<{ connected: boolean; commits: GithubCommit[]; repo?: { owner: string; repo: string } }> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/github/commits`, {
+  const res = await apiFetch(`${API_BASE}/projects/${projectId}/github/commits`, {
     headers: await getAuthHeadersAsync(),
   });
   const data = await res.json().catch(() => ({}));
@@ -1699,7 +1707,7 @@ export async function apiGetGithubCommits(
 }
 
 export async function apiReportUser(reportedContact: string, reason: string, details = '') {
-  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(reportedContact)}/report`, {
+  const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(reportedContact)}/report`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify({ reason, details }),
@@ -1710,7 +1718,7 @@ export async function apiReportUser(reportedContact: string, reason: string, det
 }
 
 export async function apiBlockUser(contact: string) {
-  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}/block`, {
+  const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(contact)}/block`, {
     method: 'POST',
     headers: await getAuthHeadersAsync(),
   });
@@ -1732,7 +1740,7 @@ export async function apiUpdateNotificationPreferences(
   contact: string,
   preferences: NotificationPreferences
 ) {
-  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}/notification-preferences`, {
+  const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(contact)}/notification-preferences`, {
     method: 'PATCH',
     headers: await getAuthHeadersAsync(),
     body: JSON.stringify({ preferences }),
@@ -1743,7 +1751,7 @@ export async function apiUpdateNotificationPreferences(
 }
 
 export async function apiGetReferralInfo(contact: string) {
-  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(contact)}/referrals`, {
+  const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(contact)}/referrals`, {
     headers: await getAuthHeadersAsync(),
   });
   const data = await res.json().catch(() => ({}));

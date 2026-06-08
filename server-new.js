@@ -107,7 +107,11 @@ import {
 } from "./lib/weeklyReport.js";
 import { sendHealthAlertEmail, daysSince } from "./lib/healthAlertEmail.js";
 import { sendPushToUser, isPushConfigured } from "./lib/pushNotifications.js";
-import { upsertVerifiedUser, findUserByContact, loginExistingUserAfterOtp } from "./lib/userUpsert.js";
+import {
+  upsertVerifiedUser,
+  findUserByContact,
+  loginExistingUserAfterOtp,
+} from "./lib/userUpsert.js";
 import {
   streamCofounderReply,
   computeContextUsage,
@@ -436,6 +440,89 @@ app.post("/api/auth/verify-otp", async (req, res) => {
     console.error("verify-otp error:", error.message);
     res.status(500).json(formatResponse(false, null, "OTP verification failed — check the code and try again"));
   }
+});
+
+function tokenFromCookies(req) {
+  const raw = req.headers.cookie || "";
+  const match = raw.match(/(?:^|;\s*)makebig_session=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function setAuthCookie(res, token) {
+  const secure = process.env.NODE_ENV === "production";
+  const maxAge = 7 * 24 * 60 * 60;
+  res.setHeader(
+    "Set-Cookie",
+    `makebig_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${
+      secure ? "; Secure" : ""
+    }`
+  );
+}
+
+// POST /api/auth/login — issue JWT httpOnly cookie (unified Render deploy)
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { contact, token: bodyToken, ...profile } = req.body || {};
+    if (bodyToken && typeof bodyToken === "string") {
+      setAuthCookie(res, bodyToken);
+      return res.json(formatResponse(true, { loggedIn: true }));
+    }
+
+    const normalized = normalizeContact(String(contact || "").trim());
+    if (!normalized) {
+      return res.status(400).json(formatResponse(false, null, "Contact required"));
+    }
+
+    const isSignup = Boolean(profile.name || profile.skills?.length || profile.college);
+    if (isSignup) {
+      const result = await upsertVerifiedUser({ contact: normalized, ...profile }, { requireVerified: true });
+      if (!result.ok) {
+        return res.status(result.status || 400).json(formatResponse(false, null, result.error));
+      }
+      setAuthCookie(res, result.data.token);
+      return res.json(formatResponse(true, { user: result.data.user }));
+    }
+
+    const login = await loginExistingUserAfterOtp(normalized);
+    if (!login.ok) {
+      return res
+        .status(login.status || 401)
+        .json(formatResponse(false, null, login.error || "Login failed"));
+    }
+    setAuthCookie(res, login.data.token);
+    return res.json(formatResponse(true, { user: login.data.user }));
+  } catch (error) {
+    console.error("auth/login error:", error.message);
+    res.status(500).json(formatResponse(false, null, "Login failed"));
+  }
+});
+
+// POST /api/auth/logout
+app.post("/api/auth/logout", (_req, res) => {
+  res.setHeader("Set-Cookie", "makebig_session=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax");
+  res.json(formatResponse(true, { loggedOut: true }));
+});
+
+// GET /api/auth/session
+app.get("/api/auth/session", async (req, res) => {
+  const token = tokenFromCookies(req);
+  if (!token) {
+    return res.status(401).json(formatResponse(false, null, "Not signed in"));
+  }
+  const { verifyToken } = await import("./backend/middleware/auth.js");
+  const decoded = verifyToken(token);
+  if (!decoded?.contact) {
+    return res.status(401).json(formatResponse(false, null, "Invalid session"));
+  }
+  const user = await findUserByContact(decoded.contact);
+  if (!user) {
+    return res.status(401).json(formatResponse(false, null, "User not found"));
+  }
+  const login = await loginExistingUserAfterOtp(decoded.contact);
+  if (!login.ok) {
+    return res.status(401).json(formatResponse(false, null, login.error || "Not signed in"));
+  }
+  res.json(formatResponse(true, { user: login.data.user }));
 });
 
 // ==================== HEALTH ====================

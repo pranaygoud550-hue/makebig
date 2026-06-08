@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { verifySupabaseToken } from './supabase-server';
+import { parseCookieToken } from './authCookie';
 
 export interface AuthContact {
   contact: string;
@@ -18,7 +19,8 @@ function getJwtSecret(): string | null {
 
 export async function verifyAuthFromRequest(request: Request): Promise<AuthContact | null> {
   const header = request.headers.get('authorization');
-  const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
+  const cookieToken = parseCookieToken(request.headers.get('cookie'));
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : cookieToken;
   if (!token) return null;
 
   const supabaseUser = await verifySupabaseToken(token);

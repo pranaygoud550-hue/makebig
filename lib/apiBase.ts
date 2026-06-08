@@ -27,6 +27,10 @@ export function getApiOrigin(): string {
   return 'http://localhost:5001';
 }
 
+/** Browser calls same-origin BFF proxy; server/SSR calls Render/Express directly. */
 export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    return '/api/backend';
+  }
   return `${getApiOrigin()}/api`;
 }
