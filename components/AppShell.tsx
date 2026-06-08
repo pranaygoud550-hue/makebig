@@ -219,7 +219,6 @@ export function AppShell({
               if (hasActiveWorkspace(currentProject)) onOpenYourProject('dashboard');
               else onStartProject();
             }}
-            onOpenAI={() => handleTabChange('ai')}
           />
         )}
         {activeTab === 'explore' && (

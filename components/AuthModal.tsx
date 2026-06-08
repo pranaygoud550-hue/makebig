@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { apiSendOTP, apiVerifyOTP } from '@/lib/api';
+import { apiSendOTP, apiVerifyOTP, apiAuthLogin } from '@/lib/api';
 import { validateContact, validateName, getErrorMessage } from '@/lib/userErrors';
 import { BrandLogo } from '@/components/BrandLogo';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -26,7 +26,8 @@ interface AuthModalProps {
     hobbies: string[],
     college: string,
     graduationYear: string,
-    verifiedSkills?: VerifiedSkill[]
+    verifiedSkills?: VerifiedSkill[],
+    password?: string
   ) => void | Promise<void>;
 }
 
@@ -61,9 +62,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
   const [siOtpSentMsg, setSiOtpSentMsg] = useState('');
   const [signUpOtpSentMsg, setSignUpOtpSentMsg] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [signInMethod, setSignInMethod] = useState<'password' | 'magic' | 'otp'>(
-    isSupabaseConfigured ? 'password' : 'otp'
-  );
+  const [signInMethod, setSignInMethod] = useState<'password' | 'magic' | 'otp'>('password');
   const [siPassword, setSiPassword] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -127,7 +126,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     setSiOtpSentMsg('');
     setSignUpOtpSentMsg('');
     setResendCooldown(0);
-    setSignInMethod(isSupabaseConfigured ? 'password' : 'otp');
+    setSignInMethod('password');
     setSiPassword('');
     setSignUpPassword('');
     setAuthLoading(false);
@@ -180,25 +179,28 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       setSiOtpError('Password must be at least 6 characters');
       return;
     }
-    if (!isSupabaseConfigured) {
-      setSiOtpError('Supabase is not configured');
-      return;
-    }
     setAuthLoading(true);
     setSiOtpError('');
     try {
-      const email = siContact.trim().toLowerCase();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: siPassword });
-      if (error) throw error;
-      if (data.session?.access_token) {
-        const { setAuthToken } = await import('@/lib/api');
-        setAuthToken(data.session.access_token);
+      const normalized = siContact.trim().toLowerCase();
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalized,
+          password: siPassword,
+        });
+        if (error) throw error;
+        if (data.session?.access_token) {
+          const { setAuthToken } = await import('@/lib/api');
+          setAuthToken(data.session.access_token);
+        }
+      } else {
+        await apiAuthLogin({ contact: normalized, password: siPassword });
       }
-      await onSignIn(email);
+      await onSignIn(normalized);
       reset();
       onClose();
     } catch (e) {
-      setSiOtpError(getErrorMessage(e, 'otp'));
+      setSiOtpError(getErrorMessage(e, 'auth'));
     } finally {
       setAuthLoading(false);
     }
@@ -502,6 +504,10 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
         setOtpError(contactErr);
         return;
       }
+      if (!signUpPassword || signUpPassword.length < 6) {
+        setOtpError('Password must be at least 6 characters');
+        return;
+      }
       setOtpError('');
     }
     if (step === 3) {
@@ -561,7 +567,8 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
         hobbies,
         college.trim(),
         gradYear,
-        buildVerifiedSkillsPayload()
+        buildVerifiedSkillsPayload(),
+        signUpPassword
       );
       reset();
       onClose();
@@ -658,7 +665,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                 <div className="flex gap-2">
                   {(isSupabaseConfigured
                     ? (['password', 'magic', 'otp'] as const)
-                    : (['otp'] as const)
+                    : (['password', 'otp'] as const)
                   ).map((m) => (
                     <button
                       key={m}
@@ -677,10 +684,10 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
 
                 {signInMethod !== 'otp' && siStep === 'contact' ? (
                   <>
-                    <Field label="Email">
+                    <Field label="Email or phone">
                       <input
-                        type="email"
-                        placeholder="you@college.edu"
+                        type="text"
+                        placeholder="you@college.edu or 10-digit mobile"
                         value={siContact}
                         onChange={(e) => setSiContact(e.target.value)}
                         autoComplete="username"
@@ -823,19 +830,21 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                         onChange={(e) => setContact(e.target.value)}
                         autoComplete="username" className={inputCls} />
                     </Field>
-                    {isSupabaseConfigured && (
-                      <Field label="Password *">
-                        <input type="password" placeholder="At least 6 characters" value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                          autoComplete="new-password" className={inputCls} />
-                      </Field>
-                    )}
+                    <Field label="Password *">
+                      <input type="password" placeholder="At least 6 characters" value={signUpPassword}
+                        onChange={(e) => setSignUpPassword(e.target.value)}
+                        autoComplete="new-password" className={inputCls} />
+                    </Field>
+                    <p className="text-xs text-[#999] -mt-2">
+                      Use this password to sign in again after you log out.
+                    </p>
                     <LiButton
                       onClick={handleSignUpNext}
                       disabled={
                         !name.trim() ||
                         !contact.trim() ||
-                        (isSupabaseConfigured && !signUpPassword)
+                        !signUpPassword ||
+                        signUpPassword.length < 6
                       }
                     >
                       Continue

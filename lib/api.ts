@@ -277,7 +277,7 @@ export async function apiCheckHealth(): Promise<boolean> {
 }
 
 export async function apiUpsertUser(
-  user: Omit<User, 'id' | 'isLoggedIn'> & { verifiedSkills?: VerifiedSkill[] }
+  user: Omit<User, 'id' | 'isLoggedIn'> & { verifiedSkills?: VerifiedSkill[]; password?: string }
 ): Promise<{ user: User; token: string } | null> {
   try {
     if (isSupabaseConfigured) {

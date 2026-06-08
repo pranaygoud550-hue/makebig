@@ -26,7 +26,8 @@ interface UseAuthReturn {
     hobbies?: string[],
     college?: string,
     graduationYear?: string,
-    verifiedSkills?: import('@/lib/types').VerifiedSkill[]
+    verifiedSkills?: import('@/lib/types').VerifiedSkill[],
+    password?: string
   ) => Promise<void>;
   logout: () => void;
   updateProfile: (profile: Profile) => Promise<boolean>;
@@ -146,7 +147,8 @@ export function useAuth(): UseAuthReturn {
       hobbies: string[] = [],
       college?: string,
       graduationYear?: string,
-      verifiedSkills?: import('@/lib/types').VerifiedSkill[]
+      verifiedSkills?: import('@/lib/types').VerifiedSkill[],
+      password?: string
     ) => {
       const normalizedContact = contact.trim().toLowerCase();
       setError(null);
@@ -170,6 +172,7 @@ export function useAuth(): UseAuthReturn {
           college,
           graduationYear,
           verifiedSkills,
+          password,
         });
 
         if (!result?.user) {
@@ -204,8 +207,8 @@ export function useAuth(): UseAuthReturn {
               portfolio: existing?.portfolio || '',
               profileImage: existing?.profileImage || '',
               availableForInvites: existing?.availableForInvites ?? true,
-              rateMin: existing?.rateMin,
-              rateMax: existing?.rateMax,
+              rateMin: existing?.rateMin ?? null,
+              rateMax: existing?.rateMax ?? null,
               currency: existing?.currency || 'INR',
             });
             await loadProfile(normalizedContact);

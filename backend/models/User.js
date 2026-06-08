@@ -60,6 +60,7 @@ const userSchema = new mongoose.Schema(
       default: "free",
     },
     stripeCustomerId: String,
+    passwordHash: { type: String, select: false },
     socketId: String,
     verifiedSkills: [
       {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectMongoServer } from '@/lib/mongoServer';
-import { loginExistingUserAfterOtp, upsertVerifiedUser } from '@/lib/userUpsert.js';
+import { loginExistingUserAfterOtp, upsertVerifiedUser, loginWithPassword } from '@/lib/userUpsert.js';
 import {
   clearAuthCookieOnResponse,
   readSessionFromCookie,
@@ -29,6 +29,23 @@ export async function POST(req: Request) {
     const contact = String(body.contact || '').trim().toLowerCase();
     if (!contact) {
       return NextResponse.json({ success: false, error: 'Contact required' }, { status: 400 });
+    }
+
+    const password = body.password != null ? String(body.password) : '';
+
+    if (password) {
+      const login = await loginWithPassword(contact, password);
+      if (!login.ok || !login.data) {
+        return NextResponse.json(
+          { success: false, error: login.error || 'Login failed' },
+          { status: login.status || 401 }
+        );
+      }
+      const response = NextResponse.json({
+        success: true,
+        data: { user: login.data.user },
+      });
+      return setAuthCookieOnResponse(response, login.data.token);
     }
 
     const isSignupPayload = Boolean(body.name || body.skills?.length || body.college);

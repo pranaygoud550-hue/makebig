@@ -296,10 +296,11 @@ export default function Home() {
     hobbies: string[],
     college: string,
     graduationYear: string,
-    verifiedSkills?: import('@/lib/types').VerifiedSkill[]
+    verifiedSkills?: import('@/lib/types').VerifiedSkill[],
+    password?: string
   ) => {
     const normalized = contact.trim().toLowerCase();
-    await auth.login(name, normalized, skills, hobbies, college, graduationYear, verifiedSkills);
+    await auth.login(name, normalized, skills, hobbies, college, graduationYear, verifiedSkills, password);
     const restored = await restoreUserProject(normalized);
     if (restored) applyRestoredProject(restored, normalized);
     else resumePendingWizard();

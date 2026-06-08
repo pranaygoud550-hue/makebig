@@ -93,6 +93,8 @@ export function mapApiError(raw: string | undefined | null, context?: string): s
     return 'Invalid email address';
   }
   if (lower.includes('password') && lower.includes('short')) return 'Password too short';
+  if (lower.includes('incorrect password')) return 'Incorrect password — try again or use OTP';
+  if (lower.includes('no password')) return 'No password saved — sign in with OTP tab instead';
   if (lower.includes('unauthorized') || lower.includes('invalid token')) {
     return 'Session expired — sign out and sign in again';
   }
