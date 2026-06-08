@@ -23,6 +23,7 @@ export interface DebugSnapshot {
 
 interface MarketingHomepageProps {
   isSignedIn?: boolean;
+  userContact?: string;
   onStartProject: () => void;
   onRequireAuth: () => void;
   onJoinProject: (project: BrowseProject) => void;
@@ -113,6 +114,7 @@ function HeroIllustration() {
 
 export function MarketingHomepage({
   isSignedIn = false,
+  userContact,
   onStartProject,
   onRequireAuth,
   onJoinProject,
@@ -362,6 +364,7 @@ export function MarketingHomepage({
       <div id="discover">
         <PublicProjectFeed
           isAuthed={isSignedIn}
+          userContact={userContact}
           onRequireAuth={onRequireAuth}
           onJoinProject={onJoinProject}
         />

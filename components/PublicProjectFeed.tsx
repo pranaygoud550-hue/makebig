@@ -6,6 +6,7 @@ import { apiBrowseProjects, BrowseProject } from '@/lib/api';
 import { filterAllowedProjects, isAllowedPublicProject } from '@/lib/projectAllowlist';
 import { dedupeProjectsForDisplay } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
+import { getViewerProjectRelation } from '@/lib/projectMembership';
 import { createApiSocket } from '@/lib/realtime';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
 import { inferProjectPurpose, showsSalaryForPurpose } from '@/lib/projectPurpose';
@@ -78,10 +79,15 @@ export function PublicProjectFeed({
   /* ─── Initial load + on category change ─── */
   const load = useCallback(async () => {
     setLoading(true);
-    const list = dedupeProjectsForDisplay(filterAllowedProjects(await apiBrowseProjects(category)));
+    const raw = await apiBrowseProjects(
+      category,
+      undefined,
+      userContact ? { viewerContact: userContact } : undefined
+    );
+    const list = dedupeProjectsForDisplay(filterAllowedProjects(raw));
     setProjects(list);
     setLoading(false);
-  }, [category]);
+  }, [category, userContact]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -245,7 +251,15 @@ export function PublicProjectFeed({
             {filtered.map(project => {
               const id = (project.id || project._id) as string;
               const isHot = highlightId === id;
-              const owner = isProjectOwner(userContact, project.ownerContact);
+              const relation =
+                project.viewerRelation ||
+                getViewerProjectRelation(userContact, {
+                  ownerContact: project.ownerContact,
+                  teamMembers: (project as { teamMembers?: { contact?: string; status?: string }[] })
+                    .teamMembers,
+                });
+              const owner = relation === 'owner' || isProjectOwner(userContact, project.ownerContact);
+              const pending = relation === 'pending';
               const skills = project.roles || [];
               const team = project.teamMemberCount || 0;
               const cap = project.maxTeamSize || team + 5;
@@ -369,6 +383,10 @@ export function PublicProjectFeed({
                             </button>
                           )}
                         </>
+                      ) : pending ? (
+                        <span className="px-4 py-1.5 text-xs font-semibold rounded-full bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                          Request sent
+                        </span>
                       ) : (
                         <button
                           type="button"

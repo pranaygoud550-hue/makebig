@@ -1,7 +1,15 @@
 'use client';
 
 import { ExploreView } from '@/components/ExploreView';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function ExplorePage() {
-  return <ExploreView embedded={false} />;
+  const auth = useAuth();
+
+  return (
+    <ExploreView
+      embedded={false}
+      userContact={auth.user?.contact}
+    />
+  );
 }

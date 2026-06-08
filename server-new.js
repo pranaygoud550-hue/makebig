@@ -41,6 +41,7 @@ import {
   computeProjectReadiness,
 } from "./backend/utils/startupReadiness.js";
 import { filterAllowedProjects, isAllowedPublicProject } from "./backend/utils/projectAllowlist.js";
+import { getViewerProjectRelation, shouldHideFromExploreFeed } from "./backend/utils/projectMembership.js";
 import { demoProjectExcludeFilter, demoUserExcludeFilter, isDemoProject, DEMO_PROJECT_SLUGS, DEMO_CONTACT_PATTERN } from "./backend/utils/demoData.js";
 import { dedupeProjectsForDisplay } from "./backend/utils/dedupeProjects.js";
 import {
@@ -1169,7 +1170,11 @@ async function filterProjectsForViewer(projects, viewerContact) {
   const blocked = new Set(await getBlockedContactsForUser(viewer));
   const blockers = await User.find({ blockedUsers: viewer }).select("contact").lean();
   for (const u of blockers) blocked.add(normalizeContact(u.contact));
-  return projects.filter((p) => !blocked.has(normalizeContact(p.ownerContact)));
+  return projects.filter((p) => {
+    if (blocked.has(normalizeContact(p.ownerContact))) return false;
+    const relation = getViewerProjectRelation(viewer, p);
+    return !shouldHideFromExploreFeed(relation);
+  });
 }
 
 // Browse published projects (for "Join" flow — Person 2 discovers Person 1's projects)
@@ -1220,6 +1225,7 @@ app.get("/api/projects/browse", async (req, res) => {
       projects = await filterProjectsForViewer(projects, String(viewerContact));
     }
 
+    const viewerNorm = viewerContact ? normalizeContact(String(viewerContact)) : null;
     const enriched = dedupeProjectsForDisplay(filterAllowedProjects(projects)).map((p) => {
       const obj = toClient(p);
       const joinedCount = (p.teamMembers || []).filter(
@@ -1229,6 +1235,7 @@ app.get("/api/projects/browse", async (req, res) => {
         ...obj,
         joinedCount,
         teamMemberCount: (p.teamMembers || []).length,
+        viewerRelation: viewerNorm ? getViewerProjectRelation(viewerNorm, p) : "none",
       };
     });
 

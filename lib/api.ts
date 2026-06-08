@@ -766,6 +766,7 @@ export interface BrowseProject extends Project {
   maxTeamSize?: number;
   updatedAt?: string;
   ownerContact?: string;
+  viewerRelation?: 'owner' | 'joined' | 'pending' | 'none';
 }
 
 export async function apiBrowseProjects(

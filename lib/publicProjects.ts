@@ -41,6 +41,7 @@ export interface PublicPost {
 export interface ExploreProject extends PublicProject {
   ownerContact?: string;
   joinedCount?: number;
+  viewerRelation?: 'owner' | 'joined' | 'pending' | 'none';
 }
 
 function mapProjectRow(row: Record<string, unknown>): PublicProject {

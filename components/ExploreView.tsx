@@ -29,6 +29,7 @@ export interface ExploreProject {
   joinedCount?: number;
   projectPurpose?: string;
   tags?: string[];
+  viewerRelation?: 'owner' | 'joined' | 'pending' | 'none';
 }
 
 const SKILL_CHIPS = [

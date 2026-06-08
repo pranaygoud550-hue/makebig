@@ -697,7 +697,8 @@ export default function Home() {
       )}
 
       <MarketingHomepage
-        isSignedIn={false}
+        isSignedIn={Boolean(auth.user?.contact)}
+        userContact={auth.user?.contact}
         onStartProject={handleStartProject}
         onRequireAuth={() => openAuth('signup')}
         onJoinProject={handlePublicJoinClick}

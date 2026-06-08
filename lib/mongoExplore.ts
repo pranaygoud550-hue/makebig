@@ -1,6 +1,10 @@
 import { connectMongoServer } from './mongoServer';
 import { filterAllowedProjects } from './projectAllowlist';
 import { dedupeProjectsForDisplay } from './dedupeProjects';
+import {
+  getViewerProjectRelation,
+  shouldHideFromExploreFeed,
+} from './projectMembership';
 import type { ExploreParams, ExploreProject, ExploreResult } from './publicProjects';
 
 interface MongoProjectDoc {
@@ -117,6 +121,13 @@ export async function exploreProjectsFromMongo(
     );
   }
 
+  if (params.viewerContact) {
+    withStringIds = withStringIds.filter((p) => {
+      const relation = getViewerProjectRelation(params.viewerContact, p);
+      return !shouldHideFromExploreFeed(relation);
+    });
+  }
+
   const filtered = dedupeProjectsForDisplay(filterAllowedProjects(withStringIds));
   const pageSlice = filtered.slice(skip, skip + limit);
 
@@ -136,6 +147,9 @@ export async function exploreProjectsFromMongo(
     ownerContact: p.ownerContact,
     createdAt: p.createdAt ? String(p.createdAt) : undefined,
     joinedCount: (p.teamMembers || []).filter((m) => m.status === 'joined').length,
+    viewerRelation: params.viewerContact
+      ? getViewerProjectRelation(params.viewerContact, p)
+      : 'none',
   }));
 
   return {

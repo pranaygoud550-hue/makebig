@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { BrowseProject } from '@/lib/api';
 import { inferProjectPurpose, showsSalaryForPurpose } from '@/lib/projectPurpose';
 import { isProjectOwner } from '@/lib/projectOwnership';
+import { getViewerProjectRelation, type ViewerProjectRelation } from '@/lib/projectMembership';
 
 const CAT_ICONS: Record<string, string> = {
   tech: '💻',
@@ -33,6 +34,7 @@ export interface ProjectCardData {
   createdAt?: string;
   projectPurpose?: string;
   tags?: string[];
+  viewerRelation?: ViewerProjectRelation;
 }
 
 function formatSalary(max?: number, currency = 'INR') {
@@ -69,7 +71,13 @@ export function ProjectExploreCard({
   onJoinProject,
   onOpenDashboard,
 }: ProjectExploreCardProps) {
-  const owner = isProjectOwner(userContact, p.ownerContact);
+  const relation =
+    p.viewerRelation ||
+    getViewerProjectRelation(userContact, {
+      ownerContact: p.ownerContact,
+    });
+  const owner = relation === 'owner' || isProjectOwner(userContact, p.ownerContact);
+  const pending = relation === 'pending';
   const salaryLabel = showsSalaryForPurpose(
     inferProjectPurpose(p.projectPurpose, p.salaryMax, p.salaryMin)
   )
@@ -153,6 +161,10 @@ export function ProjectExploreCard({
                 )}
               </div>
             </div>
+          ) : pending ? (
+            <span className="inline-flex w-full items-center justify-center py-2.5 rounded-full bg-amber-50 text-amber-800 text-sm font-semibold border border-amber-200">
+              Request sent
+            </span>
           ) : onJoinProject ? (
             <button
               type="button"
