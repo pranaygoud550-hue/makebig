@@ -12,14 +12,17 @@ describe('projectAllowlist', () => {
     ).toBe(true);
   });
 
-  it('blocks seeded demo projects and junk test names', () => {
+  it('allows showcase demo projects in browse', () => {
     expect(
       isAllowedPublicProject({
-        name: 'Campus Food Delivery',
-        slug: 'campus-food-delivery-hyderabad',
+        name: 'StudySync Web Portal',
+        slug: 'studysync-web-portal-hyderabad',
         ownerContact: 'priya@demo.makebig.in',
       })
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it('blocks junk test names', () => {
     expect(isAllowedPublicProject({ name: 'test project' })).toBe(false);
     expect(isAllowedPublicProject({ name: 'asdf' })).toBe(false);
   });
@@ -30,11 +33,15 @@ describe('projectAllowlist', () => {
       { name: 'test project' },
       { name: 'Blood Bank App' },
       {
-        name: 'Campus Food Delivery',
-        slug: 'campus-food-delivery-hyderabad',
+        name: 'StudySync Web Portal',
+        slug: 'studysync-web-portal-hyderabad',
         ownerContact: 'priya@demo.makebig.in',
       },
     ]);
-    expect(list.map((p) => p.name)).toEqual(['Issue Reporting System', 'Blood Bank App']);
+    expect(list.map((p) => p.name)).toEqual([
+      'Issue Reporting System',
+      'Blood Bank App',
+      'StudySync Web Portal',
+    ]);
   });
 });

@@ -1043,7 +1043,6 @@ app.get("/api/projects/browse", async (req, res) => {
     const filter = {
       status: { $in: ["published", "in-progress"] },
       visibility: { $in: ["public", "invite-only"] },
-      ...demoProjectExcludeFilter(),
     };
 
     if (categoryId && categoryId !== "all") {

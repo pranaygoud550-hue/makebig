@@ -26,8 +26,8 @@ const CREATE_COPY = [
 ];
 
 const JOIN_COPY = [
-  { title: 'What can you bring?',  subtitle: 'Select your skills so we can match you with the right projects.' },
-  { title: 'Explore & join', subtitle: 'Tap Request to join — the project creator approves before you are added.' },
+  { title: 'What can you bring?',  subtitle: 'Pick your domain first, then select skills — we only show projects in that category.' },
+  { title: 'Explore & join', subtitle: 'Projects matching your domain and skills. Tap Request to join — the creator approves first.' },
 ];
 
 export function useWizard(): UseWizardReturn {
@@ -80,8 +80,9 @@ export function useWizard(): UseWizardReturn {
     if (state.entry === 'create' && state.step === 1 && !state.category) {
       return 'Please select a category.';
     }
-    if (state.entry === 'join' && state.step === 1 && state.skills.length === 0) {
-      return 'Select at least one skill.';
+    if (state.entry === 'join' && state.step === 1) {
+      if (!state.category) return 'Please select a domain/category.';
+      if (state.skills.length === 0) return 'Select at least one skill.';
     }
     return null;
   }, [state.step, state.entry, state.category, state.skills]);

@@ -236,7 +236,7 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
     const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     const excludeContact = stored ? JSON.parse(stored)?.contact : undefined;
 
-    apiBrowseProjects(undefined, excludeContact)
+    apiBrowseProjects(state.category || undefined, excludeContact)
       .then(list => {
         if (cancelled) return;
         setBrowseProjects(filterAllowedProjects(list));
@@ -251,10 +251,13 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
     return () => {
       cancelled = true;
     };
-  }, [isJoin, state.step, state.skills.join('|')]);
+  }, [isJoin, state.step, state.category, state.skills.join('|')]);
 
   const { similarProjects } = useMemo(() => {
-    const ranked = browseProjects.map(project => ({
+    const inCategory = state.category
+      ? browseProjects.filter((p) => p.categoryId === state.category)
+      : browseProjects;
+    const ranked = inCategory.map((project) => ({
       project,
       matchCount: getSkillMatchCount(state.skills, project.roles || []),
     }));
@@ -264,9 +267,9 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
     const similar =
       matched.length > 0
         ? matched
-        : [...ranked].sort((a, b) => b.project.name.localeCompare(a.project.name));
+        : [...ranked].sort((a, b) => a.project.name.localeCompare(b.project.name));
     return { similarProjects: similar };
-  }, [browseProjects, state.skills]);
+  }, [browseProjects, state.category, state.skills]);
 
   /* ── Pre-fill join role hint from skills ── */
   useEffect(() => {
@@ -897,20 +900,54 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-[#1d2226] mb-2">
-                  Your skills
-                  <span className="ml-2 text-xs font-normal text-[#999]">({state.skills.length} selected)</span>
-                </p>
-                <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto">
-                  {wizard.getAllSkills().map(skill => (
-                    <SkillChip
-                      key={skill}
-                      skill={skill}
-                      selected={state.skills.includes(skill)}
-                      onToggle={() => { wizard.toggleSkill(skill); setError(''); }}
-                    />
+                <p className="text-sm font-semibold text-[#1d2226] mb-3">Domain / category</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto">
+                  {WIZARD_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => { wizard.selectCategory(cat.id); setError(''); }}
+                      className={`text-left p-3 rounded-xl border-2 transition-all ${
+                        state.category === cat.id
+                          ? 'border-[#0A66C2] bg-[#EEF3FB]'
+                          : 'border-[#d9d9d9] bg-white hover:border-[#0A66C2]/50 hover:bg-[#f8f9fa]'
+                      }`}
+                    >
+                      <p className={`font-semibold text-xs ${state.category === cat.id ? 'text-[#0A66C2]' : 'text-[#1d2226]'}`}>
+                        {cat.title}
+                      </p>
+                      <p className="text-[10px] text-[#999] mt-0.5 line-clamp-1">{cat.blurb}</p>
+                    </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-[#1d2226] mb-2">
+                  Your skills
+                  {state.category ? (
+                    <span className="ml-2 text-xs font-normal text-[#666]">
+                      for {CategoryTitle(state.category)}
+                    </span>
+                  ) : null}
+                  <span className="ml-2 text-xs font-normal text-[#999]">({state.skills.length} selected)</span>
+                </p>
+                {!state.category ? (
+                  <p className="text-sm text-[#999] bg-[#f8f9fa] rounded-xl px-4 py-3">
+                    Select a domain above to see relevant skills.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                    {wizard.getAvailableSkills().map(skill => (
+                      <SkillChip
+                        key={skill}
+                        skill={skill}
+                        selected={state.skills.includes(skill)}
+                        onToggle={() => { wizard.toggleSkill(skill); setError(''); }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bg-white border border-[#d9d9d9] rounded-2xl p-5 space-y-4">
@@ -940,9 +977,9 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
                 <p className="text-xs font-semibold text-[#0A66C2] uppercase tracking-widest mb-1">Step 2 of 2</p>
                 <h2 className="text-2xl font-bold text-[#1d2226]">{copy?.title}</h2>
                 <p className="text-[#666] text-sm mt-1">{copy?.subtitle}</p>
-                {!browseLoading && (
+                {!browseLoading && state.category && (
                   <p className="text-xs text-[#999] mt-2">
-                    {similarProjects.length} project{similarProjects.length !== 1 ? 's' : ''} match your skills
+                    {similarProjects.length} {CategoryTitle(state.category)} project{similarProjects.length !== 1 ? 's' : ''} available
                   </p>
                 )}
               </div>
@@ -959,8 +996,8 @@ export function ProjectWizardNew({ isOpen, onClose, onComplete, initialEntry, in
                 </div>
               ) : similarProjects.length === 0 ? (
                 <div className="bg-white border border-dashed border-[#d9d9d9] rounded-xl p-10 text-center">
-                  <p className="font-semibold text-[#1d2226]">No matching projects for your skills yet</p>
-                  <p className="text-sm text-[#666] mt-1">Try different skills in step 1, create your own project, or browse Explore in the app.</p>
+                  <p className="font-semibold text-[#1d2226]">No projects in this domain yet</p>
+                  <p className="text-sm text-[#666] mt-1">Try another category or different skills in step 1, create your own project, or browse Explore in the app.</p>
                   <button
                     type="button"
                     onClick={openJoinExploreDashboard}
