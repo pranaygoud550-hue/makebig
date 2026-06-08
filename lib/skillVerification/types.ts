@@ -43,12 +43,34 @@ export interface VerifiedSkillRecord {
   verifiedAt: string;
 }
 
+export type CodingLanguage = 'javascript' | 'python' | 'java' | 'cpp' | 'c';
+
+export interface CodingChallengeClient {
+  id: string;
+  title: string;
+  difficulty: SkillDifficulty;
+  statement: string;
+  inputFormat: string;
+  outputFormat: string;
+  constraints: string;
+  sampleInput: string;
+  sampleOutput: string;
+  languages: CodingLanguage[];
+  starterCode: Partial<Record<CodingLanguage, string>>;
+}
+
+export interface CodingChallenge extends CodingChallengeClient {
+  testCases: { input: string; expectedOutput: string }[];
+}
+
 export interface SkillExamClient {
   skillId: string;
   name: string;
   description: string;
+  isCodingSkill?: boolean;
   mcq: Array<Omit<SkillQuestion, 'correctIndex'>>;
   practical: Array<Omit<PracticalQuestion, 'correctIndex'>>;
+  coding?: CodingChallengeClient[];
 }
 
 export interface SkillGradeResult {

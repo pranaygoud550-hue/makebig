@@ -7,9 +7,9 @@ import {
   projectDataToApiPayload,
 } from '@/lib/projectMappers';
 
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 export type EnsureProjectReason =
   | 'linked'
@@ -34,7 +34,7 @@ function saveLocal(project: ProjectData) {
 
 async function fetchOwnerProjects(ownerContact: string) {
   const res = await fetch(
-    `${API}/api/projects?ownerContact=${encodeURIComponent(ownerContact.trim().toLowerCase())}`
+    `${API}/projects?ownerContact=${encodeURIComponent(ownerContact.trim().toLowerCase())}`
   );
   const data = await res.json();
   if (!data.success) return [];
@@ -82,7 +82,7 @@ export async function ensureProjectOnline(
 
   if (isValidMongoId(project.id)) {
     try {
-      const res = await fetch(`${API}/api/projects/${project.id}`);
+      const res = await fetch(`${API}/projects/${project.id}`);
       const data = await res.json();
       if (data.success && data.data?.project) {
         const updated = apiProjectToProjectData(data.data.project, project.mode);

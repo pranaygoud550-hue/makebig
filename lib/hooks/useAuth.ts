@@ -189,6 +189,30 @@ export function useAuth(): UseAuthReturn {
 
         setUser(newUser);
         await loadProfile(normalizedContact);
+
+        const mergedSkills = [...new Set(newUser.skills || [])];
+        if (mergedSkills.length) {
+          try {
+            const existing = await apiGetProfile(normalizedContact);
+            await apiUpsertProfile({
+              contact: normalizedContact,
+              role: existing?.role || 'member',
+              tagline: existing?.tagline || '',
+              categoryIds: existing?.categoryIds || [],
+              skills: [...new Set([...(existing?.skills || []), ...mergedSkills])],
+              bio: existing?.bio || '',
+              portfolio: existing?.portfolio || '',
+              profileImage: existing?.profileImage || '',
+              availableForInvites: existing?.availableForInvites ?? true,
+              rateMin: existing?.rateMin,
+              rateMax: existing?.rateMax,
+              currency: existing?.currency || 'INR',
+            });
+            await loadProfile(normalizedContact);
+          } catch {
+            /* profile sync is best-effort */
+          }
+        }
       } catch (e) {
         await clearAuthToken();
         setUser(null);

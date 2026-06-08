@@ -10,10 +10,7 @@ import { filterAllowedProjects } from '@/lib/projectAllowlist';
 import { dedupeById } from '@/lib/dedupeProjects';
 import { isProjectOwner } from '@/lib/projectOwnership';
 import type { DashboardNavTab } from '@/components/DashboardNew';
-import { OnboardingChecklist } from '@/components/app/OnboardingChecklist';
 import { SmartSearch } from '@/components/SmartSearch';
-import { computeProfileStrength } from '@/lib/profileStrength';
-import { apiGetUser } from '@/lib/api';
 
 const STARTUP_TOOLS = [
   {
@@ -53,7 +50,6 @@ interface HomeTabProps {
   onOpenExplore?: () => void;
   onOpenProfile?: () => void;
   onOpenProject?: () => void;
-  onOpenAI?: () => void;
 }
 
 export function HomeTab({
@@ -64,7 +60,6 @@ export function HomeTab({
   onOpenExplore,
   onOpenProfile,
   onOpenProject,
-  onOpenAI,
 }: HomeTabProps) {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<SearchProjectHit[]>([]);
@@ -75,24 +70,6 @@ export function HomeTab({
     openRoles: 0,
     teamsHiring: 0,
   });
-  const [userCreatedAt, setUserCreatedAt] = useState<string | undefined>();
-  const [profileComplete, setProfileComplete] = useState(false);
-
-  useEffect(() => {
-    if (!userContact) return;
-    apiGetUser(userContact).then((u) => {
-      if (!u) return;
-      setUserCreatedAt(u.createdAt);
-      const strength = computeProfileStrength({
-        name: u.name,
-        bio: (u as { bio?: string }).bio || '',
-        skills: u.skills,
-        college: u.college,
-        profileImage: (u as { profileImage?: string }).profileImage,
-      });
-      setProfileComplete(strength.score >= 60);
-    });
-  }, [userContact]);
 
   useEffect(() => {
     fetch('/api/public/explore?limit=50&page=1')
@@ -155,16 +132,6 @@ export function HomeTab({
 
   return (
     <div className="space-y-6">
-      {userContact && (
-        <OnboardingChecklist
-          userContact={userContact}
-          userCreatedAt={userCreatedAt}
-          profileComplete={profileComplete}
-          onOpenExplore={onOpenExplore}
-          onOpenProfile={onOpenProfile ?? (() => onOpenDashboard?.('dashboard'))}
-          onOpenProject={() => onOpenDashboard?.('dashboard')}
-        />
-      )}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0A66C2] via-[#004182] to-[#1d2226] p-6 text-white shadow-lg">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-[#22c55e]/20 rounded-full blur-2xl pointer-events-none" />

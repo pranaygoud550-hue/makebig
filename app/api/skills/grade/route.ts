@@ -19,6 +19,12 @@ export async function POST(req: Request) {
     const practicalAnswers = Array.isArray(body.practicalAnswers)
       ? body.practicalAnswers.map(Number)
       : [];
+    const codeSubmissions = Array.isArray(body.codeSubmissions)
+      ? body.codeSubmissions.map((s: { code?: string; language?: string }) => ({
+          code: String(s?.code || ''),
+          language: (s?.language || 'javascript') as import('@/lib/skillVerification/types').CodingLanguage,
+        }))
+      : undefined;
     const autoSubmitted = Boolean(body.autoSubmitted);
 
     if (!sessionId) {
@@ -46,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Session expired' }, { status: 410 });
     }
 
-    const base = gradeSkillExam(skillId, mcqAnswers, practicalAnswers);
+    const base = gradeSkillExam(skillId, mcqAnswers, practicalAnswers, codeSubmissions);
     if (!base) {
       return NextResponse.json(
         { success: false, error: 'Invalid submission — complete all questions' },

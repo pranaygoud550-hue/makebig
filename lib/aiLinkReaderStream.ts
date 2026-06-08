@@ -1,5 +1,5 @@
 import { getAuthHeadersAsync } from '@/lib/api';
-import { getApiOrigin } from '@/lib/apiBase';
+import { clientApiUrl } from '@/lib/apiBase';
 
 export interface LinkReadUsage {
   used: number;
@@ -36,11 +36,10 @@ export interface StreamLinkReaderParams {
 }
 
 export function getReadLinkStreamUrl(): string {
-  const origin = getApiOrigin();
-  if (typeof window !== 'undefined' && origin.includes('localhost:5001')) {
-    return `${origin}/api/ai/read-link`;
+  if (typeof window !== 'undefined') {
+    return '/api/ai/read-link';
   }
-  return '/api/ai/read-link';
+  return clientApiUrl('/api/ai/read-link');
 }
 
 export async function streamLinkReader({
@@ -161,7 +160,10 @@ export async function fetchProjectLinkHistory(
   projectId: string
 ): Promise<{ links: LinkHistoryEntry[]; usage: LinkReadUsage }> {
   const headers = await getAuthHeadersAsync();
-  const res = await fetch(`${getApiOrigin()}/api/projects/${projectId}/links`, { headers });
+  const res = await fetch(clientApiUrl(`/api/projects/${projectId}/links`), {
+    headers,
+    credentials: 'include',
+  });
   const data = await res.json();
   if (!data.success) {
     throw new Error(data.error || 'Could not load link history');

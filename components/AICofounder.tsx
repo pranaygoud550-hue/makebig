@@ -28,7 +28,8 @@ import {
   COMPETITOR_QUESTION,
 } from '@/lib/linkReaderUtils';
 import { getAICofounderStatusUrl } from '@/lib/aiCofounderUrls';
-import { getApiOrigin } from '@/lib/apiBase';
+import { clientApiUrl } from '@/lib/apiBase';
+import { isAdvisorProject } from '@/lib/advisorProject';
 import { useToast } from '@/lib/context/ToastContext';
 import { useSubscription } from '@/lib/hooks/useSubscription';
 import { ProjectData, User } from '@/lib/types';
@@ -43,6 +44,8 @@ interface AICofounderProps {
   ownerContact?: string;
   /** Hide Agent tab when agent lives in a separate mode toggle (ProjectAIPanel). */
   hideAgentTab?: boolean;
+  /** Pre-project advisor chat (no Mongo project required). */
+  advisorMode?: boolean;
 }
 
 type ActionId =
@@ -281,7 +284,7 @@ function DMContextModal({
   );
 }
 
-export function AICofounder({ project, user, ownerContact, hideAgentTab = false }: AICofounderProps) {
+export function AICofounder({ project, user, ownerContact, hideAgentTab = false, advisorMode = false }: AICofounderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -300,10 +303,11 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { showToast } = useToast();
+  const isAdvisor = advisorMode || isAdvisorProject(project);
   const { isPro } = useSubscription(ownerContact);
 
   const runPitchDeck = useCallback(async () => {
-    if (!project.id || streaming) return;
+    if (!project.id || streaming || isAdvisor) return;
     setStreaming(true);
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -319,9 +323,10 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false 
     ]);
     try {
       const headers = await getAuthHeadersAsync();
-      const res = await fetch(`${getApiOrigin()}/api/ai/pitch-deck`, {
+      const res = await fetch(clientApiUrl('/api/ai/pitch-deck'), {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ projectId: project.id }),
       });
       const data = await res.json();
@@ -340,7 +345,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false 
     } finally {
       setStreaming(false);
     }
-  }, [project.id, streaming]);
+  }, [project.id, streaming, isAdvisor]);
 
   const loadLinkHistory = useCallback(async () => {
     if (!project.id) return;
@@ -599,6 +604,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false 
       try {
         await streamAICofounder({
           projectId: project.id,
+          advisorMode: isAdvisor,
           messages: historyBefore,
           action: action === 'custom' ? 'custom' : action,
           context,
@@ -658,7 +664,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false 
         setStreaming(false);
       }
     },
-    [project.id, streaming, messages]
+    [project.id, streaming, messages, isAdvisor]
   );
 
   const handleCustomSend = () => {

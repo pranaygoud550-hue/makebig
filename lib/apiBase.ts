@@ -34,3 +34,18 @@ export function getApiBase(): string {
   }
   return `${getApiOrigin()}/api`;
 }
+
+/** Authenticated client fetch path — always same-origin on Vercel (cookie + BFF proxy). */
+export function clientApiUrl(apiPath: string): string {
+  const normalized = apiPath.replace(/^\/api\//, '').replace(/^\//, '');
+  if (typeof window !== 'undefined') {
+    return `/api/backend/${normalized}`;
+  }
+  return `${getApiOrigin()}/api/${normalized}`;
+}
+
+/** Root for authenticated API calls from the browser (BFF) or server (Render). */
+export function getClientApiRoot(): string {
+  if (typeof window !== 'undefined') return '/api/backend';
+  return `${getApiOrigin()}/api`;
+}

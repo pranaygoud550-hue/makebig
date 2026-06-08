@@ -1,9 +1,9 @@
 'use client';
 
-import { ProjectWorkspaceGate } from '@/components/app/ProjectWorkspaceGate';
 import { ProjectAIPanel } from '@/components/dashboard/ProjectAIPanel';
 import { ProjectData, User } from '@/lib/types';
-import { canUseAICofounder, workspaceLabel } from '@/lib/projectWorkspace';
+import { buildAdvisorProject, isAdvisorProject } from '@/lib/advisorProject';
+import { hasActiveWorkspace, hasProjectId } from '@/lib/projectWorkspace';
 
 interface AICoderTabProps {
   user: User;
@@ -16,54 +16,43 @@ export function AICoderTab({
   user,
   currentProject,
   onOpenDashboard,
-  onProjectSynced,
 }: AICoderTabProps) {
-  const ownerContact =
-    currentProject?.ownerContact ||
-    (currentProject?.mode === 'create' ? user.contact : undefined);
+  const useAdvisor = !hasActiveWorkspace(currentProject) || !hasProjectId(currentProject);
+  const project = useAdvisor ? buildAdvisorProject(user) : currentProject!;
+  const ownerContact = useAdvisor
+    ? user.contact
+    : currentProject?.ownerContact ||
+      (currentProject?.mode === 'create' ? user.contact : undefined);
 
   return (
-    <ProjectWorkspaceGate
-      currentProject={currentProject}
-      userContact={user.contact}
-      onOpenDashboard={onOpenDashboard}
-      onProjectSynced={onProjectSynced}
-      noProject={{
-        icon: '🤖',
-        title: 'AI Workspace',
-        description: 'Create or join a project first, then chat with the Assistant or run an Agent.',
-      }}
-      needsSync={{
-        icon: '🤖',
-        title: `AI for ${workspaceLabel(currentProject)}`,
-        description:
-          'Link your project online to use AI on your real project data (tasks, team, timeline).',
-      }}
-    >
-      {currentProject && !canUseAICofounder(currentProject) ? (
-        <div className="bg-white rounded-2xl border border-[#e0e0e0] p-8 text-center space-y-3">
-          <p className="text-2xl">🤝</p>
-          <p className="font-semibold text-[#1d2226]">
-            {currentProject.mode === 'join'
-              ? 'Pick a project to join'
-              : `Set up ${workspaceLabel(currentProject)}`}
+    <div className="space-y-4">
+      {useAdvisor && (
+        <div className="rounded-xl border border-[#0A66C2]/25 bg-[#EEF3FB] px-4 py-3 text-sm text-[#1d2226]">
+          <p className="font-semibold text-[#0A66C2]">AI Assistant — no project required</p>
+          <p className="text-[#666] mt-1">
+            Chat about ideas, validation, and next steps before you join or create a team project.
+            {hasActiveWorkspace(currentProject) && !hasProjectId(currentProject) && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={onOpenDashboard}
+                  className="text-[#0A66C2] font-semibold hover:underline"
+                >
+                  Finish setting up your project →
+                </button>
+              </>
+            )}
           </p>
-          <p className="text-sm text-[#666] max-w-sm mx-auto">
-            {currentProject.mode === 'join'
-              ? 'Finish joining a project from Explore, or create your own to unlock AI.'
-              : 'Publish and link your project online, then AI can use your real tasks and team data.'}
-          </p>
-          <button
-            type="button"
-            onClick={onOpenDashboard}
-            className="px-5 py-2.5 bg-[#0A66C2] text-white text-sm font-semibold rounded-full hover:bg-[#004182]"
-          >
-            {currentProject.mode === 'join' ? 'Go to Explore' : 'Open team dashboard'}
-          </button>
         </div>
-      ) : currentProject ? (
-        <ProjectAIPanel project={currentProject} user={user} ownerContact={ownerContact} />
-      ) : null}
-    </ProjectWorkspaceGate>
+      )}
+
+      <ProjectAIPanel
+        project={project}
+        user={user}
+        ownerContact={ownerContact}
+        advisorMode={isAdvisorProject(project)}
+      />
+    </div>
   );
 }

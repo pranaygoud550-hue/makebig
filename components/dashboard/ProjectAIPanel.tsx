@@ -20,6 +20,7 @@ interface ProjectAIPanelProps {
   user: User;
   ownerContact?: string;
   agentHistoryRefresh?: number;
+  advisorMode?: boolean;
 }
 
 function ModeToggle({
@@ -70,6 +71,7 @@ export function ProjectAIPanel({
   user,
   ownerContact,
   agentHistoryRefresh = 0,
+  advisorMode = false,
 }: ProjectAIPanelProps) {
   const { showToast } = useToast();
   const [mode, setMode] = useState<ProjectAIMode>('assistant');
@@ -102,21 +104,24 @@ export function ProjectAIPanel({
             {mode === 'assistant' ? 'AI Assistant' : 'AI Agent'} · {project.name}
           </h2>
           <p className="text-xs text-[#666] mt-1 max-w-lg">
-            {mode === 'assistant'
-              ? 'Chat, analyze links, and get advice tailored to your project.'
-              : 'Automated runs that set up tasks, roles, milestones, and builds for you.'}
+            {advisorMode
+              ? 'Ask about ideas, validation, teammates, and what to build first — before you join a project.'
+              : mode === 'assistant'
+                ? 'Chat, analyze links, and get advice tailored to your project.'
+                : 'Automated runs that set up tasks, roles, milestones, and builds for you.'}
           </p>
         </div>
-        <ModeToggle mode={mode} onChange={switchMode} />
+        {!advisorMode && <ModeToggle mode={mode} onChange={switchMode} />}
       </div>
 
-      {mode === 'assistant' ? (
+      {(advisorMode || mode === 'assistant') ? (
         <div className="min-h-[62vh] flex flex-col bg-[#0d1117] rounded-2xl border border-[#30363d] overflow-hidden">
           <AICofounder
             project={project}
             user={user}
             ownerContact={ownerContact}
             hideAgentTab
+            advisorMode={advisorMode}
           />
         </div>
       ) : (
@@ -162,7 +167,7 @@ export function ProjectAIPanel({
         </div>
       )}
 
-      {mode === 'assistant' && (
+      {!advisorMode && mode === 'assistant' && (
         <p className="text-center text-xs text-[#666]">
           Need automated setup?{' '}
           <button

@@ -36,10 +36,8 @@ export function getAuthToken(): string | null {
 
 export async function getAuthHeadersAsync(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (isSupabaseConfigured) {
-    const token = await getAuthTokenAsync();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
+  const token = await getAuthTokenAsync();
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
@@ -84,7 +82,7 @@ function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const sameOrigin = input.startsWith('/');
   return fetch(input, {
     ...init,
-    credentials: sameOrigin ? 'include' : init?.credentials,
+    credentials: sameOrigin ? 'include' : init?.credentials ?? 'include',
   });
 }
 

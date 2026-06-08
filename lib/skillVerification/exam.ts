@@ -1,6 +1,8 @@
-import type { SkillDefinition, SkillExamClient, SkillGradeResult } from './types';
+import type { CodingLanguage, SkillDefinition, SkillExamClient, SkillGradeResult } from './types';
 import { badgeFromScore, calculateSkillScore, scoreAnswers } from './scoring';
 import { SKILL_CATALOG } from './catalogData';
+import { getCodingChallenges, isCodingSkill } from './codingCatalog';
+import { gradeCodingAnswers } from './codeGrading';
 
 export function listVerifiableSkills() {
   return SKILL_CATALOG.map(({ id, name, description }) => ({ id, name, description }));
@@ -13,34 +15,49 @@ export function getSkillById(skillId: string): SkillDefinition | undefined {
 export function examForClient(skillId: string): SkillExamClient | null {
   const skill = getSkillById(skillId);
   if (!skill) return null;
+  const coding = getCodingChallenges(skillId);
   return {
     skillId: skill.id,
     name: skill.name,
     description: skill.description,
+    isCodingSkill: isCodingSkill(skillId),
     mcq: skill.mcq.map(({ id, question, options, difficulty }) => ({
       id,
       question,
       options,
       difficulty,
     })),
-    practical: skill.practical.map(({ id, question, prompt, options }) => ({
-      id,
-      question,
-      prompt,
-      options,
-    })),
+    practical: isCodingSkill(skillId)
+      ? []
+      : skill.practical.map(({ id, question, prompt, options }) => ({
+          id,
+          question,
+          prompt,
+          options,
+        })),
+    coding: coding
+      ? coding.map(({ testCases: _t, ...rest }) => rest)
+      : undefined,
   };
 }
 
 export function gradeSkillExam(
   skillId: string,
   mcqAnswers: number[],
-  practicalAnswers: number[]
+  practicalAnswers: number[],
+  codeSubmissions?: { code: string; language: CodingLanguage }[]
 ): SkillGradeResult | null {
   const skill = getSkillById(skillId);
   if (!skill) return null;
 
-  if (mcqAnswers.length !== skill.mcq.length || practicalAnswers.length !== skill.practical.length) {
+  if (mcqAnswers.length !== skill.mcq.length) return null;
+
+  const codingChallenges = getCodingChallenges(skillId);
+  const codingMode = Boolean(codingChallenges?.length);
+
+  if (codingMode) {
+    if (!codeSubmissions || codeSubmissions.length !== codingChallenges!.length) return null;
+  } else if (practicalAnswers.length !== skill.practical.length) {
     return null;
   }
 
@@ -49,13 +66,18 @@ export function gradeSkillExam(
     if (mcqAnswers[i] === q.correctIndex) mcqCorrect += 1;
   });
 
-  let practicalCorrect = 0;
-  skill.practical.forEach((q, i) => {
-    if (practicalAnswers[i] === q.correctIndex) practicalCorrect += 1;
-  });
+  let practicalScore = 0;
+  if (codingMode && codingChallenges) {
+    practicalScore = gradeCodingAnswers(skillId, codingChallenges, codeSubmissions!);
+  } else {
+    let practicalCorrect = 0;
+    skill.practical.forEach((q, i) => {
+      if (practicalAnswers[i] === q.correctIndex) practicalCorrect += 1;
+    });
+    practicalScore = scoreAnswers(practicalCorrect, skill.practical.length);
+  }
 
   const mcqScore = scoreAnswers(mcqCorrect, skill.mcq.length);
-  const practicalScore = scoreAnswers(practicalCorrect, skill.practical.length);
   const testScore = calculateSkillScore(mcqScore, practicalScore);
 
   return {

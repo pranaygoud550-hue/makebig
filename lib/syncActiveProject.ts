@@ -1,7 +1,7 @@
 import { ProjectData } from '@/lib/types';
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 /** Attach MongoDB id to a locally saved project by matching owner + name. */
 export async function syncActiveProjectId(
@@ -12,7 +12,7 @@ export async function syncActiveProjectId(
 
   try {
     const res = await fetch(
-      `${API}/api/projects?ownerContact=${encodeURIComponent(ownerContact.trim().toLowerCase())}`
+      `${API}/projects?ownerContact=${encodeURIComponent(ownerContact.trim().toLowerCase())}`
     );
     const data = await res.json();
     if (!data.success) return null;

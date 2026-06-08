@@ -8,7 +8,7 @@ const ROW1 = [
     quote:
       'Make Big helped our team actually finish a project for once.',
     name: 'Rahul',
-    detail: 'CSE Final Year, CMRIT',
+    detail: 'CSE Final Year, Hyderabad',
     initial: 'R',
   },
   {

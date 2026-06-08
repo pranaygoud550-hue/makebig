@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { BrandLogo } from '@/components/BrandLogo';
 import { getAuthHeadersAsync } from '@/lib/api';
-import { getApiOrigin } from '@/lib/apiBase';
+import { clientApiUrl } from '@/lib/apiBase';
 import { useToast } from '@/lib/context/ToastContext';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -38,9 +38,10 @@ export default function IdeaValidatorPage() {
     setError('');
     try {
       const headers = await getAuthHeadersAsync();
-      const res = await fetch(`${getApiOrigin()}/api/ai/idea-validator/questions`, {
+      const res = await fetch(clientApiUrl('/api/ai/idea-validator/questions'), {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ ideaDescription: idea }),
       });
       const data = await res.json();
@@ -78,9 +79,10 @@ export default function IdeaValidatorPage() {
         question,
         answer: answers[i] || '',
       }));
-      const res = await fetch(`${getApiOrigin()}/api/ai/idea-validator/full-report`, {
+      const res = await fetch(clientApiUrl('/api/ai/idea-validator/full-report'), {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ ideaDescription: idea, answers: qa }),
       });
       const data = await res.json();

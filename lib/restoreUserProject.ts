@@ -5,9 +5,9 @@ import { hasActiveWorkspace } from '@/lib/projectWorkspace';
 import { ProjectData } from '@/lib/types';
 import { normalizeContact } from '@/lib/utils';
 
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 export interface WorkspaceRow {
   id: string;
@@ -26,7 +26,7 @@ export interface WorkspaceRow {
 async function fetchWorkspacesFromServer(contact: string): Promise<WorkspaceRow[]> {
   try {
     const res = await fetch(
-      `${API}/api/users/${encodeURIComponent(normalizeContact(contact))}/workspaces`,
+      `${API}/users/${encodeURIComponent(normalizeContact(contact))}/workspaces`,
       { headers: await getAuthHeadersAsync() }
     );
     const data = await res.json();

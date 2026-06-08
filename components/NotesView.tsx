@@ -11,7 +11,7 @@ import {
 import { getAuthHeadersAsync } from '@/lib/api';
 import { socketManager } from '@/lib/realtime';
 import { useToast } from '@/lib/context/ToastContext';
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 
 interface NotesViewProps {
   projectId: string;
@@ -20,7 +20,7 @@ interface NotesViewProps {
   userContact: string;
 }
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 function formatSavedTime(iso: string | null) {
   if (!iso) return '';
@@ -172,7 +172,7 @@ export function NotesView({ projectId, userId, userName, userContact }: NotesVie
       const headers = await getAuthHeadersAsync();
       await Promise.all(
         toAdd.map((t) =>
-          fetch(`${API}/api/projects/${projectId}/tasks`, {
+          fetch(`${API}/projects/${projectId}/tasks`, {
             method: 'POST',
             headers,
             body: JSON.stringify({

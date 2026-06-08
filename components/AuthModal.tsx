@@ -938,7 +938,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                         </div>
                       )}
                       <p className="text-xs text-[#999] mt-2">
-                        Next: 10 MCQ + 3 practical scenarios per skill (MCQ 40% · Practical 60%)
+                        Next: 10 MCQ + practical section per skill (Frontend/Backend use a coding editor like competitive exams)
                       </p>
                     </Field>
 

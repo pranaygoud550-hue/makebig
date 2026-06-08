@@ -7,10 +7,10 @@ import { getAuthHeadersAsync } from '@/lib/api';
 import { getErrorMessage } from '@/lib/userErrors';
 import { connectProjectRoom, createApiSocket } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 import { markOnboardingPost } from '@/components/app/OnboardingChecklist';
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 interface FeedPost {
   id: string;
@@ -68,7 +68,7 @@ function PostCard({
   const loadComments = useCallback(async () => {
     setLoadingComments(true);
     try {
-      const res = await fetch(`${API}/api/posts/${post.id}/comments`);
+      const res = await fetch(`${API}/posts/${post.id}/comments`);
       const data = await res.json();
       if (data.success) setComments(Array.isArray(data.data?.comments) ? data.data.comments : []);
     } finally {
@@ -84,7 +84,7 @@ function PostCard({
     if (!body.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API}/api/posts/${post.id}/comments`, {
+      const res = await fetch(`${API}/posts/${post.id}/comments`, {
         method: 'POST',
         headers: await getAuthHeadersAsync(),
         body: JSON.stringify({ body: body.trim(), parentCommentId: parentId || null }),
@@ -364,7 +364,7 @@ function PostComposer({
     setPosting(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/api/posts`, {
+      const res = await fetch(`${API}/posts`, {
         method: 'POST',
         headers: await getAuthHeadersAsync(),
         body: JSON.stringify({
@@ -477,8 +477,8 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
     setPage(1);
     try {
       const url = global
-        ? `${API}/api/feed?page=1&limit=15`
-        : `${API}/api/projects/${projectId}/posts?page=1&limit=10`;
+        ? `${API}/feed?page=1&limit=15`
+        : `${API}/projects/${projectId}/posts?page=1&limit=10`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
@@ -506,8 +506,8 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
       setLoading(true);
       try {
         const url = global
-          ? `${API}/api/feed?page=${page}&limit=15`
-          : `${API}/api/projects/${projectId}/posts?page=${page}&limit=10`;
+          ? `${API}/feed?page=${page}&limit=15`
+          : `${API}/projects/${projectId}/posts?page=${page}&limit=10`;
         const res = await fetch(url);
         const data = await res.json();
         if (cancelled || !data.success) return;
@@ -626,7 +626,7 @@ export function ProjectFeed({ projectId, userContact, isOwner, canPost, global =
   const handleLike = async (postId: string) => {
     if (!userContact) return;
     try {
-      const res = await fetch(`${API}/api/posts/${postId}/like`, {
+      const res = await fetch(`${API}/posts/${postId}/like`, {
         method: 'POST',
         headers: await getAuthHeadersAsync(),
       });

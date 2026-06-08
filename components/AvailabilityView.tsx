@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthHeadersAsync } from '@/lib/api';
-import { getApiOrigin } from '@/lib/apiBase';
+import { clientApiUrl } from '@/lib/apiBase';
 import { User } from '@/lib/types';
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -51,7 +51,10 @@ export function AvailabilityView({ projectId, user }: AvailabilityViewProps) {
     if (!projectId) return;
     (async () => {
       const headers = await getAuthHeadersAsync();
-      const res = await fetch(`${getApiOrigin()}/api/projects/${projectId}/team-availability`, { headers });
+      const res = await fetch(clientApiUrl(`/api/projects/${projectId}/team-availability`), {
+        headers,
+        credentials: 'include',
+      });
       const data = await res.json();
       if (data.success) setTeam(data.data.members || []);
     })();
@@ -68,7 +71,7 @@ export function AvailabilityView({ projectId, user }: AvailabilityViewProps) {
   const save = async () => {
     setSaving(true);
     const headers = await getAuthHeadersAsync();
-    await fetch(`${getApiOrigin()}/api/users/me/availability`, {
+    await fetch(clientApiUrl('/api/users/me/availability'), {
       method: 'PATCH',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ availability: mine }),

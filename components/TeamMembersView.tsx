@@ -8,7 +8,7 @@ import { connectProjectRoom } from '@/lib/realtime';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { apiRemoveProjectMember } from '@/lib/api';
 import { useToast } from '@/lib/context/ToastContext';
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 
 interface TeamMember {
   contact: string;
@@ -34,7 +34,7 @@ const AVATAR_COLORS = [
   'bg-rose-500', 'bg-amber-500', 'bg-indigo-500',
 ];
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 export function TeamMembersView({
   projectId,
@@ -80,7 +80,7 @@ export function TeamMembersView({
             })));
           }
         } else {
-          const res = await fetch(`${API}/api/projects/${projectId}/members`);
+          const res = await fetch(`${API}/projects/${projectId}/members`);
           const json = await res.json();
           if (!cancelled && json.success) setTeam(json.data.members || []);
           else if (!cancelled) setFetchFailed(true);

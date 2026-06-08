@@ -4912,19 +4912,44 @@ app.post("/api/ai/cofounder/stream", authMiddleware, async (req, res) => {
   };
 
   try {
-    const { projectId, messages = [], action, context = {} } = req.body;
-    if (!projectId) {
-      send({ type: "error", message: "projectId required" });
-      return res.end();
+    const { projectId, advisorMode, messages = [], action, context = {} } = req.body;
+
+    let projectDoc;
+    let projectName = 'Your startup journey';
+
+    if (advisorMode || projectId === 'advisor') {
+      const user = await User.findOne({ contact: normalizeContact(req.user.contact) }).lean();
+      projectDoc = {
+        name: 'Your startup journey',
+        desc: user?.skills?.length
+          ? `Exploring ideas before joining a project. Skills: ${user.skills.join(', ')}`
+          : 'Exploring startup ideas and planning before joining or creating a team project.',
+        categoryId: 'other',
+        roles: user?.skills || [],
+        salaryMax: 0,
+        city: user?.city || '',
+        state: user?.state || '',
+        tasks: [],
+        teamMembers: [],
+        createdAt: user?.createdAt || new Date(),
+      };
+      projectName = projectDoc.name;
+    } else {
+      if (!projectId) {
+        send({ type: "error", message: "projectId required" });
+        return res.end();
+      }
+
+      const project = await Project.findById(projectId).lean();
+      if (!project) {
+        send({ type: "error", message: "Project not found" });
+        return res.end();
+      }
+
+      projectDoc = projectToCofounderDoc(project);
+      projectName = project.name;
     }
 
-    const project = await Project.findById(projectId).lean();
-    if (!project) {
-      send({ type: "error", message: "Project not found" });
-      return res.end();
-    }
-
-    const projectDoc = projectToCofounderDoc(project);
     const systemPrompt = buildCofounderSystemPrompt(projectDoc);
     let fullText = "";
 
@@ -4949,7 +4974,7 @@ app.post("/api/ai/cofounder/stream", authMiddleware, async (req, res) => {
       type: "done",
       devMode: result.devMode,
       provider: result.provider,
-      projectName: project.name,
+      projectName,
       usage: {
         inputTokens: result.usage?.inputTokens ?? ctxUsage.inputTokens,
         outputTokens: result.usage?.outputTokens ?? ctxUsage.outputTokens,

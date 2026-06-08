@@ -24,6 +24,7 @@ export interface StreamDonePayload {
 
 export interface StreamCofounderParams {
   projectId: string;
+  advisorMode?: boolean;
   messages: StreamMessage[];
   action?: string;
   context?: Record<string, string>;
@@ -35,6 +36,7 @@ export interface StreamCofounderParams {
 
 export async function streamAICofounder({
   projectId,
+  advisorMode,
   messages,
   action,
   context,
@@ -49,7 +51,8 @@ export async function streamAICofounder({
       'Content-Type': 'application/json',
       ...(await getAuthHeadersAsync()),
     },
-    body: JSON.stringify({ projectId, messages, action, context }),
+    credentials: 'include',
+    body: JSON.stringify({ projectId, advisorMode, messages, action, context }),
     signal,
   });
 

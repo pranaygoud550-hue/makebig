@@ -117,7 +117,7 @@ export function HeroSection({ onStartFree, onExplore }: HeroSectionProps) {
             transition={{ duration: 0.6 }}
             className="mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-medium text-white/90 border border-indigo-500/40 bg-indigo-500/10 shadow-[0_0_24px_rgba(99,102,241,0.25)] animate-[pulse-glow_3s_ease-in-out_infinite]"
           >
-            🚀 Built for student founders · Used by CMRIT teams
+            🚀 Built for student founders · Teams across India
           </motion.div>
 
           <h1 className="text-[2.375rem] sm:text-5xl lg:text-[4rem] font-black leading-[1.08] tracking-tight">

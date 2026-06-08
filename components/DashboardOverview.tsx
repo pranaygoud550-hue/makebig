@@ -33,7 +33,7 @@ import { isProjectOwner } from '@/lib/projectOwnership';
 import { ConnectGitHubCard } from '@/components/ConnectGitHubCard';
 import { AIWorkspacePreview } from '@/components/dashboard/AIWorkspacePreview';
 import { markOnboardingTasks } from '@/components/app/OnboardingChecklist';
-import { getApiOrigin } from '@/lib/apiBase';
+import { getClientApiRoot } from '@/lib/apiBase';
 
 interface DashboardOverviewProps {
   project: ProjectData;
@@ -80,7 +80,7 @@ function normalizeTask(raw: Record<string, unknown>): Task {
   };
 }
 
-const API = getApiOrigin();
+const API = getClientApiRoot();
 
 const COLUMNS: { key: Task['status']; label: string; accent: string; dot: string }[] = [
   { key: 'todo',        label: 'To Do',       accent: 'bg-[#f3f2ef] text-[#666]',  dot: 'bg-[#aaa]'     },
@@ -260,10 +260,10 @@ export function DashboardOverview({ project, user, onProjectUpdate, onOpenAI, on
       const [tRes, mRes] = await Promise.all([
         isSupabaseConfigured
           ? supabase.from('project_tasks').select('*').eq('project_id', project.id).order('created_at', { ascending: true })
-          : fetch(`${API}/api/projects/${project.id}/tasks`, { headers }),
+          : fetch(`${API}/projects/${project.id}/tasks`, { headers }),
         isSupabaseConfigured
           ? supabase.from('project_members').select('*').eq('project_id', project.id).eq('status', 'joined')
-          : fetch(`${API}/api/projects/${project.id}/members`, { headers }),
+          : fetch(`${API}/projects/${project.id}/members`, { headers }),
       ]);
       if (isSupabaseConfigured) {
         const tData = tRes as { data: any[] | null; error: unknown };
@@ -318,7 +318,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, onOpenAI, on
     setAddingSmartId(index);
     try {
       const headers = await getAuthHeadersAsync();
-      const res = await fetch(`${API}/api/projects/${project.id}/tasks`, {
+      const res = await fetch(`${API}/projects/${project.id}/tasks`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -458,7 +458,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, onOpenAI, on
           setTaskError('You need to be signed in to add tasks. Log out and sign in again.');
           return;
         }
-        const res = await fetch(`${API}/api/projects/${project.id}/tasks`, {
+        const res = await fetch(`${API}/projects/${project.id}/tasks`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -502,7 +502,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, onOpenAI, on
         if (error) throw error;
       } else {
         const headers = await getAuthHeadersAsync();
-        const res = await fetch(`${API}/api/projects/${project.id}/tasks/${task.id}`, {
+        const res = await fetch(`${API}/projects/${project.id}/tasks/${task.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify({ status: newStatus }),
@@ -529,7 +529,7 @@ export function DashboardOverview({ project, user, onProjectUpdate, onOpenAI, on
       await supabase.from('project_tasks').delete().eq('id', id);
     } else {
       const headers = await getAuthHeadersAsync();
-      await fetch(`${API}/api/projects/${project.id}/tasks/${id}`, {
+      await fetch(`${API}/projects/${project.id}/tasks/${id}`, {
         method: 'DELETE',
         headers,
       });

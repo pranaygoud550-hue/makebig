@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SkillExamClient, SkillGradeResult } from '@/lib/skillVerification/types';
+import type { SkillExamClient, SkillGradeResult, CodingLanguage } from '@/lib/skillVerification/types';
 import { SkillBadgeChip } from '@/components/skillVerification/SkillBadgeChip';
 import { TestProctorShell } from '@/components/skillVerification/TestProctorShell';
+import { CodingExamPanel } from '@/components/skillVerification/CodingExamPanel';
 import { useTestProctoring } from '@/lib/skillVerification/useTestProctoring';
 
 interface SkillVerificationFlowProps {
@@ -27,6 +28,8 @@ export function SkillVerificationFlow({
   const [error, setError] = useState('');
   const [mcqAnswers, setMcqAnswers] = useState<number[]>([]);
   const [practicalAnswers, setPracticalAnswers] = useState<number[]>([]);
+  const [codeAnswers, setCodeAnswers] = useState<{ code: string; language: CodingLanguage }[]>([]);
+  const [codingIndex, setCodingIndex] = useState(0);
   const [results, setResults] = useState<SkillGradeResult[]>([]);
   const [done, setDone] = useState(false);
   const [proctorReady, setProctorReady] = useState(false);
@@ -44,9 +47,19 @@ export function SkillVerificationFlow({
         setError('Session expired — restart verification');
         return;
       }
-      if (!autoSubmitted && (mcqAnswers.some((a) => a < 0) || practicalAnswers.some((a) => a < 0))) {
-        setError('Answer all questions before continuing');
-        return;
+      if (!autoSubmitted) {
+        const mcqIncomplete = mcqAnswers.some((a) => a < 0);
+        const practicalIncomplete = exam.isCodingSkill
+          ? codeAnswers.some((a) => !a.code.trim())
+          : practicalAnswers.some((a) => a < 0);
+        if (mcqIncomplete || practicalIncomplete) {
+          setError(
+            exam.isCodingSkill
+              ? 'Complete all MCQ and coding problems before continuing'
+              : 'Answer all questions before continuing'
+          );
+          return;
+        }
       }
       setSubmitting(true);
       setError('');
@@ -59,6 +72,7 @@ export function SkillVerificationFlow({
             sessionId,
             mcqAnswers,
             practicalAnswers,
+            codeSubmissions: exam.isCodingSkill ? codeAnswers : undefined,
             autoSubmitted,
           }),
         });
@@ -83,7 +97,7 @@ export function SkillVerificationFlow({
         setSubmitting(false);
       }
     },
-    [exam, mcqAnswers, practicalAnswers, results, index, skillIds.length, onComplete]
+    [exam, mcqAnswers, practicalAnswers, codeAnswers, results, index, skillIds.length, onComplete]
   );
 
   useEffect(() => {
@@ -115,6 +129,8 @@ export function SkillVerificationFlow({
     setError('');
     setMcqAnswers([]);
     setPracticalAnswers([]);
+    setCodeAnswers([]);
+    setCodingIndex(0);
     autoSubmitRef.current = false;
     fetch(`/api/skills/${currentSkillId}/exam`)
       .then((r) => r.json())
@@ -127,7 +143,18 @@ export function SkillVerificationFlow({
         }
         setExam(data.data);
         setMcqAnswers(Array(data.data.mcq.length).fill(-1));
-        setPracticalAnswers(Array(data.data.practical.length).fill(-1));
+        if (data.data.isCodingSkill && data.data.coding?.length) {
+          setCodeAnswers(
+            data.data.coding.map((c: { languages: CodingLanguage[]; starterCode: Partial<Record<CodingLanguage, string>> }) => ({
+              code: c.starterCode[c.languages[0]] || '',
+              language: c.languages[0] || 'javascript',
+            }))
+          );
+          setPracticalAnswers([]);
+        } else {
+          setPracticalAnswers(Array(data.data.practical.length).fill(-1));
+          setCodeAnswers([]);
+        }
       })
       .catch(() => {
         if (!cancelled) setError('Network error loading test');
@@ -254,44 +281,58 @@ export function SkillVerificationFlow({
                   </div>
                 </section>
 
-                <section>
-                  <h3 className="text-sm font-bold text-[#1d2226] mb-2">
-                    Section B — Practical scenarios (60% of test score)
-                  </h3>
-                  <div className="space-y-4">
-                    {exam.practical.map((q, qi) => (
-                      <div key={q.id} className="rounded-xl border border-[#e8f4fc] bg-[#fafcff] p-3">
-                        <p className="text-sm font-semibold text-[#1d2226]">{q.question}</p>
-                        <p className="text-xs text-[#666] mt-1 mb-2">{q.prompt}</p>
-                        <div className="space-y-1.5">
-                          {q.options.map((opt, oi) => (
-                            <label
-                              key={oi}
-                              className={`flex items-start gap-2 text-sm rounded-lg px-2 py-1.5 cursor-pointer border ${
-                                practicalAnswers[qi] === oi
-                                  ? 'border-[#0A66C2] bg-white'
-                                  : 'border-transparent hover:bg-white/80'
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name={`pr-${q.id}`}
-                                checked={practicalAnswers[qi] === oi}
-                                onChange={() => {
-                                  const next = [...practicalAnswers];
-                                  next[qi] = oi;
-                                  setPracticalAnswers(next);
-                                }}
-                                className="mt-0.5"
-                              />
-                              <span>{opt}</span>
-                            </label>
-                          ))}
+                {exam.isCodingSkill && exam.coding?.length ? (
+                  <CodingExamPanel
+                    challenges={exam.coding}
+                    answers={codeAnswers}
+                    activeIndex={codingIndex}
+                    onActiveIndexChange={setCodingIndex}
+                    onChange={(qi, code, language) => {
+                      const next = [...codeAnswers];
+                      next[qi] = { code, language };
+                      setCodeAnswers(next);
+                    }}
+                  />
+                ) : (
+                  <section>
+                    <h3 className="text-sm font-bold text-[#1d2226] mb-2">
+                      Section B — Practical scenarios (60% of test score)
+                    </h3>
+                    <div className="space-y-4">
+                      {exam.practical.map((q, qi) => (
+                        <div key={q.id} className="rounded-xl border border-[#e8f4fc] bg-[#fafcff] p-3">
+                          <p className="text-sm font-semibold text-[#1d2226]">{q.question}</p>
+                          <p className="text-xs text-[#666] mt-1 mb-2">{q.prompt}</p>
+                          <div className="space-y-1.5">
+                            {q.options.map((opt, oi) => (
+                              <label
+                                key={oi}
+                                className={`flex items-start gap-2 text-sm rounded-lg px-2 py-1.5 cursor-pointer border ${
+                                  practicalAnswers[qi] === oi
+                                    ? 'border-[#0A66C2] bg-white'
+                                    : 'border-transparent hover:bg-white/80'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`pr-${q.id}`}
+                                  checked={practicalAnswers[qi] === oi}
+                                  onChange={() => {
+                                    const next = [...practicalAnswers];
+                                    next[qi] = oi;
+                                    setPracticalAnswers(next);
+                                  }}
+                                  className="mt-0.5"
+                                />
+                                <span>{opt}</span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </>
             )}
           </>
