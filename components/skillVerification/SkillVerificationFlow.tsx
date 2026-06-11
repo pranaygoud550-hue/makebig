@@ -12,6 +12,8 @@ interface SkillVerificationFlowProps {
   contact?: string;
   onComplete: (results: SkillGradeResult[]) => void;
   onBack: () => void;
+  onSkip?: () => void;
+  skipLabel?: string;
 }
 
 export function SkillVerificationFlow({
@@ -19,6 +21,8 @@ export function SkillVerificationFlow({
   contact,
   onComplete,
   onBack,
+  onSkip,
+  skipLabel = 'Take test later',
 }: SkillVerificationFlowProps) {
   const [index, setIndex] = useState(0);
   const [exam, setExam] = useState<SkillExamClient | null>(null);
@@ -341,7 +345,7 @@ export function SkillVerificationFlow({
 
       <canvas ref={proctor.canvasRef} className="hidden" aria-hidden />
 
-      <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+      <div className="flex flex-wrap gap-3 pt-2 sticky bottom-0 bg-white pb-1">
         <button
           type="button"
           onClick={onBack}
@@ -349,6 +353,15 @@ export function SkillVerificationFlow({
         >
           ← Back
         </button>
+        {onSkip && (
+          <button
+            type="button"
+            onClick={onSkip}
+            className="px-4 py-2.5 text-sm font-semibold text-[#666] hover:text-[#1d2226]"
+          >
+            {skipLabel}
+          </button>
+        )}
         {proctorReady && (
           <button
             type="button"

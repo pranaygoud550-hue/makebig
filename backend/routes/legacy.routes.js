@@ -119,6 +119,11 @@ import {
   CONTEXT_WINDOW,
 } from "../ai/cofounder.js";
 import {
+  getAIChatThreadKey,
+  loadAIChatHistory,
+  saveAIChatHistory,
+} from "../ai/chatHistory.js";
+import {
   validateLinkUrl,
   fetchLinkContent,
   getProjectLinkContext,
@@ -675,6 +680,10 @@ function computeProfileBadges({ user, profile, owned, joined, tasksDone }) {
     push("pro", "Pro Member", "💎", "Make Big Pro subscriber");
   }
 
+  if (user?.collegeEmailVerified) {
+    push("college-verified", "College Verified", "✓", "Signed up with a verified .ac.in college email");
+  }
+
   if (user?.college) {
     push("campus", "Campus Creator", "🏫", `Connected to ${user.college}`);
   }
@@ -814,8 +823,12 @@ app.get("/api/users/:contact/public-profile", async (req, res) => {
             suspicious: Boolean(s.suspicious),
             verifiedAt: s.verifiedAt,
           })),
+          skillTestStatus:
+            user.skillTestStatus || (user.verifiedSkills?.length ? "completed" : "pending"),
+          pendingSkillIds: user.pendingSkillIds || [],
           hobbies: user.hobbies || [],
           plan: user.plan || "free",
+          collegeEmailVerified: Boolean(user.collegeEmailVerified),
         },
         profile,
         projects,
@@ -1083,16 +1096,53 @@ app.get("/api/projects/browse", async (req, res) => {
       projects = await filterProjectsForViewer(projects, String(viewerContact));
     }
 
+    const allContacts = new Set();
+    for (const p of projects) {
+      if (p.ownerContact) allContacts.add(normalizeContact(p.ownerContact));
+      for (const m of p.teamMembers || []) {
+        if (m.contact) allContacts.add(normalizeContact(m.contact));
+      }
+    }
+    const teamUsers = await User.find({ contact: { $in: [...allContacts] } })
+      .select("name contact")
+      .lean();
+    const nameByContact = Object.fromEntries(teamUsers.map((u) => [u.contact, u.name]));
+
     const viewerNorm = viewerContact ? normalizeContact(String(viewerContact)) : null;
     const enriched = dedupeProjectsForDisplay(filterAllowedProjects(projects)).map((p) => {
       const obj = toClient(p);
       const joinedCount = (p.teamMembers || []).filter(
         (m) => m.status === "joined"
       ).length;
+      const owner = p.ownerContact ? normalizeContact(p.ownerContact) : "";
+      const seen = new Set();
+      const teamPreview = [];
+      if (owner && !seen.has(owner)) {
+        seen.add(owner);
+        teamPreview.push({
+          contact: owner,
+          name: nameByContact[owner] || owner.split("@")[0],
+          role: "owner",
+        });
+      }
+      for (const m of p.teamMembers || []) {
+        const c = m.contact ? normalizeContact(m.contact) : "";
+        if (!c || seen.has(c) || m.status === "left") continue;
+        seen.add(c);
+        teamPreview.push({
+          contact: c,
+          name: nameByContact[c] || c.split("@")[0],
+          role: m.role || "member",
+        });
+        if (teamPreview.length >= 6) break;
+      }
       return {
         ...obj,
         joinedCount,
         teamMemberCount: (p.teamMembers || []).length,
+        teamPreview,
+        demoDayReady: Boolean(p.demoDayReady),
+        journeyStage: p.journey?.currentStage || "idea",
         viewerRelation: viewerNorm ? getViewerProjectRelation(viewerNorm, p) : "none",
       };
     });
@@ -3834,6 +3884,39 @@ app.get("/api/p/:slug", async (req, res) => {
       })
     );
 
+    const contacts = new Set();
+    if (project.ownerContact) contacts.add(normalizeContact(project.ownerContact));
+    for (const m of project.teamMembers || []) {
+      if (m.contact) contacts.add(normalizeContact(m.contact));
+    }
+    const users = await User.find({ contact: { $in: [...contacts] } }).select("name contact collegeEmailVerified").lean();
+    const userByContact = Object.fromEntries(users.map((u) => [u.contact, u]));
+    const owner = project.ownerContact ? normalizeContact(project.ownerContact) : "";
+    const seen = new Set();
+    const teamPreview = [];
+    if (owner) {
+      seen.add(owner);
+      const u = userByContact[owner];
+      teamPreview.push({
+        contact: owner,
+        name: u?.name || owner.split("@")[0],
+        role: "owner",
+        collegeVerified: Boolean(u?.collegeEmailVerified),
+      });
+    }
+    for (const m of project.teamMembers || []) {
+      const c = m.contact ? normalizeContact(m.contact) : "";
+      if (!c || seen.has(c) || m.status === "left") continue;
+      seen.add(c);
+      const u = userByContact[c];
+      teamPreview.push({
+        contact: c,
+        name: u?.name || c.split("@")[0],
+        role: m.role || "member",
+        collegeVerified: Boolean(u?.collegeEmailVerified),
+      });
+    }
+
     res.json(formatResponse(true, {
       project: {
         id: project._id.toString(),
@@ -3849,7 +3932,11 @@ app.get("/api/p/:slug", async (req, res) => {
         currency: project.currency || "INR",
         ownerContact: project.ownerContact,
         createdAt: project.createdAt,
-        teamSize: (project.teamMembers || []).filter(m => m.status === "joined").length,
+        teamSize: (project.teamMembers || []).filter((m) => m.status === "joined").length,
+        teamPreview,
+        journeyStage: project.journey?.currentStage || "idea",
+        demoDayReady: Boolean(project.demoDayReady),
+        demoDayPitch: project.demoDayPitch || "",
       },
       posts: enrichedPosts,
     }));
@@ -4898,6 +4985,184 @@ app.get("/api/ai/cofounder/status", authMiddleware, (req, res) => {
       contextWindow: CONTEXT_WINDOW,
     })
   );
+});
+
+app.get("/api/leaderboards/weekly-teams", async (req, res) => {
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const projects = await Project.find({
+      status: { $in: ["published", "in-progress"] },
+      visibility: { $in: ["public", "invite-only"] },
+      ...demoProjectExcludeFilter(),
+    })
+      .select("name slug city tasks teamMembers health")
+      .limit(80)
+      .lean();
+
+    const scored = await Promise.all(
+      projects.map(async (p) => {
+        const projectId = p._id;
+        const [activities, standups] = await Promise.all([
+          Activity.countDocuments({ projectId, createdAt: { $gte: weekAgo } }),
+          StandupLog.countDocuments({ projectId, createdAt: { $gte: weekAgo } }),
+        ]);
+        const tasksDone = (p.tasks || []).filter(
+          (t) => t.status === "done" && t.updatedAt && new Date(t.updatedAt) >= weekAgo
+        ).length;
+        const score = activities * 2 + standups * 5 + tasksDone * 8;
+        return {
+          projectId: projectId.toString(),
+          name: p.name,
+          slug: p.slug || "",
+          city: p.city || "",
+          score,
+          tasksDone,
+          standups,
+          activities,
+        };
+      })
+    );
+
+    const teams = scored
+      .filter((t) => t.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    res.json(formatResponse(true, { teams }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/mentors", async (req, res) => {
+  try {
+    const Mentor = (await import("../models/Mentor.js")).default;
+    let mentors = await Mentor.find({ available: true }).sort({ createdAt: -1 }).limit(40).lean();
+    if (!mentors.length) {
+      const demoMentors = [
+        {
+          contact: "mentor.prof@demo.makebig.in",
+          name: "Dr. Lakshmi Iyer",
+          title: "Professor · CSE",
+          organization: "CMR Institute of Technology",
+          expertise: ["Product", "AI/ML", "Startup validation"],
+          bio: "15 years mentoring student startups. Helped 12 teams reach demo day.",
+          sessionMinutes: 30,
+          city: "Hyderabad",
+        },
+        {
+          contact: "mentor.alumni@demo.makebig.in",
+          name: "Karthik Menon",
+          title: "Alumni · Ex-Swiggy PM",
+          organization: "Make Big Alumni Network",
+          expertise: ["Growth", "Mobile apps", "Pitch decks"],
+          bio: "RVCE alum. Now PM at a Series B startup — happy to review MVPs.",
+          sessionMinutes: 30,
+          city: "Bangalore",
+        },
+      ];
+      await Mentor.insertMany(demoMentors, { ordered: false }).catch(() => {});
+      mentors = await Mentor.find({ available: true }).sort({ createdAt: -1 }).limit(40).lean();
+    }
+    res.json(formatResponse(true, { mentors }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.post("/api/mentors/request", authMiddleware, async (req, res) => {
+  try {
+    const studentContact = requireAuthContact(req, res);
+    if (!studentContact) return;
+    const mentorContact = normalizeContact(req.body.mentorContact);
+    const message = String(req.body.message || "").trim();
+    const projectId = req.body.projectId || null;
+    if (!mentorContact) {
+      return res.status(400).json(formatResponse(false, null, "mentorContact required"));
+    }
+    const MentorRequest = (await import("../models/MentorRequest.js")).default;
+    const existing = await MentorRequest.findOne({
+      mentorContact,
+      studentContact,
+      status: "pending",
+    });
+    if (existing) {
+      return res.json(formatResponse(true, { message: "Request already pending" }));
+    }
+    await MentorRequest.create({
+      mentorContact,
+      studentContact,
+      projectId: projectId || undefined,
+      message,
+      status: "pending",
+    });
+    await Notification.create({
+      contact: mentorContact,
+      type: "mentor_request",
+      title: "New mentorship request",
+      body: `${studentContact} requested a session`,
+      read: false,
+    });
+    res.json(formatResponse(true, { message: "Request sent" }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.get("/api/ai/chat/history", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+
+    const advisorMode = req.query.advisorMode === "1" || req.query.advisorMode === "true";
+    const projectId = String(req.query.projectId || "");
+    const threadKey =
+      String(req.query.threadKey || "") ||
+      getAIChatThreadKey({ projectId, advisorMode });
+
+    if (!threadKey) {
+      return res.status(400).json(formatResponse(false, null, "threadKey required"));
+    }
+
+    const messages = await loadAIChatHistory(contact, threadKey);
+    res.json(formatResponse(true, { threadKey, messages }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
+});
+
+app.put("/api/ai/chat/history", authMiddleware, async (req, res) => {
+  try {
+    const contact = requireAuthContact(req, res);
+    if (!contact) return;
+
+    const advisorMode = Boolean(req.body.advisorMode);
+    const projectId = String(req.body.projectId || "");
+    const threadKey =
+      String(req.body.threadKey || "") ||
+      getAIChatThreadKey({ projectId, advisorMode });
+    const messages = Array.isArray(req.body.messages) ? req.body.messages : [];
+
+    if (!threadKey) {
+      return res.status(400).json(formatResponse(false, null, "threadKey required"));
+    }
+
+    const result = await saveAIChatHistory({
+      contact,
+      threadKey,
+      projectId,
+      advisorMode,
+      messages,
+    });
+
+    if (!result.ok) {
+      return res.status(400).json(formatResponse(false, null, result.error));
+    }
+
+    res.json(formatResponse(true, { threadKey, count: result.count }));
+  } catch (error) {
+    res.status(500).json(formatResponse(false, null, error.message));
+  }
 });
 
 app.post("/api/ai/cofounder/stream", authMiddleware, async (req, res) => {

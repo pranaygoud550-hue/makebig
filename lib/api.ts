@@ -277,7 +277,12 @@ export async function apiCheckHealth(): Promise<boolean> {
 }
 
 export async function apiUpsertUser(
-  user: Omit<User, 'id' | 'isLoggedIn'> & { verifiedSkills?: VerifiedSkill[]; password?: string }
+  user: Omit<User, 'id' | 'isLoggedIn'> & {
+    verifiedSkills?: VerifiedSkill[];
+    password?: string;
+    pendingSkillIds?: string[];
+    skillTestSkipped?: boolean;
+  }
 ): Promise<{ user: User; token: string } | null> {
   try {
     if (isSupabaseConfigured) {
@@ -770,13 +775,23 @@ export async function apiPublishProject(projectId: string): Promise<Project> {
   }
 }
 
+export interface TeamPreviewMember {
+  contact: string;
+  name: string;
+  role?: string;
+  collegeVerified?: boolean;
+}
+
 export interface BrowseProject extends Project {
   _id?: string;
   joinedCount?: number;
   teamMemberCount?: number;
+  teamPreview?: TeamPreviewMember[];
   maxTeamSize?: number;
   updatedAt?: string;
   ownerContact?: string;
+  demoDayReady?: boolean;
+  journeyStage?: string;
   viewerRelation?: 'owner' | 'joined' | 'pending' | 'none';
 }
 

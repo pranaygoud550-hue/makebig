@@ -27,7 +27,8 @@ interface AuthModalProps {
     college: string,
     graduationYear: string,
     verifiedSkills?: VerifiedSkill[],
-    password?: string
+    password?: string,
+    signupMeta?: { pendingSkillIds?: string[]; skillTestSkipped?: boolean }
   ) => void | Promise<void>;
 }
 
@@ -78,6 +79,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [verificationResults, setVerificationResults] = useState<SkillGradeResult[]>([]);
   const [verificationDone, setVerificationDone] = useState(false);
+  const [skippedVerification, setSkippedVerification] = useState(false);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [hobbyInput, setHobbyInput] = useState('');
 
@@ -132,6 +134,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
     setAuthLoading(false);
     setName(''); setContact(''); setCollege(''); setGradYear('');
     setSkills([]); setSelectedSkillIds([]); setVerificationResults([]); setVerificationDone(false);
+    setSkippedVerification(false);
     setHobbies([]); setHobbyInput('');
   };
 
@@ -473,7 +476,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       setSignUpDevCode(res.devCode || null);
       setSignUpOtpSentMsg(res.message || 'OTP sent.');
       setOtpValues(['', '', '', '', '', '']);
-      if (step === 4) setStep(5);
+      if (step === 3 || step === 4) setStep(5);
       startResendCooldown();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (e) {
@@ -490,6 +493,18 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
       setOtpSending(false);
       setSignUpOtpRetryStatus('');
     }
+  };
+
+  const handleTakeTestLater = async () => {
+    setOtpError('');
+    const skillNames = selectedSkillIds
+      .map((id) => catalogSkills.find((s) => s.id === id)?.name)
+      .filter((name): name is string => Boolean(name));
+    if (skillNames.length) setSkills(skillNames);
+    setSkippedVerification(true);
+    setVerificationDone(false);
+    setVerificationResults([]);
+    await handleSignUpSendOtp();
   };
 
   const handleSignUpNext = async () => {
@@ -567,8 +582,11 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
         hobbies,
         college.trim(),
         gradYear,
-        buildVerifiedSkillsPayload(),
-        signUpPassword
+        verificationDone ? buildVerifiedSkillsPayload() : [],
+        signUpPassword,
+        skippedVerification
+          ? { pendingSkillIds: selectedSkillIds, skillTestSkipped: true }
+          : undefined
       );
       reset();
       onClose();
@@ -972,15 +990,25 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
 
                     {otpError && <p className="text-red-500 text-sm">{otpError}</p>}
 
-                    <div className="flex gap-3">
-                      <BackButton onClick={() => setStep(2)} />
-                      <LiButton
-                        onClick={handleSignUpNext}
-                        flex1
-                        disabled={catalogLoading || selectedSkillIds.length === 0}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-3">
+                        <BackButton onClick={() => setStep(2)} />
+                        <LiButton
+                          onClick={handleSignUpNext}
+                          flex1
+                          disabled={catalogLoading || selectedSkillIds.length === 0}
+                        >
+                          Start verification →
+                        </LiButton>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleTakeTestLater()}
+                        disabled={otpSending}
+                        className="w-full py-2.5 text-sm font-semibold text-[#666] hover:text-[#1d2226] hover:bg-[#f8f9fa] rounded-xl transition-colors"
                       >
-                        Start verification →
-                      </LiButton>
+                        Take test later — finish signup first
+                      </button>
                     </div>
                   </>
                 )}
@@ -994,6 +1022,7 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                         contact={contact}
                         onComplete={handleVerificationComplete}
                         onBack={() => setStep(3)}
+                        onSkip={() => void handleTakeTestLater()}
                       />
                     ) : (
                       <div className="space-y-4">

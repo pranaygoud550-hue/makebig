@@ -5,6 +5,7 @@ import { getPublicProjectBySlug, getPublishedSlugs } from '@/lib/publicProjects'
 import { SITE_URL, projectPublicUrl } from '@/lib/site';
 import { ShareProject } from '@/components/ShareProject';
 import { ProjectReadinessPanel } from '@/components/startupReadiness/ProjectReadinessPanel';
+import { ProjectProgressTracker, DemoDayBadge } from '@/components/ecosystem/ProjectProgressTracker';
 
 interface ProjectPageData {
   id: string;
@@ -208,9 +209,12 @@ export default async function ProjectPage({ params }: { params: { slug: string }
                     >
                       {CATEGORY_LABELS[project.categoryId] || project.categoryId}
                     </span>
-                    <h1 className="text-2xl sm:text-3xl font-black text-[#1d2226] leading-tight">
-                      {project.name}
-                    </h1>
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h1 className="text-2xl sm:text-3xl font-black text-[#1d2226] leading-tight">
+                        {project.name}
+                      </h1>
+                      {project.demoDayReady && <DemoDayBadge />}
+                    </div>
                     {(project.city || project.state) && (
                       <p className="text-sm text-[#666] mt-1 flex items-center gap-1">
                         📍 {[project.city, project.state].filter(Boolean).join(', ')}
@@ -221,6 +225,40 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
                 {project.desc && (
                   <p className="text-[#1d2226] text-base leading-relaxed">{project.desc}</p>
+                )}
+
+                {project.demoDayPitch && (
+                  <p className="mt-3 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <strong>Demo pitch:</strong> {project.demoDayPitch}
+                  </p>
+                )}
+
+                <div className="mt-6">
+                  <ProjectProgressTracker currentStage={project.journeyStage} />
+                </div>
+
+                {(project.teamPreview?.length ?? 0) > 0 && (
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold text-[#666] uppercase tracking-wide mb-2">
+                      Team
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {project.teamPreview!.map((m) => (
+                        <Link
+                          key={m.contact}
+                          href={`/u/${encodeURIComponent(m.contact)}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f3f2ef] hover:bg-[#EEF3FB] border border-[#e0e0e0] text-sm font-semibold text-[#1d2226] hover:text-[#0A66C2] transition-colors"
+                        >
+                          {m.name}
+                          {m.collegeVerified && (
+                            <span className="text-[10px] text-green-700" title="College verified">
+                              ✓
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {(project.roles || []).length > 0 && (

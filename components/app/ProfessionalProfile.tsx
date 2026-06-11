@@ -18,7 +18,7 @@ import { formatSalaryBand } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/userErrors';
 import { StarRating } from '@/components/StarRating';
 import { FriendRequestButton } from '@/components/app/FriendRequestButton';
-import { VerifiedSkillsSection } from '@/components/skillVerification/VerifiedSkillsSection';
+import { ProfileSkillTestSection } from '@/components/skillVerification/ProfileSkillTestSection';
 import { computeProfileStrength } from '@/lib/profileStrength';
 import { ProfileSkeleton } from '@/components/ui/Skeleton';
 import { UserSafetyActions } from '@/components/app/UserSafetyActions';
@@ -536,7 +536,17 @@ export function ProfessionalProfile({
                   )}
                 </section>
 
-                <VerifiedSkillsSection verifiedSkills={publicData?.user?.verifiedSkills} />
+                <ProfileSkillTestSection
+                  contact={user.contact}
+                  verifiedSkills={publicData?.user?.verifiedSkills}
+                  skillTestStatus={publicData?.user?.skillTestStatus}
+                  pendingSkillIds={publicData?.user?.pendingSkillIds}
+                  isOwnProfile={canEdit}
+                  onUpdated={() => {
+                    void loadProfile();
+                    onSaved?.();
+                  }}
+                />
 
                 <ReputationPanel contact={user.contact} />
 

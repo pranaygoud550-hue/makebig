@@ -119,6 +119,10 @@ export async function POST(req: Request) {
             .filter((s: { score: number }) => s.score >= 50)
             .map((s: { skillName: string }) => s.skillName.toLowerCase());
           doc.skills = [...new Set([...(doc.skills || []), ...verifiedNames])];
+          doc.pendingSkillIds = (doc.pendingSkillIds || []).filter(
+            (id: string) => id !== skillId
+          );
+          doc.skillTestStatus = 'completed';
           await doc.save();
         }
       }

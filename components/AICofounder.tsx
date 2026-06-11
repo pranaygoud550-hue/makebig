@@ -28,6 +28,11 @@ import {
   COMPETITOR_QUESTION,
 } from '@/lib/linkReaderUtils';
 import { getAICofounderStatusUrl } from '@/lib/aiCofounderUrls';
+import {
+  fetchAIChatHistory,
+  saveAIChatHistory,
+  getAIChatThreadKey,
+} from '@/lib/aiChatHistory';
 import { clientApiUrl } from '@/lib/apiBase';
 import { isAdvisorProject } from '@/lib/advisorProject';
 import { useToast } from '@/lib/context/ToastContext';
@@ -286,6 +291,7 @@ function DMContextModal({
 
 export function AICofounder({ project, user, ownerContact, hideAgentTab = false, advisorMode = false }: AICofounderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [showDMModal, setShowDMModal] = useState(false);
@@ -305,6 +311,39 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
   const { showToast } = useToast();
   const isAdvisor = advisorMode || isAdvisorProject(project);
   const { isPro } = useSubscription(ownerContact);
+  const threadKey = useMemo(
+    () => getAIChatThreadKey(project.id, isAdvisor),
+    [project.id, isAdvisor]
+  );
+
+  const persistChatHistory = useCallback(
+    (msgs: ChatMessage[]) => {
+      if (!user?.contact || !threadKey) return;
+      void saveAIChatHistory(
+        project.id,
+        isAdvisor,
+        msgs.map(({ streaming: _s, ...rest }) => rest)
+      );
+    },
+    [user?.contact, threadKey, project.id, isAdvisor]
+  );
+
+  useEffect(() => {
+    if (!user?.contact || !threadKey) {
+      setHistoryLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setHistoryLoaded(false);
+    void fetchAIChatHistory(project.id, isAdvisor).then((loaded) => {
+      if (cancelled) return;
+      if (loaded.length) setMessages(loaded as ChatMessage[]);
+      setHistoryLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.contact, threadKey, project.id, isAdvisor]);
 
   const runPitchDeck = useCallback(async () => {
     if (!project.id || streaming || isAdvisor) return;
@@ -331,21 +370,27 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
       });
       const data = await res.json();
       const text = data.success ? data.data.text : data.error || 'Could not generate deck';
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId ? { ...m, content: text, streaming: false, action: 'generate-pitch' } : m
-        )
-      );
+      setMessages((prev) => {
+        const next = prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: text, streaming: false, action: 'generate-pitch' as ActionId }
+            : m
+        );
+        persistChatHistory(next);
+        return next;
+      });
     } catch {
-      setMessages((prev) =>
-        prev.map((m) =>
+      setMessages((prev) => {
+        const next = prev.map((m) =>
           m.id === assistantId ? { ...m, content: 'Pitch deck generation failed.', streaming: false } : m
-        )
-      );
+        );
+        persistChatHistory(next);
+        return next;
+      });
     } finally {
       setStreaming(false);
     }
-  }, [project.id, streaming, isAdvisor]);
+  }, [project.id, streaming, isAdvisor, persistChatHistory]);
 
   const loadLinkHistory = useCallback(async () => {
     if (!project.id) return;
@@ -471,8 +516,8 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
             );
           },
           onDone: (payload) => {
-            setMessages((prev) =>
-              prev.map((m) =>
+            setMessages((prev) => {
+              const next = prev.map((m) =>
                 m.id === assistantId
                   ? {
                       ...m,
@@ -497,8 +542,10 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
                         },
                       }
                     : m
-              )
-            );
+              );
+              persistChatHistory(next);
+              return next;
+            });
             if (payload.usage) setLinkUsage(payload.usage);
             if (user?.contact) markOnboardingAiLink(user.contact);
             setStreaming(false);
@@ -525,7 +572,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
         setLinkLoadingLabel(null);
       }
     },
-    [project.id, streaming, user?.contact, loadLinkHistory, showToast]
+    [project.id, streaming, user?.contact, loadLinkHistory, showToast, persistChatHistory]
   );
 
   useEffect(() => {
@@ -617,13 +664,15 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
             );
           },
           onDone: (payload) => {
-            setMessages((prev) =>
-              prev.map((m) =>
+            setMessages((prev) => {
+              const next = prev.map((m) =>
                 m.id === assistantId
                   ? { ...m, streaming: false, devMode: payload.devMode }
                   : m
-              )
-            );
+              );
+              persistChatHistory(next);
+              return next;
+            });
             if (payload.usage) setUsage(payload.usage);
             if (payload.provider) {
               setProvider(
@@ -633,8 +682,8 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
             setStreaming(false);
           },
           onError: (message) => {
-            setMessages((prev) =>
-              prev.map((m) =>
+            setMessages((prev) => {
+              const next = prev.map((m) =>
                 m.id === assistantId
                   ? {
                       ...m,
@@ -643,15 +692,17 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
                       devMode: false,
                     }
                   : m
-              )
-            );
+              );
+              persistChatHistory(next);
+              return next;
+            });
             setStreaming(false);
           },
         });
       } catch (e) {
         if ((e as Error).name === 'AbortError') return;
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const next = prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
@@ -659,12 +710,14 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
                   streaming: false,
                 }
               : m
-          )
-        );
+          );
+          persistChatHistory(next);
+          return next;
+        });
         setStreaming(false);
       }
     },
-    [project.id, streaming, messages, isAdvisor]
+    [project.id, streaming, messages, isAdvisor, persistChatHistory]
   );
 
   const handleCustomSend = () => {
@@ -875,14 +928,14 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
       <>
       {/* Chat */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
-        {messages.length === 0 && !streaming && (
+        {historyLoaded && messages.length === 0 && !streaming && (
           <div className="flex flex-col items-center justify-center h-full py-8 text-center">
             <div className="w-14 h-14 rounded-2xl bg-[#21262d] border border-[#30363d] flex items-center justify-center mb-4">
               <RobotIcon className="w-8 h-8 text-[#58a6ff]" />
             </div>
             <h3 className="font-bold text-[#e6edf3]">Hi, I&apos;m your AI Assistant</h3>
             <p className="text-sm text-[#8b949e] mt-2 max-w-xs">
-              I remember our last 10 messages. Ask about{' '}
+              Your chats are saved to your account. Ask about{' '}
               <span className="text-[#58a6ff] font-medium">{project.name}</span>.
             </p>
           </div>
@@ -1082,7 +1135,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
           </button>
         </div>
         <p className="text-[10px] text-[#6e7681] mt-1.5 text-center">
-          AI can make mistakes · last 10 messages kept in context
+          AI can make mistakes · chats saved · last 10 messages in context
           {!isPro && linkUsage?.limit != null ? ` · ${linkUsage.used}/${linkUsage.limit} link reads today` : ''}
         </p>
       </div>

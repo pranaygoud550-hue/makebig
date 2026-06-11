@@ -8,6 +8,7 @@ import { VerifiedSkillsLeaderboard } from '@/components/skillVerification/Verifi
 import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
 import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
 import { ShowcaseFeed } from '@/components/ShowcaseFeed';
+import { WeeklyTeamsLeaderboard } from '@/components/ecosystem/WeeklyTeamsLeaderboard';
 import { MarketingFooter } from '@/components/MarketingFooter';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
@@ -106,6 +107,24 @@ export function MarketingHomepage({
         <FeaturedStartupsSection />
         <VerifiedSkillsLeaderboard />
         <StartupJourneyFeed />
+        <WeeklyTeamsLeaderboard />
+
+        <section className="bg-[#EEF3FB] border-t border-[#0A66C2]/15 py-10 px-4">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-[#1d2226]">Need a mentor?</h2>
+              <p className="text-sm text-[#666] mt-1">
+                Professors and alumni offering 30-minute sessions for student teams.
+              </p>
+            </div>
+            <a
+              href="/mentors"
+              className="shrink-0 px-5 py-2.5 rounded-full bg-[#0A66C2] text-white text-sm font-semibold hover:bg-[#004182]"
+            >
+              Browse mentors →
+            </a>
+          </div>
+        </section>
 
         <section className="bg-white border-t border-[#e0e0e0] py-14 px-4">
           <div className="w-full px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">

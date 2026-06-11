@@ -115,12 +115,14 @@ describe('ProjectWizardNew', () => {
         onClose={onClose}
         onComplete={onComplete}
         initialEntry="join"
+        initialCategory="web"
         initialSkills={['Frontend Developer']}
       />
     );
 
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('What can you bring?')).toBeInTheDocument();
+    expect(screen.getByText('Domain / category')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Next →/i }));
     expect(screen.getByText('Step 2 of 2')).toBeInTheDocument();

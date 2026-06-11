@@ -159,6 +159,15 @@ const projectSchema = new mongoose.Schema(
       featuredAt: Date,
       rankScore: Number,
     },
+    demoDayReady: {
+      type: Boolean,
+      default: false,
+    },
+    demoDayPitch: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     analytics: {
       followerCount: { type: Number, default: 0 },
       viewCount: { type: Number, default: 0 },

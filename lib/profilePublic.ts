@@ -30,8 +30,11 @@ export interface PublicProfilePayload {
     state?: string;
     skills?: string[];
     verifiedSkills?: VerifiedSkill[];
+    skillTestStatus?: 'pending' | 'completed';
+    pendingSkillIds?: string[];
     hobbies?: string[];
     plan?: string;
+    collegeEmailVerified?: boolean;
     notificationPreferences?: Record<string, boolean>;
   };
   profile: {

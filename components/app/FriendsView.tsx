@@ -22,11 +22,14 @@ interface FriendsViewProps {
 }
 
 export function FriendsView({ currentProject, userContact, onInvite }: FriendsViewProps) {
+  const [tab, setTab] = useState<'friends' | 'people'>('friends');
   const [friends, setFriends] = useState<FriendPerson[]>([]);
   const [incoming, setIncoming] = useState<FriendPerson[]>([]);
   const [outgoing, setOutgoing] = useState<FriendPerson[]>([]);
+  const [allPeople, setAllPeople] = useState<FriendPerson[]>([]);
   const [searchResults, setSearchResults] = useState<FriendPerson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [peopleLoading, setPeopleLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -61,6 +64,26 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
   useEffect(() => {
     loadSocial();
   }, [loadSocial]);
+
+  const loadAllPeople = useCallback(async () => {
+    setPeopleLoading(true);
+    const list = await apiGetTalent('');
+    const mapped = (Array.isArray(list) ? list : [])
+      .filter((t) => t.contact && t.contact !== userContact)
+      .map((t) => ({
+        contact: t.contact as string,
+        name: t.name || t.contact,
+        college: t.college,
+        tagline: t.tagline,
+        skills: t.skills,
+      }));
+    setAllPeople(mapped);
+    setPeopleLoading(false);
+  }, [userContact]);
+
+  useEffect(() => {
+    if (tab === 'people') void loadAllPeople();
+  }, [tab, loadAllPeople]);
 
   useEffect(() => {
     if (debounced.length < 2) {
@@ -118,10 +141,30 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-xl font-bold text-[#1d2226]">Friends</h1>
+        <h1 className="text-xl font-bold text-[#1d2226]">Friends & People</h1>
         <p className="text-sm text-[#666] mt-0.5">
-          Accept requests, connect with people, and search when you want to add someone new.
+          My Friends = people you connected with. All People = everyone on Make Big.
         </p>
+        <div className="flex gap-2 mt-4 p-1 bg-[#f3f2ef] rounded-full w-fit">
+          <button
+            type="button"
+            onClick={() => setTab('friends')}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+              tab === 'friends' ? 'bg-white text-[#0A66C2] shadow-sm' : 'text-[#666]'
+            }`}
+          >
+            My Friends ({friends.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('people')}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+              tab === 'people' ? 'bg-white text-[#0A66C2] shadow-sm' : 'text-[#666]'
+            }`}
+          >
+            All People
+          </button>
+        </div>
       </header>
 
       {currentProject?.id && onInvite && (
@@ -137,7 +180,60 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
         </div>
       )}
 
-      {loading ? (
+      {tab === 'people' ? (
+        <section className="space-y-3">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666] text-sm">🔍</span>
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter by name, skill, or college…"
+              className="w-full pl-9 pr-4 py-3 rounded-full border border-[#d9d9d9] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/30"
+            />
+          </div>
+          {peopleLoading || (debounced.length >= 2 && searchLoading) ? (
+            <p className="text-sm text-[#666]">Loading people…</p>
+          ) : (
+            (debounced.length >= 2 ? searchResults : allPeople).map((p) => (
+              <div
+                key={p.contact}
+                className="bg-white rounded-2xl border border-[#e0e0e0] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => openProfile(p.contact, p.name)}
+                  className="text-left min-w-0 flex-1"
+                >
+                  <p className="font-semibold text-[#1d2226]">{p.name}</p>
+                  {p.college && <p className="text-xs text-[#666] mt-0.5">{p.college}</p>}
+                  {p.tagline && <p className="text-sm text-[#666] mt-1 line-clamp-2">{p.tagline}</p>}
+                </button>
+                <div className="shrink-0">
+                  {friendContacts.has(p.contact.toLowerCase()) ? (
+                    <span className="px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-200">
+                      Friends
+                    </span>
+                  ) : (
+                    <FriendRequestButton
+                      targetContact={p.contact}
+                      viewerContact={userContact}
+                      onChanged={() => {
+                        void loadSocial();
+                        void loadAllPeople();
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          {!peopleLoading && debounced.length >= 2 && searchResults.length === 0 && (
+            <p className="text-sm text-[#666]">No matches for &ldquo;{debounced}&rdquo;.</p>
+          )}
+        </section>
+      ) : loading ? (
         <div className="space-y-3">
           {[1, 2].map((i) => (
             <Skeleton key={i} className="h-20 rounded-2xl" />
@@ -236,8 +332,9 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
         </>
       )}
 
+      {tab === 'friends' && (
       <section className="space-y-3 pt-2 border-t border-[#e0e0e0]">
-        <h2 className="text-sm font-bold text-[#1d2226]">Find people</h2>
+        <h2 className="text-sm font-bold text-[#1d2226]">Search to add friends</h2>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666] text-sm">🔍</span>
           <input
@@ -289,6 +386,7 @@ export function FriendsView({ currentProject, userContact, onInvite }: FriendsVi
           </div>
         ))}
       </section>
+      )}
     </div>
   );
 }

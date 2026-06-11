@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { AuthModal } from '@/components/AuthModal';
 import { SplashScreen } from '@/components/SplashScreen';
+import { CinematicIntro } from '@/components/landing/CinematicIntro';
 import { ProjectWizardNew } from '@/components/ProjectWizardNew';
 import { DashboardNew, type DashboardNavTab } from '@/components/DashboardNew';
 import { saveActiveProject, clearSessionActiveProject, clearActiveProject } from '@/lib/activeProjectStorage';
@@ -33,6 +34,7 @@ export default function Home() {
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [showWizard, setShowWizard]           = useState(false);
   const [showSplash, setShowSplash]           = useState(true);
+  const [showIntro, setShowIntro]             = useState(false);
   const [pendingWizardEntry, setPendingWizardEntry] = useState<'create' | 'join' | null>(null);
   const [showProfile, setShowProfile]         = useState(false);
   const [showDashboard, setShowDashboard]     = useState(false);
@@ -55,6 +57,9 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       if (sessionStorage.getItem('makeBigSplashSeen') === '1') {
         setShowSplash(false);
+      }
+      if (sessionStorage.getItem('makeBigIntroSeen') !== '1') {
+        setShowIntro(true);
       }
     }
     captureReferralFromUrl();
@@ -297,10 +302,21 @@ export default function Home() {
     college: string,
     graduationYear: string,
     verifiedSkills?: import('@/lib/types').VerifiedSkill[],
-    password?: string
+    password?: string,
+    signupMeta?: { pendingSkillIds?: string[]; skillTestSkipped?: boolean }
   ) => {
     const normalized = contact.trim().toLowerCase();
-    await auth.login(name, normalized, skills, hobbies, college, graduationYear, verifiedSkills, password);
+    await auth.login(
+      name,
+      normalized,
+      skills,
+      hobbies,
+      college,
+      graduationYear,
+      verifiedSkills,
+      password,
+      signupMeta
+    );
     const restored = await restoreUserProject(normalized);
     if (restored) applyRestoredProject(restored, normalized);
     else resumePendingWizard();
@@ -633,6 +649,10 @@ export default function Home() {
       </>
       </ProfileViewProvider>
     );
+  }
+
+  if (showIntro && !auth.user) {
+    return <CinematicIntro onComplete={() => setShowIntro(false)} />;
   }
 
   /* Public marketing front — logged out, or signed in before create/join */

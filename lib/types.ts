@@ -26,8 +26,12 @@ export interface User {
   plan?: PlanTier;
   skills?: string[];
   verifiedSkills?: VerifiedSkill[];
+  /** pending = skipped or not yet tested; completed = at least one verified skill */
+  skillTestStatus?: 'pending' | 'completed';
+  pendingSkillIds?: string[];
   hobbies?: string[];
   college?: string;
+  collegeEmailVerified?: boolean;
   graduationYear?: string;
   city?: string;
   state?: string;

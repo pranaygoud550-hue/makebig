@@ -18,6 +18,7 @@ import {
   weekLabelIST,
 } from "../../lib/weeklyReport.js";
 import { sendHealthAlertEmail, daysSince } from "../../lib/healthAlertEmail.js";
+import { runWeeklyDigests, isMonday9amIST } from "../../lib/weeklyDigest.js";
 import { pushNotification, getTeammateContacts } from "../routes/legacy.routes.js";
 
 const PORT = process.env.PORT || 5001;
@@ -220,6 +221,16 @@ export async function startServer(ctx) {
   setTimeout(() => runTaskDueReminders(io), 15000);
   setInterval(runWeeklyReports, 60 * 60 * 1000);
   setTimeout(runWeeklyReports, 30000);
+  async function runDigestCron() {
+    if (!isMonday9amIST()) return;
+    try {
+      await runWeeklyDigests();
+    } catch (e) {
+      console.error("[digest] cron error:", e?.message);
+    }
+  }
+  setInterval(runDigestCron, 60 * 60 * 1000);
+  setTimeout(runDigestCron, 60000);
   setInterval(runDailyHealthChecks, 24 * 60 * 60 * 1000);
   setTimeout(runDailyHealthChecks, 45000);
 

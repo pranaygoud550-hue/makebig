@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    collegeEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
     graduationYear: {
       type: String,
       default: "",
@@ -62,6 +66,12 @@ const userSchema = new mongoose.Schema(
     stripeCustomerId: String,
     passwordHash: { type: String, select: false },
     socketId: String,
+    skillTestStatus: {
+      type: String,
+      enum: ["pending", "completed"],
+      default: "pending",
+    },
+    pendingSkillIds: [String],
     verifiedSkills: [
       {
         skillId: { type: String, required: true },

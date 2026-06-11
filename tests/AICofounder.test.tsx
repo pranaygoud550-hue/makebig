@@ -19,6 +19,14 @@ vi.mock('@/lib/api', () => ({
   getAuthHeadersAsync: vi.fn().mockResolvedValue({ Authorization: 'Bearer test' }),
 }));
 
+vi.mock('@/lib/aiChatHistory', () => ({
+  fetchAIChatHistory: vi.fn().mockResolvedValue([]),
+  saveAIChatHistory: vi.fn().mockResolvedValue(true),
+  getAIChatThreadKey: vi.fn((projectId?: string, advisorMode?: boolean) =>
+    advisorMode || projectId === 'advisor' ? 'advisor' : `project:${projectId}`
+  ),
+}));
+
 const baseProject: ProjectData = {
   id: 'proj-ai-1',
   name: 'Campus Food App',

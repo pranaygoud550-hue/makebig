@@ -65,6 +65,8 @@ export async function readSessionFromCookie(): Promise<{
         referralCount: doc.referralCount || 0,
         createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : undefined,
         verifiedSkills: doc.verifiedSkills || [],
+        skillTestStatus: doc.skillTestStatus || (doc.verifiedSkills?.length ? 'completed' : 'pending'),
+        pendingSkillIds: doc.pendingSkillIds || [],
         notificationPreferences: doc.notificationPreferences || {},
       },
     };

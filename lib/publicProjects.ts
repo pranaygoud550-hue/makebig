@@ -26,6 +26,10 @@ export interface PublicProject {
   currency?: string;
   createdAt?: string;
   teamSize?: number;
+  teamPreview?: Array<{ contact: string; name: string; role?: string; collegeVerified?: boolean }>;
+  journeyStage?: string;
+  demoDayReady?: boolean;
+  demoDayPitch?: string;
 }
 
 export interface PublicPost {

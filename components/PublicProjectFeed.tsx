@@ -332,6 +332,28 @@ export function PublicProjectFeed({
                     <p className="text-sm text-[#666] line-clamp-2 mb-3">{project.desc}</p>
                   )}
 
+                  {(project.teamPreview?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <span className="text-[10px] font-semibold text-[#999] uppercase">Team</span>
+                      {project.teamPreview!.map((m) => (
+                        <Link
+                          key={m.contact}
+                          href={`/u/${encodeURIComponent(m.contact)}`}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#f3f2ef] text-[#1d2226] hover:bg-[#EEF3FB] hover:text-[#0A66C2] border border-[#e0e0e0] transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {m.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {project.demoDayReady && (
+                    <span className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white mb-2">
+                      🎤 Demo Day Ready
+                    </span>
+                  )}
+
                   {/* Skills */}
                   {skills.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-3">

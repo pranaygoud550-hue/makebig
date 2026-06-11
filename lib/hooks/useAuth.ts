@@ -27,7 +27,8 @@ interface UseAuthReturn {
     college?: string,
     graduationYear?: string,
     verifiedSkills?: import('@/lib/types').VerifiedSkill[],
-    password?: string
+    password?: string,
+    signupMeta?: { pendingSkillIds?: string[]; skillTestSkipped?: boolean }
   ) => Promise<void>;
   logout: () => void;
   updateProfile: (profile: Profile) => Promise<boolean>;
@@ -148,7 +149,8 @@ export function useAuth(): UseAuthReturn {
       college?: string,
       graduationYear?: string,
       verifiedSkills?: import('@/lib/types').VerifiedSkill[],
-      password?: string
+      password?: string,
+      signupMeta?: { pendingSkillIds?: string[]; skillTestSkipped?: boolean }
     ) => {
       const normalizedContact = contact.trim().toLowerCase();
       setError(null);
@@ -173,6 +175,8 @@ export function useAuth(): UseAuthReturn {
           graduationYear,
           verifiedSkills,
           password,
+          pendingSkillIds: signupMeta?.pendingSkillIds,
+          skillTestSkipped: signupMeta?.skillTestSkipped,
         });
 
         if (!result?.user) {
@@ -185,6 +189,8 @@ export function useAuth(): UseAuthReturn {
           isLoggedIn: true,
           skills: result.user.skills || skills,
           verifiedSkills: result.user.verifiedSkills || verifiedSkills,
+          skillTestStatus: result.user.skillTestStatus,
+          pendingSkillIds: result.user.pendingSkillIds,
           hobbies,
           college,
           graduationYear,
