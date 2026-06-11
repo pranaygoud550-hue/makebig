@@ -268,7 +268,13 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 8000,
     salaryMax: 18000,
-    team: [{ contact: 'priya@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'mvp',
+    demoDayReady: false,
+    team: [
+      { contact: 'priya@demo.makebig.in', role: 'owner' },
+      { contact: 'arjun@demo.makebig.in', role: 'Frontend Developer' },
+      { contact: 'aditya@demo.makebig.in', role: 'DevOps Engineer' },
+    ],
     posts: [{ author: 'priya@demo.makebig.in', body: 'StudySync beta is live for 3 CMRIT teams — task board + weekly standups shipped.' }],
     tasks: [
       { title: 'Launch landing page', status: 'done', priority: 'high', assignee: 'priya@demo.makebig.in' },
@@ -288,7 +294,14 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 10000,
     salaryMax: 20000,
-    team: [{ contact: 'arjun@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'beta',
+    demoDayReady: true,
+    demoDayPitch: 'Live carpool matching for 3 Bangalore campuses — 40 beta testers this week.',
+    team: [
+      { contact: 'arjun@demo.makebig.in', role: 'owner' },
+      { contact: 'rahul@demo.makebig.in', role: 'UI Designer' },
+      { contact: 'rohan@demo.makebig.in', role: 'Backend Developer' },
+    ],
     posts: [{ author: 'arjun@demo.makebig.in', body: 'Android build on Play internal track — 40 beta testers this week.' }],
     tasks: [
       { title: 'Map integration', status: 'done', priority: 'high', assignee: 'arjun@demo.makebig.in' },
@@ -308,7 +321,12 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 12000,
     salaryMax: 22000,
-    team: [{ contact: 'sneha@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'prototype',
+    demoDayReady: false,
+    team: [
+      { contact: 'sneha@demo.makebig.in', role: 'owner' },
+      { contact: 'priya@demo.makebig.in', role: 'Frontend Developer' },
+    ],
     posts: [{ author: 'sneha@demo.makebig.in', body: 'RAG pipeline v2 — 92% accuracy on sample MCQ bank from OS notes.' }],
     tasks: [
       { title: 'Embed lecture PDFs', status: 'done', priority: 'high', assignee: 'sneha@demo.makebig.in' },
@@ -328,7 +346,13 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 6000,
     salaryMax: 15000,
-    team: [{ contact: 'rahul@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'launch',
+    demoDayReady: true,
+    demoDayPitch: '40-component Figma kit used by 8 student startups — design handoff in under 48 hours.',
+    team: [
+      { contact: 'rahul@demo.makebig.in', role: 'owner' },
+      { contact: 'ananya@demo.makebig.in', role: 'Brand Strategist' },
+    ],
     posts: [{ author: 'rahul@demo.makebig.in', body: 'Published 40 components + dark mode tokens — free for college teams.' }],
     tasks: [
       { title: 'Button & form kit', status: 'done', priority: 'high', assignee: 'rahul@demo.makebig.in' },
@@ -348,7 +372,13 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 0,
     salaryMax: 12000,
-    team: [{ contact: 'kavya@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'mvp',
+    demoDayReady: false,
+    team: [
+      { contact: 'kavya@demo.makebig.in', role: 'owner' },
+      { contact: 'meera@demo.makebig.in', role: 'Outreach Lead' },
+      { contact: 'vikram@demo.makebig.in', role: 'Full Stack Developer' },
+    ],
     posts: [{ author: 'kavya@demo.makebig.in', body: 'Pilot with 2 hostels — 200 daily active check-ins.' }],
     tasks: [
       { title: 'Mood survey flow', status: 'done', priority: 'high', assignee: 'kavya@demo.makebig.in' },
@@ -368,7 +398,13 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 5000,
     salaryMax: 14000,
-    team: [{ contact: 'vikram@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'beta',
+    demoDayReady: true,
+    demoDayPitch: 'Co-op puzzle platformer — multiplayer lobby + 3 levels playable for Steam Next Fest.',
+    team: [
+      { contact: 'vikram@demo.makebig.in', role: 'owner' },
+      { contact: 'meera@demo.makebig.in', role: 'Video Editor' },
+    ],
     posts: [{ author: 'vikram@demo.makebig.in', body: 'Level 3 boss fight playable — need sound designer for final polish.' }],
     tasks: [
       { title: 'Multiplayer lobby', status: 'done', priority: 'high', assignee: 'vikram@demo.makebig.in' },
@@ -388,7 +424,12 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 4000,
     salaryMax: 10000,
-    team: [{ contact: 'ananya@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'research',
+    demoDayReady: false,
+    team: [
+      { contact: 'ananya@demo.makebig.in', role: 'owner' },
+      { contact: 'sneha@demo.makebig.in', role: 'Content Creator' },
+    ],
     posts: [{ author: 'ananya@demo.makebig.in', body: 'Launch playbook v1 — 30-day content calendar for campus apps.' }],
     tasks: [
       { title: 'Notion template pack', status: 'done', priority: 'medium', assignee: 'ananya@demo.makebig.in' },
@@ -408,7 +449,12 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 8000,
     salaryMax: 16000,
-    team: [{ contact: 'rohan@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'mvp',
+    demoDayReady: false,
+    team: [
+      { contact: 'rohan@demo.makebig.in', role: 'owner' },
+      { contact: 'aditya@demo.makebig.in', role: 'Platform Engineer' },
+    ],
     posts: [{ author: 'rohan@demo.makebig.in', body: 'Connected Mongo + CSV import — first dashboard live in 15 minutes.' }],
     tasks: [
       { title: 'CSV ingest pipeline', status: 'done', priority: 'high', assignee: 'rohan@demo.makebig.in' },
@@ -428,7 +474,14 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 3000,
     salaryMax: 12000,
-    team: [{ contact: 'meera@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'launch',
+    demoDayReady: true,
+    demoDayPitch: '48-hour film collab network — first short screened at CUSAT fest with 12 credited teammates.',
+    team: [
+      { contact: 'meera@demo.makebig.in', role: 'owner' },
+      { contact: 'rahul@demo.makebig.in', role: 'Product Designer' },
+      { contact: 'kavya@demo.makebig.in', role: 'Director' },
+    ],
     posts: [{ author: 'meera@demo.makebig.in', body: 'First collab film screened at CUSAT fest — 12 team members credited.' }],
     tasks: [
       { title: 'Crew matching flow', status: 'done', priority: 'high', assignee: 'meera@demo.makebig.in' },
@@ -448,7 +501,13 @@ export const DEMO_PROJECTS = [
     currency: 'INR',
     salaryMin: 10000,
     salaryMax: 24000,
-    team: [{ contact: 'aditya@demo.makebig.in', role: 'owner' }],
+    journeyStage: 'beta',
+    demoDayReady: false,
+    team: [
+      { contact: 'aditya@demo.makebig.in', role: 'owner' },
+      { contact: 'priya@demo.makebig.in', role: 'Full Stack Developer' },
+      { contact: 'arjun@demo.makebig.in', role: 'Mobile Developer' },
+    ],
     posts: [{ author: 'aditya@demo.makebig.in', body: 'One-click Render + Vercel deploy script — tested on 5 Make Big teams.' }],
     tasks: [
       { title: 'Terraform modules', status: 'done', priority: 'high', assignee: 'aditya@demo.makebig.in' },

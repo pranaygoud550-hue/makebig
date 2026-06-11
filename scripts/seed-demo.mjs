@@ -308,6 +308,7 @@ async function upsertUser(u) {
       state: u.state,
       skills: u.skills,
       hobbies: u.hobbies || [],
+      collegeEmailVerified: true,
       isLoggedIn: false,
       lastActive: new Date(),
     },
@@ -368,6 +369,7 @@ async function seed() {
       createdAt: new Date(Date.now() - Math.random() * 5 * 86400000),
     }));
 
+    const journeyStage = spec.journeyStage || 'idea';
     const project = await Project.findOneAndUpdate(
       { slug: spec.slug },
       {
@@ -388,6 +390,13 @@ async function seed() {
         teamMembers,
         tasks,
         maxTeamSize: 10,
+        demoDayReady: Boolean(spec.demoDayReady),
+        demoDayPitch: spec.demoDayPitch || '',
+        journey: {
+          currentStage: journeyStage,
+          configured: true,
+          lastUpdated: new Date(),
+        },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
