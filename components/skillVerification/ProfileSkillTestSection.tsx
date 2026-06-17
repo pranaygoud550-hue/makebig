@@ -105,14 +105,14 @@ export function ProfileSkillTestSection({
       </section>
 
       {showModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-[#e0e0e0] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            {pickerOpen ? (
+        pickerOpen ? (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl border border-[#e0e0e0] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-bold text-[#1d2226]">Choose skills to verify</h3>
                   <p className="text-sm text-[#666] mt-1">
-                    Short MCQ + practical test per skill (coding skills use a code editor).
+                    Fullscreen proctored exam — 10 MCQ then 2 coding problems for dev skills.
                   </p>
                 </div>
                 {catalogLoading ? (
@@ -166,22 +166,22 @@ export function ProfileSkillTestSection({
                     onClick={() => setPickerOpen(false)}
                     className="flex-1 py-2.5 bg-[#0A66C2] text-white rounded-xl font-semibold text-sm disabled:opacity-50"
                   >
-                    Start test →
+                    Start fullscreen exam →
                   </button>
                 </div>
               </div>
-            ) : (
-              <SkillVerificationFlow
-                skillIds={selectedIds}
-                contact={contact}
-                onComplete={handleComplete}
-                onBack={() => setPickerOpen(true)}
-                onSkip={() => setShowModal(false)}
-                skipLabel="Close for now"
-              />
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <SkillVerificationFlow
+            skillIds={selectedIds}
+            contact={contact}
+            onComplete={handleComplete}
+            onBack={() => setPickerOpen(true)}
+            onSkip={() => setShowModal(false)}
+            skipLabel="Close for now"
+          />
+        )
       )}
     </>
   );
