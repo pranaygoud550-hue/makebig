@@ -7,31 +7,31 @@ const ROW1 = [
   {
     quote:
       'Make Big helped our team actually finish a project for once.',
-    name: 'Rahul',
-    detail: 'CSE Final Year, Hyderabad',
-    initial: 'R',
+    name: 'Final-year CSE',
+    detail: 'Hyderabad',
+    initial: 'C',
   },
   {
     quote:
       'The AI validator told us our idea had a real gap in the market. We pivoted in day 1 and saved weeks.',
-    name: 'Sneha',
-    detail: 'IT 3rd Year',
-    initial: 'S',
+    name: 'IT student',
+    detail: 'Pune',
+    initial: 'I',
   },
 ];
 
 const ROW2 = [
   {
     quote: 'Found my entire 4-person team in 2 days using the skill filter.',
-    name: 'Aditya',
-    detail: 'ECE, Hyderabad',
-    initial: 'A',
+    name: 'ECE founder',
+    detail: 'Bangalore',
+    initial: 'E',
   },
   {
     quote: 'The standup feature alone fixed our team communication.',
-    name: 'Priya',
-    detail: 'MBA + Tech Co-founder',
-    initial: 'P',
+    name: 'MBA + Tech',
+    detail: 'Mumbai',
+    initial: 'M',
   },
 ];
 
@@ -93,9 +93,12 @@ export function TestimonialMarquee() {
 
   return (
     <section className="bg-[#0A0A0F] py-16 sm:py-20 overflow-hidden border-y border-white/[0.06]">
-      <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-10 px-4">
+      <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-2 px-4">
         What student founders are saying
       </h2>
+      <p className="text-center text-xs text-white/40 mb-10 px-4">
+        Early feedback from campus teams using Make Big
+      </p>
       <div
         className={`space-y-4 ${reduced ? 'px-4 flex flex-col items-center gap-4' : ''}`}
         onMouseEnter={() => setPaused(true)}

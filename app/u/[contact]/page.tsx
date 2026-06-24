@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ProfessionalProfile } from '@/components/app/ProfessionalProfile';
-import { apiGetUser } from '@/lib/api';
+import { apiGetPublicProfile } from '@/lib/api';
 import { User } from '@/lib/types';
 import { ProfileSkeleton } from '@/components/ui/Skeleton';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
@@ -15,9 +15,14 @@ export default function PublicUserProfilePage({ params }: { params: { contact: s
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    apiGetUser(contact).then((u) => {
-      if (u) {
-        setUser({ ...u, isLoggedIn: false });
+    apiGetPublicProfile(contact).then((data) => {
+      if (data?.user) {
+        setUser({
+          ...data.user,
+          isLoggedIn: false,
+          skills: data.user.skills || data.profile?.skills || [],
+          plan: (data.user.plan === 'pro' ? 'pro' : 'free') as User['plan'],
+        });
       } else {
         setNotFound(true);
       }

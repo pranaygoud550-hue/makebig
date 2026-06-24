@@ -777,7 +777,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
           </span>
         </div>
 
-        {provider === 'demo' && (
+        {provider === 'demo' && process.env.NODE_ENV === 'development' && (
           <p className="mt-2 text-[10px] text-amber-400/90 leading-relaxed">
             Add <code className="text-amber-300">ANTHROPIC_API_KEY</code> or{' '}
             <code className="text-amber-300">GROQ_API_KEY</code> to .env and restart{' '}
@@ -998,7 +998,7 @@ export function AICofounder({ project, user, ownerContact, hideAgentTab = false,
                     </span>
                   ) : null}
 
-                  {msg.devMode && !msg.streaming && (
+                  {msg.devMode && !msg.streaming && process.env.NODE_ENV === 'development' && (
                     <p className="text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg mt-2">
                       Demo mode — add ANTHROPIC_API_KEY or GROQ_API_KEY
                     </p>

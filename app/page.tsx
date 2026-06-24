@@ -69,6 +69,10 @@ export default function Home() {
       setAuthInitialMode('signup');
       setShowAuth(true);
       window.history.replaceState({}, '', '/');
+    } else if (authParam === 'signin') {
+      setAuthInitialMode('signin');
+      setShowAuth(true);
+      window.history.replaceState({}, '', '/');
     }
 
     const onTourSignup = () => {
@@ -772,10 +776,14 @@ export default function Home() {
           openAuth('signup');
         }}
         onJoinProject={handlePublicJoinClick}
-        onCheckDebug={handleCheckDebug}
-        showDebug={showDebug}
-        debugData={debugData}
-        onCloseDebug={() => setShowDebug(false)}
+        {...(process.env.NODE_ENV === 'development'
+          ? {
+              onCheckDebug: handleCheckDebug,
+              showDebug,
+              debugData,
+              onCloseDebug: () => setShowDebug(false),
+            }
+          : {})}
       />
     </div>
   );

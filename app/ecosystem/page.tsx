@@ -25,9 +25,9 @@ const LIVE_FEATURES = [
   { label: 'AI idea validator', href: '/idea-validator' },
   { label: 'Founder reputation', href: '/profile', note: 'On your profile' },
   { label: 'Collaboration invites', href: '/', note: 'Join flow → Invitations tab' },
-  { label: 'Public startup profiles', href: '/startup/make-big-platform-hyderabad' },
+  { label: 'Public startup profiles', href: '/p/studysync-web-portal-hyderabad' },
   { label: 'Startup journey feed', href: '/' },
-  { label: 'Startup followers', href: '/startup/make-big-platform-hyderabad', note: 'Follow on startup page' },
+  { label: 'Startup followers', href: '/startup/studysync-web-portal-hyderabad', note: 'Follow on startup page' },
 ];
 
 export default function EcosystemPage() {

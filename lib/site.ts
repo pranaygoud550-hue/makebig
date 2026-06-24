@@ -2,7 +2,7 @@
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://makebig.co';
+  'https://makebig.vercel.app';
 
 export function projectPublicPath(slug: string) {
   return `/p/${slug}`;

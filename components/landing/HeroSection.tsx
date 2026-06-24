@@ -12,10 +12,10 @@ interface HeroSectionProps {
   onExplore?: () => void;
 }
 
-const STATS = [
-  { icon: '🧑‍💻', end: 120, suffix: '+', label: 'Students' },
-  { icon: '💡', end: 40, suffix: '+', label: 'Projects' },
-  { icon: '🏫', end: 5, suffix: '+', label: 'Colleges' },
+const DEFAULT_STATS = [
+  { icon: '🧑‍💻', end: 25, suffix: '+', label: 'Students' },
+  { icon: '💡', end: 10, suffix: '+', label: 'Projects' },
+  { icon: '🏫', end: 8, suffix: '+', label: 'Cities' },
   { icon: '🤖', end: 0, suffix: '', label: 'AI Powered', staticLabel: true },
 ];
 
@@ -87,7 +87,26 @@ function StatCounter({
 
 export function HeroSection({ onStartFree, onExplore }: HeroSectionProps) {
   const [demoOpen, setDemoOpen] = useState(false);
+  const [stats, setStats] = useState(DEFAULT_STATS);
   const reduced = useReducedMotion();
+
+  useEffect(() => {
+    fetch('/api/public/stats')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.success || !data.data) return;
+        const { totalUsers, totalProjects, totalCities } = data.data;
+        setStats([
+          { icon: '🧑‍💻', end: Math.max(totalUsers, 1), suffix: '+', label: 'Students' },
+          { icon: '💡', end: Math.max(totalProjects, 1), suffix: '+', label: 'Projects' },
+          { icon: '🏫', end: Math.max(totalCities, 1), suffix: '+', label: 'Cities' },
+          { icon: '🤖', end: 0, suffix: '', label: 'AI Powered', staticLabel: true },
+        ]);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+  }, []);
 
   const scrollToHow = () => {
     document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
@@ -145,7 +164,7 @@ export function HeroSection({ onStartFree, onExplore }: HeroSectionProps) {
             transition={{ delay: 2.5, duration: 0.6 }}
             className="mt-10 flex flex-wrap justify-center gap-3"
           >
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <StatCounter key={s.label} {...s} />
             ))}
           </motion.div>

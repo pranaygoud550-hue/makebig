@@ -2,9 +2,7 @@ import Link from 'next/link';
 import { BrandLogo } from '@/components/BrandLogo';
 
 const SOCIAL = [
-  { label: 'LinkedIn', href: 'https://linkedin.com', icon: 'in' },
-  { label: 'X', href: 'https://x.com', icon: '𝕏' },
-  { label: 'Instagram', href: 'https://instagram.com', icon: '◎' },
+  { label: 'GitHub', href: 'https://github.com/pranaygoud550-hue/makebig', icon: 'GH' },
 ];
 
 export function MarketingFooter({ onCheckDebug }: { onCheckDebug?: () => void }) {

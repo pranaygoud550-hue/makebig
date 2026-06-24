@@ -1,9 +1,9 @@
 /**
- * OTP send/verify — Vercel-only (app/api/auth/*). Uses MongoDB.
- * OTP is shown on screen (devCode) — no email or SMS delivery.
+ * OTP send/verify — Vercel API routes. Uses MongoDB + Resend email when configured.
  */
 import { connectMongoServer, isMongoConfigured } from './mongoServer';
 import { saveOtpRecord, verifyOtpRecord } from './otpStore.js';
+import { sendOtpEmail, isEmailOtpConfigured } from './emailOtp.js';
 import {
   findUserByContact,
   loginExistingUserAfterOtp,
@@ -12,6 +12,14 @@ import {
 import { validateContact, validateOtpCode } from './userErrors';
 
 export type OtpPurpose = 'signin' | 'signup';
+
+function isDevOtpAllowed() {
+  return process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_OTP === 'true';
+}
+
+function isEmailContact(contact: string) {
+  return contact.includes('@');
+}
 
 function isProfileIncomplete(user: {
   college?: string;
@@ -88,13 +96,44 @@ export async function handleSendOtp(rawContact: string, rawPurpose?: unknown) {
   const code = generateOtpCode();
   await saveOtpRecord(contact, code);
 
+  if (isEmailContact(normalized) && isEmailOtpConfigured()) {
+    const emailResult = await sendOtpEmail(normalized, code);
+    if (emailResult.ok) {
+      return {
+        ok: true as const,
+        data: {
+          sent: true,
+          message: 'Verification code sent — check your email inbox (and spam folder)',
+        },
+      };
+    }
+    console.error('[otp] Email delivery failed:', emailResult.error);
+    if (!isDevOtpAllowed()) {
+      return {
+        ok: false as const,
+        status: 503,
+        error: emailResult.error || 'Could not send verification email — try again shortly',
+      };
+    }
+  }
+
+  if (isDevOtpAllowed()) {
+    return {
+      ok: true as const,
+      data: {
+        sent: false,
+        devCode: code,
+        message: isEmailContact(normalized)
+          ? 'Email delivery unavailable — enter the code shown below'
+          : 'Enter the verification code shown below',
+      },
+    };
+  }
+
   return {
-    ok: true as const,
-    data: {
-      sent: false,
-      devCode: code,
-      message: 'Enter the verification code shown below',
-    },
+    ok: false as const,
+    status: 503,
+    error: 'Verification service unavailable — please try again later',
   };
 }
 
@@ -121,48 +160,36 @@ export async function handleVerifyOtp(
     return { ok: false as const, status: db.status, error: db.error };
   }
 
-  const result = await verifyOtpRecord(contact, code);
-  if (!result.ok) {
-    return { ok: false as const, status: 400, error: result.error || 'Incorrect OTP code' };
+  const verifyResult = await verifyOtpRecord(contact, code);
+  if (!verifyResult.ok) {
+    return { ok: false as const, status: 400, error: verifyResult.error || 'Invalid or expired code' };
   }
 
   const normalized = contact.trim().toLowerCase();
 
   if (purpose === 'signin') {
     const login = await loginExistingUserAfterOtp(normalized);
-    if (!login.ok || !login.data) {
-      return {
-        ok: false as const,
-        status: login.status || 404,
-        error: login.error || 'Account not found — sign up first',
-      };
+    if (!login.ok) {
+      return { ok: false as const, status: login.status || 401, error: login.error || 'Sign in failed' };
     }
-    return {
-      ok: true as const,
-      data: {
-        verified: true,
-        token: login.data.token,
-        user: login.data.user,
-      },
-    };
-  }
-
-  const existing = await findUserByContact(normalized);
-  if (existing && !isProfileIncomplete(existing)) {
-    return {
-      ok: false as const,
-      status: 409,
-      error: 'Account already exists — sign in instead',
-    };
+    return { ok: true as const, data: login.data };
   }
 
   return {
     ok: true as const,
-    data: {
-      verified: true,
-    },
+    data: { verified: true, contact: normalized },
   };
 }
 
-/** Sign-up profile save after OTP verified (AuthModal onSignUp → apiUpsertUser). */
-export { upsertVerifiedUser };
+export async function handleUpsertAfterOtp(body: Record<string, unknown>) {
+  const db = await ensureOtpDatabase();
+  if (!db.ok) {
+    return { ok: false as const, status: db.status, error: db.error };
+  }
+
+  const result = await upsertVerifiedUser(body, { requireVerified: true });
+  if (!result.ok) {
+    return { ok: false as const, status: result.status || 400, error: result.error || 'Could not save account' };
+  }
+  return { ok: true as const, data: result.data };
+}

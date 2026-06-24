@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleSendOtp, handleVerifyOtp } from '@/lib/otpService';
 
+vi.mock('@/lib/emailOtp.js', () => ({
+  sendOtpEmail: vi.fn().mockResolvedValue({ ok: false }),
+  isEmailOtpConfigured: vi.fn(() => false),
+}));
+
 vi.mock('@/lib/mongoServer', () => ({
   isMongoConfigured: vi.fn(() => true),
   connectMongoServer: vi.fn().mockResolvedValue(undefined),

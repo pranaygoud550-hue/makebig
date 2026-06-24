@@ -137,6 +137,9 @@ export function MarketingHomepage({
                 <a
                   key={category.id}
                   href="#discover"
+                  onClick={() => {
+                    sessionStorage.setItem('makeBigExploreCategory', category.id);
+                  }}
                   className="group block bg-[#f3f2ef] hover:bg-[#EEF3FB] border border-[#e0e0e0] hover:border-[#0A66C2]/30 rounded-xl p-4 transition-all"
                 >
                   <p className="font-semibold text-[#1d2226] text-sm group-hover:text-[#0A66C2] transition-colors">

@@ -25,14 +25,20 @@ export default function MentorsPage() {
   const [requesting, setRequesting] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(clientApiUrl('/api/mentors'));
         const data = await res.json();
-        if (data.success) setMentors(data.data?.mentors || []);
+        if (data.success) {
+          setMentors(data.data?.mentors || []);
+        } else {
+          setLoadError(data.error || 'Could not load mentors');
+        }
       } catch {
-        /* ignore */
+        setLoadError('Could not reach mentor service — try again in a moment.');
       } finally {
         setLoading(false);
       }
@@ -96,6 +102,18 @@ export default function MentorsPage() {
 
         {loading ? (
           <p className="mt-8 text-[#666]">Loading mentors…</p>
+        ) : loadError ? (
+          <div className="mt-8 bg-white border border-red-200 rounded-2xl p-8 text-center">
+            <p className="font-semibold text-[#1d2226]">Could not load mentors</p>
+            <p className="text-sm text-[#666] mt-1">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 rounded-full bg-[#0A66C2] text-white text-sm font-semibold"
+            >
+              Retry
+            </button>
+          </div>
         ) : mentors.length === 0 ? (
           <div className="mt-8 bg-white border border-dashed border-[#d9d9d9] rounded-2xl p-10 text-center">
             <p className="font-semibold text-[#1d2226]">Mentors coming soon</p>

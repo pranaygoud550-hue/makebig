@@ -777,7 +777,11 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                     )}
                     {siDevCode && (
                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                        <p className="font-semibold">Dev mode — your OTP: {siDevCode}</p>
+                        <p className="font-semibold">
+                          {process.env.NODE_ENV === 'development'
+                            ? `Development OTP: ${siDevCode}`
+                            : `Your verification code: ${siDevCode}`}
+                        </p>
                         <p className="mt-1 text-xs text-blue-800">
                           Enter this code in the boxes below.
                         </p>
@@ -1079,7 +1083,11 @@ export function AuthModal({ isOpen, initialMode = 'signin', onClose, onSignIn, o
                     )}
                     {signUpDevCode && (
                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                        <p className="font-semibold">Dev mode — your OTP: {signUpDevCode}</p>
+                        <p className="font-semibold">
+                          {process.env.NODE_ENV === 'development'
+                            ? `Development OTP: ${signUpDevCode}`
+                            : `Your verification code: ${signUpDevCode}`}
+                        </p>
                         <p className="mt-1 text-xs text-blue-800">
                           Enter this code in the boxes below.
                         </p>

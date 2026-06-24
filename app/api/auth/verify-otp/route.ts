@@ -15,12 +15,18 @@ export async function POST(req: Request) {
     }
 
     const payload = { ...result.data };
-    delete (payload as { token?: string }).token;
+    const token =
+      payload && typeof payload === 'object' && 'token' in payload
+        ? String((payload as { token?: string }).token || '')
+        : '';
+    if ('token' in payload) {
+      delete (payload as { token?: string }).token;
+    }
 
     const response = NextResponse.json({ success: true, data: payload });
 
-    if (result.data?.token) {
-      return setAuthCookieOnResponse(response, result.data.token);
+    if (token) {
+      return setAuthCookieOnResponse(response, token);
     }
 
     return response;

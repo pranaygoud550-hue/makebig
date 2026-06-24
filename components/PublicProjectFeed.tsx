@@ -105,6 +105,14 @@ export function PublicProjectFeed({
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const preset = sessionStorage.getItem('makeBigExploreCategory');
+    if (preset) {
+      sessionStorage.removeItem('makeBigExploreCategory');
+      setCategory(preset);
+    }
+  }, []);
+
   /* ─── Live socket when API is running ─── */
   useEffect(() => {
     let socket: Awaited<ReturnType<typeof createApiSocket>> = null;
