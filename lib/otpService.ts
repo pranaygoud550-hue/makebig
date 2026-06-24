@@ -13,10 +13,6 @@ import { validateContact, validateOtpCode } from './userErrors';
 
 export type OtpPurpose = 'signin' | 'signup';
 
-function isDevOtpAllowed() {
-  return process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_OTP === 'true';
-}
-
 function isEmailContact(contact: string) {
   return contact.includes('@');
 }
@@ -96,44 +92,33 @@ export async function handleSendOtp(rawContact: string, rawPurpose?: unknown) {
   const code = generateOtpCode();
   await saveOtpRecord(contact, code);
 
+  let emailSent = false;
+  let emailNote: string | undefined;
+
   if (isEmailContact(normalized) && isEmailOtpConfigured()) {
     const emailResult = await sendOtpEmail(normalized, code);
     if (emailResult.ok) {
-      return {
-        ok: true as const,
-        data: {
-          sent: true,
-          message: 'Verification code sent — check your email inbox (and spam folder)',
-        },
-      };
-    }
-    console.error('[otp] Email delivery failed:', emailResult.error);
-    if (!isDevOtpAllowed()) {
-      return {
-        ok: false as const,
-        status: 503,
-        error: emailResult.error || 'Could not send verification email — try again shortly',
-      };
+      emailSent = true;
+    } else {
+      emailNote = emailResult.error;
+      console.error('[otp] Email delivery failed:', emailResult.error);
     }
   }
 
-  if (isDevOtpAllowed()) {
-    return {
-      ok: true as const,
-      data: {
-        sent: false,
-        devCode: code,
-        message: isEmailContact(normalized)
-          ? 'Email delivery unavailable — enter the code shown below'
-          : 'Enter the verification code shown below',
-      },
-    };
+  let message = 'Enter the verification code shown below.';
+  if (emailSent) {
+    message = 'We also emailed your code — use the code shown below to sign in.';
+  } else if (emailNote && isEmailContact(normalized)) {
+    message = 'Email could not be delivered — use the verification code shown below.';
   }
 
   return {
-    ok: false as const,
-    status: 503,
-    error: 'Verification service unavailable — please try again later',
+    ok: true as const,
+    data: {
+      sent: emailSent,
+      devCode: code,
+      message,
+    },
   };
 }
 

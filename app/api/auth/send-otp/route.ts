@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handleSendOtp } from '@/lib/otpService';
 
-// OTP shown on screen for email and phone — no email/SMS delivery
+// OTP shown on screen; email sent via Resend when configured
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
