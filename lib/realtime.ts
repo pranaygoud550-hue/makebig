@@ -3,6 +3,7 @@
 import io, { Socket } from 'socket.io-client';
 import { getApiOrigin } from './apiBase';
 import { getAuthTokenAsync } from './api';
+import { devLog } from './devLog';
 
 export interface ProjectRoomUser {
   id?: string;
@@ -25,7 +26,7 @@ class SocketManager {
 
   private emitJoin(projectId: string, user: RoomUserPayload) {
     if (!this.socket) return;
-    console.log('[realtime] join_project → room project_' + projectId);
+    devLog('[realtime] join_project → room project_' + projectId);
     this.socket.emit('join_project', {
       projectId,
       userId: user.userId,
@@ -37,7 +38,7 @@ class SocketManager {
   async getSocket(): Promise<Socket | null> {
     const token = await getAuthTokenAsync();
     if (!token) {
-      console.log('[realtime] no auth token');
+      devLog('[realtime] no auth token');
       return null;
     }
 
@@ -63,14 +64,14 @@ class SocketManager {
       };
 
       s.on('connect', () => {
-        console.log('[realtime] connected', s.id);
+        devLog('[realtime] connected', s.id);
         this.socket = s;
         rejoin();
         resolve(s);
       });
 
       s.io.on('reconnect', () => {
-        console.log('[realtime] reconnected — rejoining room');
+        devLog('[realtime] reconnected — rejoining room');
         rejoin();
       });
 

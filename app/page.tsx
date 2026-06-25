@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Navbar } from '@/components/Navbar';
 import { AuthModal } from '@/components/AuthModal';
 import { SplashScreen } from '@/components/SplashScreen';
-import { CinematicIntro } from '@/components/landing/CinematicIntro';
 import { ProjectWizardNew } from '@/components/ProjectWizardNew';
 import { DashboardNew, type DashboardNavTab } from '@/components/DashboardNew';
 import { saveActiveProject, clearSessionActiveProject, clearActiveProject } from '@/lib/activeProjectStorage';
@@ -27,6 +27,11 @@ import { ProfileViewProvider } from '@/lib/context/ProfileViewContext';
 import { captureReferralFromUrl } from '@/lib/referral';
 import { markOnboardingJoin, markOnboardingProject } from '@/components/app/OnboardingChecklist';
 import { requestAppTab } from '@/lib/requestAppTab';
+
+const CinematicIntro = dynamic(
+  () => import('@/components/landing/CinematicIntro').then((m) => m.CinematicIntro),
+  { ssr: false }
+);
 
 export default function Home() {
   const auth = useAuth();

@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { ParticleNetwork } from './ParticleNetwork';
 import { DemoModal } from './DemoModal';
 import { useCountUp } from './useCountUp';
 import { useReducedMotion } from '@/lib/useReducedMotion';
+
+const ParticleNetwork = dynamic(
+  () => import('./ParticleNetwork').then((m) => m.ParticleNetwork),
+  { ssr: false }
+);
 
 interface HeroSectionProps {
   onStartFree: () => void;
@@ -13,9 +18,9 @@ interface HeroSectionProps {
 }
 
 const DEFAULT_STATS = [
-  { icon: '🧑‍💻', end: 25, suffix: '+', label: 'Students' },
-  { icon: '💡', end: 10, suffix: '+', label: 'Projects' },
-  { icon: '🏫', end: 8, suffix: '+', label: 'Cities' },
+  { icon: '🧑‍💻', end: 0, suffix: '', label: 'Students' },
+  { icon: '💡', end: 0, suffix: '', label: 'Projects' },
+  { icon: '🏫', end: 0, suffix: '', label: 'Cities' },
   { icon: '🤖', end: 0, suffix: '', label: 'AI Powered', staticLabel: true },
 ];
 
@@ -88,23 +93,28 @@ function StatCounter({
 export function HeroSection({ onStartFree, onExplore }: HeroSectionProps) {
   const [demoOpen, setDemoOpen] = useState(false);
   const [stats, setStats] = useState(DEFAULT_STATS);
+  const [statsReady, setStatsReady] = useState(false);
   const reduced = useReducedMotion();
 
   useEffect(() => {
     fetch('/api/public/stats')
       .then((r) => r.json())
       .then((data) => {
-        if (!data.success || !data.data) return;
-        const { totalUsers, totalProjects, totalCities } = data.data;
+        const payload = data?.data ?? data;
+        const totalUsers = Number(payload?.totalUsers);
+        const totalProjects = Number(payload?.totalProjects);
+        const totalCities = Number(payload?.totalCities);
+        if (!Number.isFinite(totalUsers) || !Number.isFinite(totalProjects)) return;
         setStats([
-          { icon: '🧑‍💻', end: Math.max(totalUsers, 1), suffix: '+', label: 'Students' },
-          { icon: '💡', end: Math.max(totalProjects, 1), suffix: '+', label: 'Projects' },
-          { icon: '🏫', end: Math.max(totalCities, 1), suffix: '+', label: 'Cities' },
+          { icon: '🧑‍💻', end: Math.max(totalUsers, 0), suffix: '', label: 'Students' },
+          { icon: '💡', end: Math.max(totalProjects, 0), suffix: '', label: 'Projects' },
+          { icon: '🏫', end: Math.max(totalCities, 0), suffix: '', label: 'Cities' },
           { icon: '🤖', end: 0, suffix: '', label: 'AI Powered', staticLabel: true },
         ]);
+        setStatsReady(true);
       })
       .catch(() => {
-        /* keep defaults */
+        /* keep stats hidden until API responds */
       });
   }, []);
 
@@ -158,21 +168,23 @@ export function HeroSection({ onStartFree, onExplore }: HeroSectionProps) {
             Validate your idea with AI. Manage your startup like a pro — all in one place.
           </motion.p>
 
-          <motion.div
-            initial={reduced ? false : { opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2.5, duration: 0.6 }}
-            className="mt-10 flex flex-wrap justify-center gap-3"
-          >
-            {stats.map((s) => (
-              <StatCounter key={s.label} {...s} />
-            ))}
-          </motion.div>
+          {statsReady && (
+            <motion.div
+              initial={reduced ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 2.5, duration: 0.6 }}
+              className="mt-10 flex flex-wrap justify-center gap-3"
+            >
+              {stats.map((s) => (
+                <StatCounter key={s.label} {...s} />
+              ))}
+            </motion.div>
+          )}
 
           <motion.div
             initial={reduced ? false : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2.7, duration: 0.6 }}
+            transition={{ delay: statsReady ? 2.7 : 2.5, duration: 0.6 }}
             className="mt-10 flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
           >
             <button

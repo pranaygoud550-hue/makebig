@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
 import { apiGetProjectMessages, apiSendProjectMessage, apiGetStandupToday, apiSubmitStandup } from '@/lib/api';
 import { socketManager } from '@/lib/realtime';
+import { devLog } from '@/lib/devLog';
 import { getInitials } from '@/lib/utils';
 import { useProfileView } from '@/lib/context/ProfileViewContext';
 import { useToast } from '@/lib/context/ToastContext';
@@ -191,17 +192,17 @@ export function MessagesView({
     let cancelled = false;
 
     const onConnect = () => {
-      console.log('[MessagesView] socket connected');
+      devLog('[MessagesView] socket connected');
       setIsConnected(true);
     };
 
     const onDisconnect = () => {
-      console.log('[MessagesView] socket disconnected');
+      devLog('[MessagesView] socket disconnected');
       setIsConnected(false);
     };
 
     const onNewMessage = (message: Record<string, string>) => {
-      console.log('[MessagesView] new_message', message.id || message._id);
+      devLog('[MessagesView] new_message', message.id || message._id);
       appendMessages([normalizeMessage(message)]);
     };
 

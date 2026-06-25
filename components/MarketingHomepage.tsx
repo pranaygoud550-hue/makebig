@@ -2,13 +2,6 @@
 
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
-import { PublicProjectFeed } from '@/components/PublicProjectFeed';
-import { SalaryLeaderboard } from '@/components/SalaryLeaderboard';
-import { VerifiedSkillsLeaderboard } from '@/components/skillVerification/VerifiedSkillsLeaderboard';
-import { FeaturedStartupsSection } from '@/components/ecosystem/FeaturedStartupsSection';
-import { StartupJourneyFeed } from '@/components/ecosystem/StartupJourneyFeed';
-import { ShowcaseFeed } from '@/components/ShowcaseFeed';
-import { WeeklyTeamsLeaderboard } from '@/components/ecosystem/WeeklyTeamsLeaderboard';
 import { MarketingFooter } from '@/components/MarketingFooter';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { WIZARD_CATEGORIES } from '@/lib/constants';
@@ -28,6 +21,37 @@ const TestimonialMarquee = dynamic(
 );
 const FinalCTA = dynamic(
   () => import('@/components/landing/FinalCTA').then((m) => m.FinalCTA),
+  { loading: () => <SectionPlaceholder /> }
+);
+const ShowcaseFeed = dynamic(
+  () => import('@/components/ShowcaseFeed').then((m) => m.ShowcaseFeed),
+  { loading: () => <SectionPlaceholder /> }
+);
+const PublicProjectFeed = dynamic(
+  () => import('@/components/PublicProjectFeed').then((m) => m.PublicProjectFeed),
+  { loading: () => <SectionPlaceholder /> }
+);
+const SalaryLeaderboard = dynamic(
+  () => import('@/components/SalaryLeaderboard').then((m) => m.SalaryLeaderboard),
+  { loading: () => <SectionPlaceholder /> }
+);
+const FeaturedStartupsSection = dynamic(
+  () => import('@/components/ecosystem/FeaturedStartupsSection').then((m) => m.FeaturedStartupsSection),
+  { loading: () => <SectionPlaceholder /> }
+);
+const VerifiedSkillsLeaderboard = dynamic(
+  () =>
+    import('@/components/skillVerification/VerifiedSkillsLeaderboard').then(
+      (m) => m.VerifiedSkillsLeaderboard
+    ),
+  { loading: () => <SectionPlaceholder /> }
+);
+const StartupJourneyFeed = dynamic(
+  () => import('@/components/ecosystem/StartupJourneyFeed').then((m) => m.StartupJourneyFeed),
+  { loading: () => <SectionPlaceholder /> }
+);
+const WeeklyTeamsLeaderboard = dynamic(
+  () => import('@/components/ecosystem/WeeklyTeamsLeaderboard').then((m) => m.WeeklyTeamsLeaderboard),
   { loading: () => <SectionPlaceholder /> }
 );
 

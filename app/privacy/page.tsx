@@ -34,7 +34,7 @@ export default function PrivacyPage() {
             at hello@makebig.app.
           </p>
           <p>
-            This is a beta product for college testing. Policies may be updated as we launch publicly.
+            This policy may be updated as we add features. Contact hello@makebig.app with any privacy questions.
           </p>
         </div>
       </main>

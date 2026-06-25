@@ -35,8 +35,7 @@ export function FinalCTA({ onCreateAccount }: FinalCTAProps) {
           Your startup starts today.
         </h2>
         <p className="mt-4 text-base sm:text-lg text-white/60 max-w-xl mx-auto">
-          500+ students are already building on Make Big. Don&apos;t wait for the perfect idea —
-          post what you have.
+          Don&apos;t wait for the perfect idea — post what you have and find teammates who want to build with you.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
           <button

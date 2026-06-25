@@ -220,7 +220,7 @@ function PricingContent() {
 
         <p className="mt-10 text-center text-xs text-[#999] max-w-lg mx-auto">
           Payments are processed securely by Stripe. Cancel anytime from your Stripe customer portal.
-          {!stripeReady && stripeReady !== null && ' Configure STRIPE_SECRET_KEY and STRIPE_PRO_PRICE_ID to enable live checkout.'}
+          {!stripeReady && stripeReady !== null && ' Pro checkout is coming soon — join the waitlist above.'}
         </p>
       </main>
     </div>
